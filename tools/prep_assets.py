@@ -49,8 +49,13 @@ MANIFEST = SPRITES / "manifest.json"
 # CraftPix animates everything at 150ms/frame (confirmed in their Tiled .tmx files)
 DEFAULT_FPS = round(1000 / 150, 3)  # 6.667
 
-# Clips that play once and hold on the last frame rather than looping
-ONESHOT = {"attack", "hurt", "death"}
+# Clips that play once and hold on the last frame rather than looping. Matched
+# as substrings so pack-specific variants (orc's "run_attack_front") are caught.
+ONESHOT_PARTS = ("attack", "hurt", "death")
+
+
+def is_oneshot(clip):
+    return any(p in clip for p in ONESHOT_PARTS)
 
 ROW_ORDERS = {
     "DULR": {"down": 0, "up": 1, "left": 2, "right": 3},
@@ -123,7 +128,8 @@ def slug(name):
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
 
 
-def collect_dir4(pack: Path, name_map, rows, group, fps, dry):
+def collect_dir4(pack: Path, name_map, rows, group, fps, dry, clip_alias=None):
+    clip_alias = clip_alias or {}
     """One PNG per clip, 4 rows = facings."""
     actors = {}
     png_root = pack / "PNG"
@@ -142,12 +148,31 @@ def collect_dir4(pack: Path, name_map, rows, group, fps, dry):
             log(f"  skip {src_name}: no Without_shadow/")
             continue
 
+        # Variant folder is e.g. "Gnoll1" but sheets are sometimes named for the
+        # bare species ("Gnoll_Death_..."), and case does not always match the
+        # folder ("Orc1/" holding "orc1_attack_..."). Accept both spellings.
+        stem = re.sub(r"\d+$", "", src_name)
+        pats = [
+            rf"{re.escape(src_name)}_(.+?)_+without_shadow\.png$",
+            rf"{re.escape(stem)}\d*_(.+?)_+without_shadow\.png$",
+        ]
+
         clips, cell, anchor = {}, None, None
         for png in sorted(sheet_dir.glob("*_without_shadow.png")):
-            m = re.match(rf"{re.escape(src_name)}_(.+)_without_shadow\.png$", png.name, re.I)
-            if not m:
+            clip = None
+            for pat in pats:
+                m = re.match(pat, png.name, re.I)
+                if m:
+                    clip = m.group(1)
+                    break
+            if clip is None:
+                log(f"  ?? {png.name}: filename does not match "
+                    f"<{src_name}>_<clip>_without_shadow.png — SKIPPED")
                 continue
-            clip = m.group(1).lower()
+            # Some sheets carry a stray space before the suffix, and clip case
+            # varies between packs.
+            clip = re.sub(r"[^a-z0-9]+", "_", clip.strip().lower()).strip("_")
+            clip = clip_alias.get(clip, clip)
             im = Image.open(png).convert("RGBA")
             w, h = im.size
             if h % 4:
@@ -165,7 +190,7 @@ def collect_dir4(pack: Path, name_map, rows, group, fps, dry):
             clips[clip] = {
                 "file": f"{clip}.png",
                 "frames": frames,
-                "loop": clip not in ONESHOT,
+                "loop": not is_oneshot(clip),
             }
             if clip in ("idle", "walk") and anchor is None:
                 anchor = content_box(im, cell, rows["down"], frames)
@@ -261,6 +286,10 @@ def main():
                     help="row order (default DULR). Farm animals are DURL.")
     ap.add_argument("--map", default="",
                     help="SRC=id,SRC=id — rename actors and restrict to these")
+    ap.add_argument("--clip-alias", default="",
+                    help="OLD=NEW,OLD=NEW — rename clips after normalizing, to "
+                         "reconcile packs that name the same animation "
+                         "inconsistently between variants")
     ap.add_argument("--fps", type=float, default=DEFAULT_FPS)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
@@ -275,7 +304,8 @@ def main():
     log(f"layout {args.layout}  group {args.group}  rows {args.rows}")
 
     if args.layout == "dir4":
-        actors = collect_dir4(pack, name_map, rows, args.group, args.fps, args.dry_run)
+        actors = collect_dir4(pack, name_map, rows, args.group, args.fps,
+                              args.dry_run, parse_map(args.clip_alias))
     else:
         actors = collect_dir4x2(pack, name_map, rows, args.group, args.fps, args.dry_run)
 
