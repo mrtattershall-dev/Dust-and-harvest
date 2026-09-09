@@ -44,8 +44,15 @@ bottleneck.
 
 ## Townsfolk — imported and partly wired in
 
-Maya, Trader Rex and the Farm Hand render as sprites. The remaining six await a
-character-by-character decision; add them to `NPC_SPRITES` in `index.html`.
+Maya, Trader Rex and the Farm Hand render as sprites (`NPC_SPRITES`), as do all
+five hobo camp residents (`HC_NPC_SPRITES`): Dale, Vera, Simons, Dr. Lena and
+Kit.
+
+Two of the nine townsfolk are deliberately unused. The **Alchemist** is a purple
+witch — wrong century and continent for a dusty frontier — and the **Bartender**
+has a full beard, which ruled it out for the female roles that were left.
+Sprites are reused across zones where needed; the characters are never on screen
+together, and a wrong-looking character reads worse than a repeated one.
 
 Silas, Maren and the hobo camp residents are deliberately still painted — their
 hand-drawn art has specific poses and colour schemes (Silas sits on a crate with

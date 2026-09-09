@@ -10184,9 +10184,12 @@ const NPC_SPRITES = {
   'Trader Rex':    'folk_merchant',
   'Farm Hand':     'folk_farmer',
 };
-// Sprite NPCs are drawn to this content height, matching the painted NPCs they
-// replace (feet on the shadow at sy+9, head around sy-23).
-const NPC_SPRITE_H = 32;
+// Townsfolk are drawn at a fixed scale rather than normalized to one height:
+// the pack's characters genuinely differ in stature (Kid01 is 28px of content,
+// the Alchemist 42px with his hat), and normalizing made a child exactly as
+// tall as an adult. 0.85 puts a typical adult at ~34px, matching the painted
+// NPCs they replace.
+const NPC_SPRITE_SCALE = 0.85;
 
 // Turn a standing NPC to face the player once they are close enough to talk,
 // which is the only time anyone looks at them straight on.
@@ -10215,7 +10218,7 @@ function drawNPC(npc) {
     DHArt.play(npc, 'idle');
     DHArt.face(npc, npcSpriteFacing(npc));
     _drewSprite = DHArt.drawActor(ctx, _spriteId, npc, sx, sy + bob,
-                                  { size: NPC_SPRITE_H, footY: 9 });
+                                  { scale: NPC_SPRITE_SCALE, footY: 9 });
   }
 
   if(_drewSprite) { /* drawn above — skip the painted body */ }
@@ -19986,6 +19989,22 @@ function renderHoboCampMap() {
 }
 
 // ── Simple unique NPC sprites per role ────────────────
+// Hobo camp residents. Matched on what each person was before the camp, within
+// what the pack actually offers:
+//   The Alchemist is a purple witch — wrong century and wrong continent for a
+//   dusty frontier — so it is left unused. The Bartender has a full beard,
+//   which rules it out for Vera.
+//   Sprites are reused across zones (Vera shares Maya's, Simons shares Jed's).
+//   They are never on screen together, and a wrong-looking character reads
+//   worse than a repeated one.
+const HC_NPC_SPRITES = {
+  hc_railroad: 'folk_blacksmith',  // Dale — big, worn, apron
+  hc_clerk:    'folk_barmaid',     // Vera — the only adult woman in the pack
+  hc_farmer:   'folk_farmer',      // Simons — lost his land
+  hc_doctor:   'folk_fisherman',   // Dr. Lena — weathered, wide-brim hat
+  hc_young:    'folk_kid1',        // Kit — the youngest in camp
+};
+
 function drawHCNPC(npc, sx, sy) {
   const bob=Math.sin(Date.now()*.0018+npc.tx*.1)*1.5;
   const OL='#181818';
@@ -19995,8 +20014,19 @@ function drawHCNPC(npc, sx, sy) {
   ctx.beginPath(); ctx.ellipse(sx,sy+8,7,3,0,0,Math.PI*2); ctx.fill();
   ctx.globalAlpha=1;
 
+  // Sprite art when loaded; otherwise the painted resident below.
+  const _hcSprite = HC_NPC_SPRITES[npc.id];
+  let _hcDrew = false;
+  if (_hcSprite && DHArt.ready(_hcSprite)) {
+    DHArt.play(npc, 'idle');
+    DHArt.face(npc, npcSpriteFacing({ x: npc.tx * HC_T, y: npc.ty * HC_T }));
+    _hcDrew = DHArt.drawActor(ctx, _hcSprite, npc, sx, sy + bob,
+                              { scale: NPC_SPRITE_SCALE, footY: 9 });
+  }
+
   // Body — base shape, then role-specific details
-  if(npc.id==='hc_railroad'){
+  if(_hcDrew){ /* drawn above */ }
+  else if(npc.id==='hc_railroad'){
     // Dale — big, worn, work-roughened. Dark shirt, suspenders, cap.
     ctx.fillStyle=OL; ctx.fillRect(sx-8,sy-15,16,26);
     ctx.fillStyle='#3a3028'; ctx.fillRect(sx-7,sy-14,14,24); // dark work clothes

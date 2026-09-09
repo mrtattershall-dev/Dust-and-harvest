@@ -127,6 +127,13 @@ while offscreen.
 `size` is the drawn height of the sprite's **content**, not the cell, so `size:
 26` means 26px tall on screen whatever the source cell size is.
 
+**Use `scale` instead of `size` for a cast meant to differ in stature.** `size`
+normalizes every actor to one height, which is right for unrelated creatures but
+wrong for people: the townsfolk pack ranges from 28px of content (a child) to
+42px (the alchemist's hat), and normalizing drew the child exactly as tall as
+the adults. `scale: 0.85` keeps them in proportion and standing on the same
+ground line.
+
 ### API
 
 | Call | Does |
@@ -138,7 +145,7 @@ while offscreen.
 | `DHArt.face(ent, dir)` | set facing to `'down'\|'up'\|'left'\|'right'` |
 | `DHArt.faceFromVector(ent, dx, dy)` | set facing from movement; ties keep current facing |
 | `DHArt.finished(ent, id)` | a one-shot clip reached its last frame |
-| `DHArt.drawActor(ctx, id, ent, sx, sy, opts)` | draw. `opts: {size, alpha, flash, footY}` |
+| `DHArt.drawActor(ctx, id, ent, sx, sy, opts)` | draw. `opts: {size, scale, alpha, flash, footY}` |
 | `DHArt.drawShadow(ctx, id, sx, sy, opts)` | ground ellipse sized from the anchor box; a no-op for actors whose art has a shadow baked in |
 
 `attack`, `hurt` and `death` are marked non-looping at prep time: they play once

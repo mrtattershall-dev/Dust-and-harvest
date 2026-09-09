@@ -225,9 +225,12 @@ window.DHArt = (function () {
     const ch = a.cellH || a.cell;
     const anchor = a.anchor;
 
-    // Scale so the measured content height matches the requested size.
-    const targetH = o.size || 24;
-    const k = targetH / (anchor.h || ch);
+    // `size` normalizes every actor to the same drawn height, which is what you
+    // want for creatures of unrelated species. For a cast that is meant to
+    // differ in stature — a child should not be as tall as an adult — pass
+    // `scale` instead and heights stay in proportion to the source art.
+    const k = (o.scale != null) ? o.scale
+                                : (o.size || 24) / (anchor.h || ch);
 
     const di = dirIndex(a, s);
     const row = (clip.rowBase || 0) + di;
