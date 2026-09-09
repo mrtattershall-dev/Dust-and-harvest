@@ -583,6 +583,26 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 .cc-opt-btn:hover,.cc-opt-btn.sel{background:rgba(155,105,36,.15);border-color:rgba(180,130,50,.6);color:var(--bone);}
 .cc-swatch{width:clamp(32px,8vw,36px);height:clamp(32px,8vw,36px);border:2px solid transparent;border-radius:2px;cursor:pointer;transition:all .1s;touch-action:manipulation;}
 .cc-swatch:hover,.cc-swatch.sel{border-color:#e8c860;transform:scale(1.15);}
+/* ── Centred modals must fit the screen they are on ──────────────────────────
+   These are laid out at fixed pixel widths — 540px for the statistics and
+   badlands vendor screens, 420px for the forge — and several set no height cap
+   at all. On a 390px phone they hang off both edges and their close buttons go
+   with them: the statistics screen put ✕ CLOSE at x=377 on a 390px screen and
+   the farmhand screen put its close button at y=-26, so neither could be
+   dismissed, and a phone has no Esc key to fall back on.
+
+   max-width/max-height rather than width, so a panel narrower than the screen
+   keeps its designed size. !important because most of these are styled inline.
+   No media query: the calc() only binds when the viewport is actually smaller,
+   so this is inert on desktop. */
+#statsOverlay, #blVendorOverlay, #smeltOverlay, #confirmModal,
+#blBountyOverlay, #farmhandOverlay, #encounterPanel, #chestOverlay,
+#npcTalkOverlay, #marketOverlay, #invOverlay, #settingsOverlay {
+  max-width: calc(100vw - 16px) !important;
+  max-height: calc(100vh - 24px) !important;
+  overflow-y: auto !important;
+}
+
 /* ── Narrow screens ──────────────────────────────────────────────────────────
    The HUD is a single nowrap row of eight chips that measures ~830px. It was
    built to scroll sideways (#topBar has overflow-x:auto), but #hud sets
@@ -952,6 +972,61 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
   new MutationObserver(fix).observe(el,
     { childList: true, subtree: true, characterData: true });
   fix();
+})();
+
+// The UI carries ~130 bracketed keyboard hints — "CLOSE [E]", "buy at market
+// [M]", "[F] farm panel". Every one of them is wrong on a phone, and rewriting
+// them at each site would be 130 edits across the file. Sweep the rendered text
+// instead, and drop them: the label they sit next to already says what the
+// thing does, so "CLOSE [E]" wants to read "CLOSE", not "CLOSE ACT". Sentences
+// phrased around the key ("Press E to talk") are a different shape and are
+// handled by the interact-prompt rewrite above.
+(function () {
+  if (!('ontouchstart' in window) && !navigator.maxTouchPoints) return;
+  const KEYS = /\s*\[(E|I|M|F|N|Q|R|B|TAB|ESC|ENTER|SPACE|SHIFT|1-9|Ctrl\+S)\]/g;
+  const SKIP = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'CANVAS']);
+  let sweeping = false;
+
+  function sweep(root) {
+    if (sweeping || !root) return;
+    sweeping = true;
+    try {
+      const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: n => (n.parentNode && SKIP.has(n.parentNode.nodeName))
+          ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+      });
+      const hits = [];
+      for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+        if (n.nodeValue.indexOf('[') >= 0) hits.push(n);
+      }
+      for (const n of hits) {
+        const next = n.nodeValue.replace(KEYS, '').replace(/[ \t]{2,}/g, ' ');
+        if (next !== n.nodeValue) n.nodeValue = next;
+      }
+    } finally { sweeping = false; }
+  }
+
+  // Panels are rebuilt as the game runs, which restores the hints, so watch the
+  // containers that regenerate rather than sweeping the document on a timer.
+  const WATCH = ['farmPanel', 'marketOverlay', 'invOverlay', 'chestOverlay',
+                 'farmhandOverlay', 'npcTalkOverlay', 'statsOverlay',
+                 'blVendorOverlay', 'minerOverlay', 'smeltOverlay',
+                 'guideOverlay', 'pauseOverlay', 'controlsOverlay'];
+  const start = () => {
+    sweep(document.body);
+    for (const id of WATCH) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      let queued = false;
+      new MutationObserver(() => {
+        if (sweeping || queued) return;
+        queued = true;
+        requestAnimationFrame(() => { queued = false; sweep(el); });
+      }).observe(el, { childList: true, subtree: true, characterData: true });
+    }
+  };
+  if (document.readyState === 'complete') start();
+  else window.addEventListener('load', start);
 })();
 </script>
 
