@@ -56,8 +56,12 @@ SEED = 20260909    # fixed, so rebuilds are byte-identical
 SOURCES = {
     "spots":     "PNG/spots.png",
     "farmland":  "All Tileset/16x16.png",
+    "forest":    "All Tileset/16x16.png",
     "farmyard":  "PNG/ground_grass_bricks.png",
 }
+# Two packs ship a file at the same path, so each is pinned to the pack folder
+# whose name contains this.
+SOURCE_PACK = {"farmland": "farmlands", "forest": "greenforest"}
 
 # The two tones in spots.png, measured off the sheet.
 TONE_DARK = (174, 138, 90)
@@ -74,15 +78,22 @@ TERRAINS = {
              "clusters": 22, "per": 13, "spread": 38, "loose": 78},
 
     # -- mosaic: interchangeable textured cells ---------------------------
-    # Grass: four variants of the same turf — bare, speckled, bladed, tufted.
-    "grass": {"kind": "mosaic", "sheet": "farmland",
-              "cells": [(0, 0), (0, 1), (0, 2), (0, 3)], "clump": 0.72,
-              "hue": 0, "sat": 1.00},
+    # Grass. Every pack delivered was surveyed for ground; the whole library
+    # holds exactly one outdoor turf, shared by the farmlands, green forest,
+    # green village and green dungeon tilesets. These six cells are all of it
+    # that joins seamlessly — the rest of the library's 57 native grass cells
+    # were measured and rejected. See docs/ART-PIPELINE.md.
+    "grass": {"kind": "mosaic",
+              "cells": [("farmland", 0, 0), ("farmland", 0, 1),
+                        ("farmland", 0, 2), ("farmland", 0, 3),
+                        ("forest", 0, 8)],    # one variant only greenforest has
+              "clump": 0.72, "hue": 0, "sat": 1.00},
     # Dirt: packed earth with small clumps. (14,10) and (21,7) are the same
     # cell in the sheet, so it is listed once.
-    "dirt":  {"kind": "mosaic", "sheet": "farmyard",
-              "cells": [(14, 9), (14, 10), (15, 9), (15, 10)], "clump": 0.65,
-              "hue": 0, "sat": 1.00},
+    "dirt":  {"kind": "mosaic",
+              "cells": [("farmyard", 14, 9), ("farmyard", 14, 10),
+                        ("farmyard", 15, 9), ("farmyard", 15, 10)],
+              "clump": 0.65, "hue": 0, "sat": 1.00},
 }
 
 
@@ -96,7 +107,10 @@ def locate(roots):
     """Find each source sheet under whichever of the given folders holds it."""
     found = {}
     for name, rel in SOURCES.items():
+        want = SOURCE_PACK.get(name)
         for root in roots:
+            if want and want not in root.name.lower():
+                continue
             hits = [p for p in root.rglob(Path(rel).name)
                     if p.as_posix().endswith(rel) and "__MACOSX" not in p.as_posix()]
             if hits:
@@ -106,8 +120,29 @@ def locate(roots):
     return found
 
 
+def check_native(name, im):
+    """Refuse a sheet that is an upscale of smaller art.
+
+    Most of these packs ship the same tileset at 1x/2x/3x/4x, and the RPG Maker
+    sheets are upscales too. Slicing one of those on a 16px grid yields cells
+    made of magnified pixels, which look right in isolation and wrong beside
+    everything else in the game. Checked, because it is invisible otherwise.
+    """
+    a = im.tobytes()
+    w, h = im.size
+    for k in (2, 3, 4):
+        if w % k or h % k:
+            continue
+        small = im.resize((w // k, h // k), Image.NEAREST)
+        if small.resize((w, h), Image.NEAREST).tobytes() == a:
+            raise SystemExit(
+                f"source '{name}' is an exact {k}x upscale of {w//k}x{h//k} art. "
+                f"Its 16px cells would be magnified pixels. Use the pack's "
+                f"native sheet instead.")
+
+
 def cell_of(sheet, rc):
-    r, c = rc
+    _, r, c = rc
     box = (c * CELL, r * CELL, (c + 1) * CELL, (r + 1) * CELL)
     if box[2] > sheet.size[0] or box[3] > sheet.size[1]:
         raise SystemExit(f"cell {rc} is outside the sheet ({sheet.size[0]//CELL}"
@@ -175,10 +210,38 @@ def tolerance(grain):
     return max(max(grain, 1.0) * 1.6, 8.0)
 
 
+# Two cells can join with a clean edge and still read as blocks, because what
+# shows is the difference in overall tone, not the join. A darker grass variant
+# passed the seam test at 11.88 against a tolerance of 12.36 and tiled as
+# obvious dark squares. So tone is checked separately from seams.
+TONE_SPREAD = 18.0
+
+
+def tone_gap(tiles, cells):
+    """Largest distance between any two cells' mean colours."""
+    means = [mean_rgb(t) for t in tiles]
+    worst, pair = 0.0, None
+    for i, a in enumerate(means):
+        for j, b in enumerate(means):
+            d = sum((a[k] - b[k]) ** 2 for k in range(3)) ** 0.5
+            if d > worst:
+                worst, pair = d, (cells[i], cells[j])
+    return worst, pair
+
+
 def build_variants(name, tiles, cells, strict):
     """The cells, plus every transform of them that keeps the set seamless."""
     grain = sum(mean_step(t) for t in tiles) / len(tiles)
     tol = tolerance(grain)
+
+    gap, gpair = tone_gap(tiles, cells)
+    if gap > TONE_SPREAD:
+        msg = (f"'{name}': cells {gpair[0]} and {gpair[1]} are {gap:.1f} apart "
+               f"in tone (limit {TONE_SPREAD:.0f}). They would tile as visible "
+               f"patches however clean the join is. Drop one, or pass --loose.")
+        if strict:
+            raise SystemExit(msg)
+        log(f"  !! {msg}")
 
     worst, pair = worst_seam(tiles)
     if worst > tol:
@@ -196,7 +259,8 @@ def build_variants(name, tiles, cells, strict):
         if worst_seam(trial)[0] <= tol:
             variants = trial
             kept.append(label)
-    log(f"  ok {name:6s} {len(tiles)} cells, seam {worst:5.2f} <= {tol:5.2f}"
+    log(f"  ok {name:6s} {len(tiles)} cells, seam {worst:5.2f} <= {tol:5.2f}, "
+        f"tone {gap:4.1f} <= {TONE_SPREAD:.0f}"
         f"  +{len(variants) - len(tiles):2d} from " +
         (", ".join(kept) if kept else "no transforms (edges too asymmetric)"))
     return variants
@@ -381,6 +445,8 @@ def main():
 
     log("sources:")
     sheets = locate(roots)
+    for name, im in sheets.items():
+        check_native(name, im)
 
     rng = random.Random(SEED)
     names = sorted(TERRAINS)
@@ -401,10 +467,14 @@ def main():
                     f"{len(pools['soft'])} soft blobs")
             ready.append((name, cfg, None))
         else:
-            if cfg["sheet"] not in sheets:
-                log(f"  -- {name}: no {SOURCES[cfg['sheet']]} supplied, skipping")
+            need = {rc[0] for rc in cfg["cells"]}
+            missing = need - set(sheets)
+            if missing:
+                log(f"  -- {name}: no " +
+                    ", ".join(SOURCES[m] for m in sorted(missing)) +
+                    " supplied, skipping")
                 continue
-            tiles = [cell_of(sheets[cfg["sheet"]], rc) for rc in cfg["cells"]]
+            tiles = [cell_of(sheets[rc[0]], rc) for rc in cfg["cells"]]
             ready.append((name, cfg, tiles))
     if not ready:
         sys.exit("No terrains could be built — check the pack folders given.")

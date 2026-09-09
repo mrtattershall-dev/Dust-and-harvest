@@ -141,10 +141,34 @@ seamless, so `tools/build_ground.py` lays them as a random mosaic on one
 wrap-seamless texture, the same surface the sand uses. See `docs/ART-PIPELINE.md`.
 
 **Not yet: `TL.STONE` (9.4%), `TL.TOWN_FLOOR` (14.3%), `TL.ROAD`, `TL.WATER`.**
-Art exists for all four — the farm pack ships cobble and water, and
-`freepathandroad` ships five road styles. The terrain-*edge* sets in these packs
-stay unusable until the game has an autotiling concept; it currently has none,
-only a 4px colour blend on grass.
+Art exists for all four — the farm pack ships cobble and water,
+`freepathandroad` ships five road styles, and a `Walls_street` sheet with the
+same cobbled surface appears in seven town packs (tavern, chapel, guild hall,
+mage tower, blacksmith, nobles manor, training arena), which makes it the
+obvious `TL.TOWN_FLOOR`. The terrain-*edge* sets stay unusable until the game
+has an autotiling concept; it currently has none, only a 4px colour blend on
+grass.
+
+### Ground survey — all 56 packs
+
+Every pack was scanned for grass and sand ground: each PNG reduced to native
+scale, cut on a 16px grid, every opaque cell classified by hue and measured for
+self-tiling. The library is narrower than the pack count suggests.
+
+**Grass exists once.** `topdownfarmlands`, `greenforest`, `greenvillage` and
+`greendungeon` ship the *same* turf — flat `rgb(84,126,100)` with the same
+textured variants. Of 57 distinct native grass cells in the whole library, 5
+join seamlessly and are in use. The rest are dungeon moss, cave crystal, or a
+brighter green (`rgb(110,162,75)` in the farm pack, `rgb(122,173,85)` in the
+mage tower) that tiles as visible patches against the main turf.
+
+**Sand exists once too.** Only `deserttileset` has real sand ground. Everything
+else the scan flagged was a UI panel, a book page, red roof tile, or pavement.
+`pixelarttrainingarena` carries the identical flat `rgb(210,178,104)`,
+confirming the shared palette but adding nothing.
+
+So the current choices are not a first-fit — they are the only fit. More
+tileset packs would not widen this; a pack in a *different* palette would.
 
 ---
 

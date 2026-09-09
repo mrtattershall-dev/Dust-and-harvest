@@ -409,6 +409,34 @@ speckling, which is the one thing sand never looks like.
 
 `SEED` in the tool is fixed, so a rebuild is byte-identical.
 
+### Where the ground art came from
+
+Every one of the 56 delivered packs was scanned for grass and sand ground —
+each PNG reduced to its native scale, cut on a 16px grid, every fully-opaque
+cell classified by hue and measured for self-tiling. The result is worth
+recording because it is smaller than it looks:
+
+- **Grass: the library holds exactly one outdoor turf.** The farmlands, green
+  forest, green village and green dungeon tilesets all ship the *same* art —
+  flat base `rgb(84,126,100)` with the same textured variants over it. Of 57
+  distinct native grass cells across every pack, 5 join seamlessly; the rest are
+  dungeon moss, cave crystal, or a brighter green from a different palette that
+  tiles as visible patches. There is no second grass to choose between.
+- **Sand: the desert pack is the only true sand ground.** Everything else the
+  scan turned up as "sand" was a UI panel, a book page, red roof tile, or the
+  cobbled `Walls_street` surface shared by the town packs — that last one is
+  real ground, but it is pavement, and it belongs to `TL.TOWN_FLOOR`, not here.
+
+Two traps this scan walked into first, both worth knowing:
+
+- **Upscaled sheets.** Most packs ship the same tileset at 1×/2×/3×/4×, and the
+  RPG Maker `A5` sheets are upscales too — `RF_Green Forest_A5.png` is an exact
+  3× of 128×256 art. Slicing one on a 16px grid yields cells built from
+  magnified pixels that look fine alone and wrong beside everything else. A
+  first pass "found" 17 extra grass variants this way; all were artefacts. The
+  tool now refuses any source that is an exact upscale.
+- **Hue tests that are too loose.** `r >= g >= b` calls red roof tiles sand.
+
 ### Mutual seams, and why cells get flipped
 
 A mosaic is only safe if every cell joins every other cell invisibly. The tool
@@ -433,6 +461,18 @@ grass  4 cells, seam  2.85 <= 12.52   +20 from flip-h, flip-v, rot-90, rot-180, 
 Dirt's edges are asymmetric enough that flip-v and rot-180 push the join over
 tolerance, so they are dropped. That is measured per terrain, not assumed.
 
+### Tone, which is a separate test
+
+A clean join is not sufficient. Two cells can meet edge-to-edge perfectly and
+still read as blocks, because what shows at a glance is the difference in
+overall tone, not the join. A darker grass variant passed the seam test at
+11.88 against a tolerance of 12.36 and tiled as obvious dark squares — the exact
+grid artefact the mosaic exists to avoid.
+
+So the mean colours of a set are checked separately and must sit within 18 of
+each other. That cell measures 28.5 from its neighbours and is now rejected by
+name. The current sets: grass 11.5, dirt 1.4.
+
 ### Terrains
 
 Sand and dust are the same sand. The badlands is the same grains under a redder sun, so
@@ -442,7 +482,7 @@ instead of flattening it.
 
 | Name | Kind | Tile | Tone | Base |
 |---|---|---|---|---|
-| `grass` | mosaic | `TL.GRASS`, `TL.FLOWERS` | — | `#598166` — farmlands turf |
+| `grass` | mosaic | `TL.GRASS`, `TL.FLOWERS` | — | `#598166` — farmlands turf, plus one greenforest variant |
 | `dirt` | mosaic | `TL.DIRT` | — | `#8f4f35` — farmyard packed earth |
 | `sand` | scatter | `TL.SAND` | — | `#d2b268` — the desert pack's sand |
 | `dust` | scatter | `BL.DUSTFLOOR` | −13° hue, ×1.12 sat | `#d89b62` — orange-shifted |
