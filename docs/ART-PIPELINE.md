@@ -314,6 +314,41 @@ creation preview go through it, so both re-skin together, and it falls through
 to the painted character whenever the layers are missing or the setting is off.
 `drawPlayer` sets `window._dhCharClip` each frame to pick idle / walk / run.
 
+## Scatter props
+
+Rocks, bushes, skulls and bones were each one hand-painted shape repeated across
+the entire map. The desert tileset ships dozens of named 32×32 variants of
+exactly those things, so they are now picked per tile.
+
+```
+tools/prop-map.json     group -> source filenames
+tools/build_props.py    packs them into an atlas
+assets/props/props.png  one atlas, 16 per row at 32px
+assets/props/props.json { cell, cols, groups: { name: [index, ...] } }
+assets/js/props.js      DHProps.draw(ctx, group, sx, sy, tx, ty)
+```
+
+Rebuild with:
+
+```sh
+./tools/build_props.py ~/packs/deserttilesettopdownpixelart
+```
+
+### Variant choice is derived, not stored
+
+`DHProps.draw` hashes the tile coordinate — the same mix the fog uses — and
+indexes the group with it. A given rock is therefore always the same rock: no
+per-tile data to store, nothing added to saves, and no flicker as the camera
+moves. Groups can share a source file (a small bush serves both the overworld
+and the badlands) and it is packed only once.
+
+Currently wired: `TL.ROCK` (24 variants), `TL.BUSH`, `BL.SKULL_ROCK`,
+`BL.TUMBLEWEED`, `BL.BL_BONE`. Every call site keeps its painted shape as the
+`else` branch, so a missing atlas changes nothing.
+
+Only 32×32 objects are used. The pack's 64×64 and 128×128 pieces — large trees,
+mesas, pyramids, full ruins — need multi-tile handling and are left for later.
+
 ## Note for the Steam build
 
 Keeping art as loose files (rather than base64 inside the HTML) is what makes an

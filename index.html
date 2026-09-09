@@ -912,6 +912,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 <script src="assets/js/sprite-engine.js"></script>
 <script src="assets/js/icons.js"></script>
 <script src="assets/js/player-sprite.js"></script>
+<script src="assets/js/props.js"></script>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -8302,6 +8303,7 @@ function drawTile(tx,ty,sx,sy) {
   else if(t===TL.ROCK){
     const RK=['#292129','#5b4b41','#897762','#cfc7b2','#e0e0d0'];
     ctx.fillStyle=c[0]; ctx.fillRect(sx,sy,T,T);
+    if(DHProps.draw(ctx,'rock',sx,sy,tx,ty)){ /* sprite variant */ } else {
     ctx.fillStyle=RK[0]; ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2+2,13,9,0.2,0,Math.PI*2); ctx.fill();
     ctx.fillStyle=RK[1]; ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2+2,11,7,0.2,0,Math.PI*2); ctx.fill();
     ctx.fillStyle=RK[2]; ctx.beginPath(); ctx.ellipse(sx+T/2-1,sy+T/2,  9,6,0.2,0,Math.PI*2); ctx.fill();
@@ -8311,6 +8313,7 @@ function drawTile(tx,ty,sx,sy) {
     ctx.beginPath(); ctx.moveTo(sx+T/2-1,sy+T/2+1); ctx.lineTo(sx+T/2+4,sy+T/2+5); ctx.stroke();
     ctx.strokeStyle=RK[3];
     ctx.beginPath(); ctx.moveTo(sx+T/2-1,sy+T/2); ctx.lineTo(sx+T/2+4,sy+T/2+4); ctx.stroke();
+    }
   }
   else if(t===TL.ROAD){
     // Cobblestone — built from artist's HTML art (western_cobblestone_art.html)
@@ -8527,7 +8530,7 @@ function drawTile(tx,ty,sx,sy) {
   else if(t===TL.BUSH){
     ctx.fillStyle=_owBase(); ctx.fillRect(sx,sy,T,T);
     if((tx+ty)%3===0){ ctx.fillStyle='rgba(90,106,60,.4)'; ctx.fillRect(sx+2,sy+2,T-4,T-4); }
-    drawBushSprite(sx,sy,tx,ty);
+    if(!DHProps.draw(ctx,'bush',sx,sy,tx,ty)) drawBushSprite(sx,sy,tx,ty);
   }
   else if(t===TL.HOBO_PORTAL){
     // North road that fades into a worn dirt track heading into the camp
@@ -22369,6 +22372,7 @@ function drawBLTile(tx,ty,sx,sy) {
 
   } else if(t===BL.SKULL_ROCK) {
     ctx.fillStyle=_blBase(); ctx.fillRect(sx,sy,T,T);
+    if(!DHProps.draw(ctx,'skull',sx,sy,tx,ty)){
     // Ground shadow
     ctx.fillStyle='rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2+7,10,4,0,0,Math.PI*2); ctx.fill();
     // Main rock mass — smaller, sits on ground
@@ -22386,6 +22390,7 @@ function drawBLTile(tx,ty,sx,sy) {
     ctx.fillStyle='rgba(200,185,175,.2)';
     ctx.beginPath(); ctx.ellipse(sx+T/2-3,sy+T/2-5,4,2,0.4,0,Math.PI*2); ctx.fill();
 
+    }
   } else if(t===BL.SULFUR) {
     // Sulfur crust — crumbly yellow mineral deposit
     ctx.fillStyle='#a89028'; ctx.fillRect(sx,sy,T,T);
@@ -22406,6 +22411,7 @@ function drawBLTile(tx,ty,sx,sy) {
 
   } else if(t===BL.TUMBLEWEED) {
     ctx.fillStyle=_blBase(); ctx.fillRect(sx,sy,T,T);
+    if(!DHProps.draw(ctx,'tumbleweed',sx,sy,tx,ty)){
     // Ground shadow
     ctx.fillStyle='rgba(0,0,0,.15)'; ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2+6,9,4,0,0,Math.PI*2); ctx.fill();
     // Main ball body
@@ -22427,6 +22433,7 @@ function drawBLTile(tx,ty,sx,sy) {
     ctx.fillStyle='rgba(200,180,130,.25)';
     ctx.beginPath(); ctx.ellipse(sx+T/2-2,sy+T/2-2,4,3,0,0,Math.PI*2); ctx.fill();
 
+    }
   } else if(t===BL.OUTPOST||t===BL.OUTPOST_WALL) {
     if(t===BL.OUTPOST_WALL){
       // Adobe/adobe brick wall — warm reddish-brown with mortar lines
@@ -22462,6 +22469,7 @@ function drawBLTile(tx,ty,sx,sy) {
   } else if(t===BL.BL_BONE) {
     // Bone scatter — multiple bones arranged naturally
     ctx.fillStyle=_blBase(); ctx.fillRect(sx,sy,T,T);
+    if(!DHProps.draw(ctx,'bone',sx,sy,tx,ty)){
     ctx.fillStyle='#ddd0b8';
     // Long bone horizontal — slight angle
     ctx.save(); ctx.translate(sx+T/2,sy+T/2);
@@ -22485,6 +22493,7 @@ function drawBLTile(tx,ty,sx,sy) {
     ctx.fillStyle='#181210';
     ctx.beginPath(); ctx.ellipse(sx+T/2-4,sy+T/2+6,2,1.5,0,0,Math.PI*2); ctx.fill();
 
+    }
   } else if(t===BL.BL_COPPER) {
     ctx.fillStyle=_blBase(); ctx.fillRect(sx,sy,T,T);
     ctx.fillStyle='#7a3c18'; ctx.fillRect(sx+3,sy+3,T-6,T-6);
