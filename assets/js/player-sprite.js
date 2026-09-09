@@ -176,6 +176,101 @@ window.DHPlayer = (function () {
     ctx.drawImage(off, 0, 0);
   }
 
+  // Shirt styles, in the order the creation screen lists them. Each is a rule
+  // applied to the torso mask rather than separate art: which pixels the
+  // garment covers, and where it darkens or lightens within its own ramp so
+  // accents stay in palette whatever colour the player picked.
+  const SHIRT_STYLES = {
+    male:   ['suspenders', 'full', 'vest', 'rolled', 'jacket'],
+    female: ['blouse', 'dress', 'vest', 'tied', 'jacket'],
+  };
+
+  // Per-cell torso extent, measured from the mask itself so it tracks the
+  // walk cycle rather than assuming a fixed band.
+  function cellBounds(px, w, ox, oy, cell) {
+    let top = -1, bot = -1;
+    for (let y = oy; y < oy + cell; y++) {
+      let any = false;
+      for (let x = ox; x < ox + cell; x++) {
+        if (px[(y * w + x) * 4 + 3] > 0) { any = true; break; }
+      }
+      if (any) { if (top < 0) top = y; bot = y; }
+    }
+    return { top, bot };
+  }
+
+  function drawTorso(ctx, img, gd, ramp, style, cell) {
+    if (!img || !img.naturalWidth) return;
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const off = document.createElement('canvas');
+    off.width = w; off.height = h;
+    const oc = off.getContext('2d');
+    oc.imageSmoothingEnabled = false;
+    oc.drawImage(img, 0, 0);
+    const id = oc.getImageData(0, 0, w, h);
+    const px = id.data;
+
+    const frames = Math.floor(w / cell);
+    for (const row of Object.values(gd.dirRows)) {
+      for (let f = 0; f < frames; f++) {
+        const ox = f * cell, oy = row * cell;
+        const b = cellBounds(px, w, ox, oy, cell);
+        if (b.top < 0) continue;
+        const th = b.bot - b.top + 1;
+
+        for (let y = b.top; y <= b.bot; y++) {
+          let minX = 1e9, maxX = -1;
+          for (let x = ox; x < ox + cell; x++) {
+            if (px[(y * w + x) * 4 + 3] > 0) { if (x < minX) minX = x; maxX = x; }
+          }
+          if (maxX < 0) continue;
+          const cx = (minX + maxX) / 2;
+          const ly = y - b.top;             // row within the torso
+          const frac = th > 1 ? ly / (th - 1) : 0;
+
+          for (let x = minX; x <= maxX; x++) {
+            const i = (y * w + x) * 4;
+            if (px[i + 3] === 0) continue;
+            // Sleeves: the outer columns, below the shoulder line.
+            const isArm = ly >= 2 && (x - minX < 2 || maxX - x < 2);
+            let drop = false, shade = 0;
+
+            switch (style) {
+              case 'vest':                       // open at the shoulders
+                drop = isArm; break;
+              case 'rolled':                     // sleeves stop at the elbow
+                drop = isArm && frac > 0.5; break;
+              case 'tied':                       // cropped above the waist
+                drop = frac > 0.72; break;
+              case 'jacket':                     // heavy collar and lapels
+                shade = (frac < 0.18 || isArm) ? -1 : 0; break;
+              case 'blouse':                     // soft, lighter at the collar
+                shade = frac < 0.22 ? 1 : 0; break;
+              case 'suspenders': {
+                // A work shirt with braces over it. Bare shoulders with only
+                // the straps covered was tried first and turned to mush: the
+                // torso is ~11px wide, so a 2px strap against bare skin does
+                // not read. Dark straps over full cover is legible at 26px and
+                // still obviously not the plain work shirt.
+                const strap = Math.abs(x - cx) >= 1.5 && Math.abs(x - cx) <= 2.6;
+                shade = strap ? -2 : 0;
+                break;
+              }
+              default: break;                    // 'full' and 'dress'
+            }
+
+            if (drop) { px[i + 3] = 0; continue; }
+            const lvl = Math.max(0, Math.min(5, px[i] + shade));
+            const c = ramp[lvl];
+            px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2];
+          }
+        }
+      }
+    }
+    oc.putImageData(id, 0, 0);
+    ctx.drawImage(off, 0, 0);
+  }
+
   function cfgKey(cfg, clip) {
     return [cfg.gender || 'male', clip, cfg.skinTone | 0, cfg.hairStyle | 0,
             cfg.hairColor | 0, cfg.shirtStyle | 0, cfg.shirtColor | 0,
@@ -201,9 +296,16 @@ window.DHPlayer = (function () {
     const SHIRT = ramp6(CC_SHIRT_COLORS[Math.min(cfg.shirtColor | 0, CC_SHIRT_COLORS.length - 1)]);
     const PANTS = ramp6(CC_PANTS_COLORS[Math.min(cfg.pantsColor | 0, CC_PANTS_COLORS.length - 1)]);
 
+    const ss = cfg.shirtStyle | 0;
+    const style = (SHIRT_STYLES[gender] || SHIRT_STYLES.male)[
+      Math.min(ss, (SHIRT_STYLES[gender] || SHIRT_STYLES.male).length - 1)] || 'full';
+
     tintLayer(ctx, base, SKIN);
-    tintLayer(ctx, state.imgs[gender + '/' + clip + '_torso'], SHIRT);
-    tintLayer(ctx, state.imgs[gender + '/' + clip + '_legs'], PANTS);
+    drawTorso(ctx, state.imgs[gender + '/' + clip + '_torso'], gd, SHIRT, style, gd.cell);
+    // A prairie dress runs past the waist, so the leg region takes the shirt
+    // colour rather than the trousers.
+    tintLayer(ctx, state.imgs[gender + '/' + clip + '_legs'],
+              style === 'dress' ? SHIRT : PANTS);
 
     // Hair, cut from the head's own silhouette so it follows the skull instead
     // of sitting on it as a rectangular cap. Each style is a rule about how far

@@ -271,6 +271,28 @@ hair.
 
 Hats still use the game's `_drawHat`, re-anchored to the measured head box.
 
+### Shirt styles
+
+Same technique: `SHIRT_STYLES` describes each garment as a rule over the torso
+mask — which pixels it covers, and where it shifts a level darker or lighter so
+accents stay inside the player's chosen colour ramp.
+
+| Style | Rule |
+|---|---|
+| Work shirt / full | covers everything |
+| Vest | drops the sleeve columns |
+| Rolled sleeves | drops sleeves below the elbow |
+| Jacket | full cover, collar and lapels one level darker |
+| Suspenders | full cover with two straps two levels darker |
+| Blouse | full cover, collar one level lighter |
+| Prairie dress | full cover, and the leg region takes the shirt colour |
+| Tied shirt | cropped above the waist, leaving a midriff |
+
+Bare shoulders with only the straps covered was the first attempt at suspenders
+and it turned to mush — the torso is ~11px wide, so a 2px strap against bare
+skin does not read at all. Dark straps over full cover is legible at 26px and
+still obviously not the plain work shirt.
+
 ### Sizing
 
 Matched by measurement, not by eye: the painted character stands **40px tall
