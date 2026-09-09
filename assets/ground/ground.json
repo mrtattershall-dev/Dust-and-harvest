@@ -1,0 +1,12 @@
+{
+ "period": 512,
+ "terrains": {
+  "dust": {
+   "oy": 0
+  },
+  "sand": {
+   "oy": 512
+  }
+ },
+ "tile": 32
+}

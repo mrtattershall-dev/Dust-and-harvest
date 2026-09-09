@@ -913,6 +913,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 <script src="assets/js/icons.js"></script>
 <script src="assets/js/player-sprite.js"></script>
 <script src="assets/js/props.js"></script>
+<script src="assets/js/ground.js"></script>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -7944,7 +7945,9 @@ const TC = {
   [TL.DIRT]:      ['#7a6251','#544b46'],
   [TL.STONE]:     ['#5b4b41','#897762'],
   [TL.WATER]:     ['#246fa6','#384e86'],
-  [TL.SAND]:      ['#dfac8a','#c1887a'],
+  [TL.SAND]:      ['#d2b268','#bb9c5a'],  // the desert pack's own sand, so the
+                                          // painted fallback and minimap match
+                                          // the baked texture
   [TL.ROAD]:      ['#897762','#5b4b41'],
   [TL.FARM_DRY]:  ['#7a6251','#544b46'],
   [TL.FARM_TILLED]:['#423734','#292129'],
@@ -8336,6 +8339,8 @@ function drawTile(tx,ty,sx,sy) {
     ctx.drawImage(drawTile._cobble[((tx*374761393^ty*668265263^(tx^ty)*1234567)>>>0)%4],sx,sy);
   }
   else if(t===TL.SAND){
+    // Real sand from the desert pack, sampled from one continuous surface.
+    if(DHGround.draw(ctx,'sand',sx,sy,tx,ty)) return;
     ctx.fillStyle=c[0]; ctx.fillRect(sx,sy,T,T);
     // Subtle tonal variation across tile
     ctx.fillStyle='#d0b870'; ctx.fillRect(sx,sy,T,T/2);
@@ -17835,7 +17840,7 @@ const MINIMAP_ZONE_COLORS = {
 };
 const MINIMAP_TILE_COLORS = {
   // Terrain — warm frontier palette
-  [TL.GRASS]:'#647645',      [TL.DIRT]:'#7a6251',        [TL.SAND]:'#dfac8a',
+  [TL.GRASS]:'#647645',      [TL.DIRT]:'#7a6251',        [TL.SAND]:'#d2b268',
   [TL.STONE]:'#5b4b41',      [TL.ROCK]:'#897762',         [TL.FLOWERS]:'#a8c85c',
   [TL.WATER]:'#246fa6',      [TL.DEEP_WATER]:'#384e86',   [TL.ROAD]:'#897762',
   [TL.TREE]:'#276b1f',       [TL.BUSH]:'#426848',
@@ -22253,6 +22258,8 @@ function drawBLTile(tx,ty,sx,sy) {
   const h2=(tx*3761+ty*9437)&0xffff;
 
   if(t===BL.DUSTFLOOR) {
+    // Real sand from the desert pack, retinted to the badlands' own tan.
+    if(DHGround.draw(ctx,'dust',sx,sy,tx,ty)) return;
     // Sandy dust — warm tan with wind-streak texture
     ctx.fillStyle='#c8a870'; ctx.fillRect(sx,sy,T,T);
     ctx.fillStyle='#b89860'; ctx.fillRect(sx,sy,T,T/2); // slight horizon split
@@ -34088,7 +34095,9 @@ const ART_CREDITS = [
     licence: 'CraftPix file licence',
     what: 'Creature and animal sprites — rats, slimes, predator plants, golems, '
         + 'orcs, gnolls, ents, ghosts, skeletons, the ranch livestock, the '
-        + 'market square townspeople, and the player character base.',
+        + 'market square townspeople, and the player character base. Also the '
+        + 'desert tileset: the rocks, bushes, skulls and bones scattered across '
+        + 'the wilderness, and the sand of the dunes and the badlands floor.',
     prefixes: ['rat_', 'slime_', 'plant_', 'golem_', 'orc_', 'gnoll_', 'ent_',
                'ghost_', 'skeleton_', 'horse', 'foal', 'goat', 'goose',
                'gosling', 'rabbit', 'chicken', 'cow', 'pig', 'citizen'],

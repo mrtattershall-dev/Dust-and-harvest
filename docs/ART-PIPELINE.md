@@ -349,6 +349,85 @@ Currently wired: `TL.ROCK` (24 variants), `TL.BUSH`, `BL.SKULL_ROCK`,
 Only 32×32 objects are used. The pack's 64×64 and 128×128 pieces — large trees,
 mesas, pyramids, full ruins — need multi-tile handling and are left for later.
 
+## Ground surfaces
+
+Sand is the desert pack's own art now, but it does not arrive as tiles and
+cannot be imported like the props.
+
+**The pack's ground is a flat colour.** Every sand tile in `Ground_grass.png`
+and `Water_coasts.png` measures a standard deviation of exactly 0 — one solid
+`rgb(210,178,104)`. All the texture lives in `spots.png`, a sheet of loose
+mottling blobs meant to be strewn over that colour. There is nothing to slice
+into cells, so the honest import is to lift the blobs out and re-scatter them.
+
+```
+tools/build_ground.py       extracts the blobs and bakes the textures
+assets/ground/ground.png    terrains stacked vertically, 512px each
+assets/ground/ground.json   { period, tile, terrains: { name: {oy} } }
+assets/js/ground.js         DHGround.draw(ctx, name, sx, sy, tx, ty)
+```
+
+Rebuild with:
+
+```sh
+./tools/build_ground.py ~/packs/deserttilesettopdownpixelart
+```
+
+### Why one big texture instead of tile variants
+
+Sand has no per-tile structure to repeat, so a variant set is the wrong shape
+for it — a grid of stamps reads as a grid however many stamps you cut. Instead
+the blobs are scattered onto a single wrap-seamless texture and each map tile
+samples the window at `(tx*T mod period, ty*T mod period)`. Neighbouring tiles
+therefore show neighbouring pieces of one continuous surface: no tile grid, no
+repeated cell, no seams.
+
+Two rules keep that working:
+
+- **The period is a whole number of tiles** (512 = 16 tiles at `T` = 32), so a
+  tile never straddles the texture edge and every draw is a single blit.
+- **Blobs are extracted as connected components, never as rectangles.** A blob
+  is always whole, so there is no cut edge that has to line up at the wrap — it
+  is what makes the seam invisible rather than merely subtle.
+
+Placement is clustered, not uniform: patches of blobs falling off around a
+centre, plus loose grains between them. Uniform scatter looks like even
+speckling, which is the one thing sand never looks like.
+
+`SEED` in the tool is fixed, so a rebuild is byte-identical.
+
+### Terrains
+
+| Name | Tile | Base |
+|---|---|---|
+| `sand` | `TL.SAND` | the pack's own `rgb(210,178,104)` |
+| `dust` | `BL.DUSTFLOOR` | the game's badlands tan `#c8a870` |
+
+`dust` keeps the game's established colour rather than the pack's so the
+badlands does not shift hue, and the blobs are re-tinted by the same delta to
+preserve the contrast the artist drew.
+
+`TC[TL.SAND]` and the minimap colour were moved to the pack's sand so the
+painted fallback, the minimap and the baked texture all agree.
+
+Both call sites keep their painted branch, so a missing texture changes nothing.
+`DHGround.init` also refuses a texture baked for a different tile size rather
+than resampling the pixel art.
+
+### Not done, and why
+
+- **`BL.CRACKED`** — the pack's `sand.png` is not sand at all; it is a set of
+  thin vertical *crack segments* meant to stack into continuous fissures. That
+  is real cracked-earth art and a genuine match for this tile, but scattering it
+  the way the mottling is scattered would give disconnected dashes. It needs a
+  crack-path generator, which is a different job.
+- **`BL.REDROCK`** — no red sandstone terrain in the pack. Stays painted.
+- **Cliff and ledge transitions** — `Ground_grass.png` rows 0–34 are edge pieces
+  for terrain meeting terrain. The game has no terrain-edge concept, so wiring
+  them means adding autotiling first.
+- **`Sand_element1`–`11`** — dune mounds with baked drop shadows. Objects, not
+  ground; they belong in the prop pipeline, not here.
+
 ## Note for the Steam build
 
 Keeping art as loose files (rather than base64 inside the HTML) is what makes an
