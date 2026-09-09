@@ -115,21 +115,40 @@ window.DHArt = (function () {
   // caller tracking anything.
 
   function ensureState(ent) {
-    if (!ent._art) ent._art = { clip: null, dir: 'down', t: 0, frame: 0, done: false };
+    if (!ent._art) ent._art = { clip: null, dir: 'down', t0: performance.now() };
     return ent._art;
   }
 
-  // Pick a clip, resetting the frame counter only when the clip actually changes
-  // so a walk cycle is not restarted every frame.
+  // Pick a clip, restarting the clock only when the clip actually changes so a
+  // walk cycle is not reset every frame.
   function play(ent, clipName, opts) {
     const s = ensureState(ent);
     if (s.clip !== clipName || (opts && opts.restart)) {
       s.clip = clipName;
-      s.t = 0;
-      s.frame = 0;
-      s.done = false;
+      s.t0 = performance.now();
     }
     return s;
+  }
+
+  // Frame index from wall-clock elapsed time since the clip started.
+  //
+  // Deriving the frame from a timestamp rather than accumulating a delta means
+  // callers do not need a dt in scope — which matters because the game's
+  // render() does not have one — and an entity animates at the right rate no
+  // matter how many times per frame it is drawn, or if it is skipped while
+  // offscreen.
+  function frameOf(a, s, clip) {
+    if (!clip || clip.frames <= 1) return 0;
+    const elapsed = (performance.now() - s.t0) / 1000;
+    const i = Math.floor(elapsed * (a.fps || 6.667));
+    if (i < 0) return 0;
+    if (clip.loop === false) return Math.min(i, clip.frames - 1);
+    return i % clip.frames;
+  }
+
+  function resolveClip(a, s) {
+    if (s.clip && a.clips[s.clip]) return s.clip;
+    return a.clips.idle ? 'idle' : Object.keys(a.clips)[0];
   }
 
   // Set facing from a movement vector. Larger axis wins; ties keep the old
@@ -147,27 +166,13 @@ window.DHArt = (function () {
     return s.dir;
   }
 
-  // Advance the clock. Call once per frame per visible entity.
-  function step(ent, dt, actorId) {
-    const s = ensureState(ent);
-    const a = state.actors[actorId];
-    if (!a || !s.clip) return s;
-    const clip = a.clips[s.clip];
-    if (!clip || clip.frames <= 1) return s;
-
-    s.t += dt * (a.fps || 6.667);
-    if (clip.loop === false) {
-      s.frame = Math.min(clip.frames - 1, Math.floor(s.t));
-      if (s.frame >= clip.frames - 1) s.done = true;
-    } else {
-      s.frame = Math.floor(s.t) % clip.frames;
-    }
-    return s;
-  }
-
   // True once a non-looping clip (attack / hurt / death) has reached its end.
-  function finished(ent) {
-    return !!(ent._art && ent._art.done);
+  function finished(ent, actorId) {
+    const a = state.actors[actorId];
+    if (!a || !ent._art) return false;
+    const clip = a.clips[resolveClip(a, ent._art)];
+    if (!clip || clip.loop !== false) return false;
+    return frameOf(a, ent._art, clip) >= clip.frames - 1;
   }
 
   // ── Drawing ─────────────────────────────────────────────────────────────────
@@ -186,22 +191,24 @@ window.DHArt = (function () {
     const a = state.actors[actorId];
     if (!a) return false;
     const s = ensureState(ent);
-    const clipName = (s.clip && a.clips[s.clip]) ? s.clip
-                   : (a.clips.idle ? 'idle' : Object.keys(a.clips)[0]);
+    const clipName = resolveClip(a, s);
     const clip = a.clips[clipName];
     const entry = a.images[clipName];
     if (!clip || !entry || !entry.ok) return false;
 
     const o = opts || {};
-    const cell = a.cell;
+    // Square packs carry `cell`; packs with non-square frames (the townsfolk
+    // sheets are 32x48) carry cellW/cellH instead.
+    const cw = a.cellW || a.cell;
+    const ch = a.cellH || a.cell;
     const anchor = a.anchor;
 
     // Scale so the measured content height matches the requested size.
     const targetH = o.size || 24;
-    const k = targetH / (anchor.h || cell);
+    const k = targetH / (anchor.h || ch);
 
     const row = (clip.rowBase || 0) + (a.dirRows[s.dir] != null ? a.dirRows[s.dir] : 0);
-    const frame = Math.min(s.frame, clip.frames - 1);
+    const frame = frameOf(a, s, clip);
 
     // Where the anchor box sits inside the cell, in destination px
     const anchorCX = (anchor.x + anchor.w / 2) * k;
@@ -209,14 +216,14 @@ window.DHArt = (function () {
 
     const dx = sx - anchorCX;
     const dy = sy + (o.footY || 0) - anchorBottom;
-    const dw = cell * k;
-    const dh = cell * k;
+    const dw = cw * k;
+    const dh = ch * k;
 
     ctx.save();
     if (o.alpha != null) ctx.globalAlpha *= o.alpha;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(entry.img,
-      frame * cell, row * cell, cell, cell,
+      frame * cw, row * ch, cw, ch,
       Math.round(dx), Math.round(dy), Math.ceil(dw), Math.ceil(dh));
 
     // Hit flash — re-draw the frame as a solid silhouette in the flash colour.
@@ -250,7 +257,7 @@ window.DHArt = (function () {
 
   return {
     init, ready, has, list, info, progress,
-    play, face, faceFromVector, step, finished,
+    play, face, faceFromVector, finished,
     drawActor, drawShadow,
     _state: state,
   };

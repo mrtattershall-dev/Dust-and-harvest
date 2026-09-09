@@ -40,6 +40,10 @@ game falls back to the existing hand-drawn art everywhere. Nothing breaks.
      Path shape: `PNG/<Variant>/Without_shadow/<Variant>_<Clip>_without_shadow.png`
    - **`dir4x2`** — one PNG for the whole actor, 8 rows: walk on 0–3, idle on 4–7.
      Path shape: `PNG/Without_shadow/<Name>_without_shadow.png`
+   - **`grid`** — flat folder of `<Name>_<clip>.png`, 4 rows = facings, cells
+     need not be square. Needs `--cell WxH`, because cell size cannot be
+     inferred: a 128×192 sheet is equally consistent with 4×4 cells of 32×48 and
+     4×8 cells of 32×24. `--src-dir` picks the subfolder holding the sheets.
 3. Run the tool with `--dry-run` first:
 
 ```sh
@@ -63,6 +67,7 @@ automatically. Two orders cover everything seen so far:
 |---|---|---|---|---|---|
 | `DULR` | down | up | **left** | **right** | rats, slimes, predator plants |
 | `DURL` | down | up | **right** | **left** | cute farm animals |
+| `DLRU` | down | **left** | **right** | up | Franuka townsfolk |
 
 In the Sprite Lab the four columns are labelled DOWN / UP / LEFT / RIGHT. **If
 the last two columns look mirrored, re-run `prep_assets.py` with the other
@@ -89,13 +94,18 @@ track frame counters.
 if (DHArt.ready('goat')) {
   DHArt.faceFromVector(a, a.vx, a.vy);            // or DHArt.face(a, 'down')
   DHArt.play(a, a.moving ? 'walk' : 'idle');
-  DHArt.step(a, dt, 'goat');
   DHArt.drawShadow(ctx, 'goat', sx, sy + 9, { size: 26 });
   DHArt.drawActor(ctx, 'goat', a, sx, sy + 9, { size: 26 });
 } else {
   // existing hand-drawn code, untouched
 }
 ```
+
+There is no per-frame `step()` call. Frames are derived from wall-clock time
+elapsed since `play()` last changed the clip, which means draw code does not
+need a `dt` in scope — `render()` does not have one — and an actor animates at
+the correct rate whether it is drawn once, drawn twice, or skipped entirely
+while offscreen.
 
 `size` is the drawn height of the sprite's **content**, not the cell, so `size:
 26` means 26px tall on screen whatever the source cell size is.
@@ -110,8 +120,7 @@ if (DHArt.ready('goat')) {
 | `DHArt.play(ent, clip[, {restart}])` | select clip; only resets frame if the clip changed |
 | `DHArt.face(ent, dir)` | set facing to `'down'\|'up'\|'left'\|'right'` |
 | `DHArt.faceFromVector(ent, dx, dy)` | set facing from movement; ties keep current facing |
-| `DHArt.step(ent, dt, id)` | advance the clock, once per frame per visible entity |
-| `DHArt.finished(ent)` | a one-shot clip reached its last frame |
+| `DHArt.finished(ent, id)` | a one-shot clip reached its last frame |
 | `DHArt.drawActor(ctx, id, ent, sx, sy, opts)` | draw. `opts: {size, alpha, flash, footY}` |
 | `DHArt.drawShadow(ctx, id, sx, sy, opts)` | ground ellipse sized from the anchor box |
 
@@ -120,14 +129,23 @@ and hold the last frame, and `finished()` goes true. Everything else loops.
 
 ## Current inventory
 
-20 actors, 80 sheets, 1.4 MB.
+50 actors, 230 sheets. See `docs/ASSET-INVENTORY.md` for the full list and for
+the packs not yet imported.
 
 | Group | Actors |
 |---|---|
-| `enemies` | `rat_grey` `rat_armored` `rat_crimson` (128px) · `slime_blue` `slime_gold` `slime_imp` `slime_bomb` `slime_fire` `slime_void` (64px) · `plant_ember` `plant_azure` `plant_orchid` (64px) |
-| `farm` | `horse` `foal` (64px) · `goat` `goatling` `goose` `gosling` `rabbit` (32px) · `rabbit_cub` (16px) |
+| `enemies` | 33 creatures — rats, 9 slimes, plants, golems, orcs, gnolls, ents, ghosts, skeletons |
+| `farm` | 8 ranch animals |
+| `npcs` | 9 townsfolk (`folk_*`, 32×48 cells) |
 
-Enemies have all six clips. Farm animals have `walk` and `idle` only.
+Creatures have all six clips; orcs also have `run_attack` / `walk_attack`. Farm
+animals and townsfolk have `walk` and `idle` only.
+
+## Credits
+
+Importing a pack means adding its author to **both** `CREDITS.md` and the
+`ART_CREDITS` table in `index.html`. Some packs are CC-BY, where the in-game
+credit is a licence obligation rather than a courtesy.
 
 ## Note for the Steam build
 

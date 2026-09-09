@@ -16,7 +16,7 @@
   'use strict';
 
   let open = false;
-  let canvas = null, c = null, raf = 0, last = 0;
+  let canvas = null, c = null, raf = 0;
   let clipIdx = 0;
   const dummies = {};       // actorId+dir -> entity-like object holding _art
 
@@ -65,7 +65,7 @@
     });
   }
 
-  function draw(dt) {
+  function draw() {
     const ids = DHArt.list().sort();
     const clips = allClips();
     if (!clips.length) return;
@@ -106,7 +106,9 @@
       c.fillText(id, 6, y + CELL / 2);
       c.fillStyle = '#6a5a40';
       c.font = '9px monospace';
-      c.fillText(`${def.cell}px`, 6, y + CELL / 2 + 12);
+      const dims = def.cell ? `${def.cell}px`
+                            : `${def.cellW}x${def.cellH}`;
+      c.fillText(dims, 6, y + CELL / 2 + 12);
 
       // Shared ground line — every actor's feet must land here
       c.strokeStyle = 'rgba(200,60,40,.35)';
@@ -122,9 +124,8 @@
         const ent = dummies[key] || (dummies[key] = {});
         DHArt.play(ent, clipName);
         DHArt.face(ent, dir);
-        DHArt.step(ent, dt, id);
-        // Loop the one-shot clips here so they stay watchable
-        if (DHArt.finished(ent)) { ent._art.t = 0; ent._art.done = false; }
+        // Replay the one-shot clips here so they stay watchable
+        if (DHArt.finished(ent, id)) DHArt.play(ent, clipName, { restart: true });
 
         const cx = labelW + i * CELL + CELL / 2;
         DHArt.drawShadow(c, id, cx, groundY, { size: SPRITE_H });
@@ -133,11 +134,9 @@
     });
   }
 
-  function loop(ts) {
+  function loop() {
     if (!open) return;
-    const dt = Math.min((ts - last) / 1000, 0.05);
-    last = ts;
-    draw(dt);
+    draw();
     raf = requestAnimationFrame(loop);
   }
 
@@ -145,7 +144,7 @@
     const el = document.getElementById('spriteLab') || build();
     open = !open;
     el.style.display = open ? 'block' : 'none';
-    if (open) { last = performance.now(); raf = requestAnimationFrame(loop); }
+    if (open) raf = requestAnimationFrame(loop);
     else cancelAnimationFrame(raf);
   }
 

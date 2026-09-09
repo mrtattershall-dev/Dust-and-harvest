@@ -182,6 +182,285 @@
       "group": "farm",
       "path": "farm/foal"
     },
+    "folk_alchemist": {
+      "anchor": {
+        "h": 42,
+        "w": 32,
+        "x": 0,
+        "y": 6
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_alchemist"
+    },
+    "folk_barmaid": {
+      "anchor": {
+        "h": 38,
+        "w": 24,
+        "x": 4,
+        "y": 10
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_barmaid"
+    },
+    "folk_bartender": {
+      "anchor": {
+        "h": 30,
+        "w": 24,
+        "x": 4,
+        "y": 18
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_bartender"
+    },
+    "folk_blacksmith": {
+      "anchor": {
+        "h": 32,
+        "w": 28,
+        "x": 0,
+        "y": 16
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_blacksmith"
+    },
+    "folk_farmer": {
+      "anchor": {
+        "h": 40,
+        "w": 26,
+        "x": 2,
+        "y": 8
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_farmer"
+    },
+    "folk_fisherman": {
+      "anchor": {
+        "h": 36,
+        "w": 28,
+        "x": 0,
+        "y": 12
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_fisherman"
+    },
+    "folk_kid1": {
+      "anchor": {
+        "h": 28,
+        "w": 24,
+        "x": 4,
+        "y": 20
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_kid1"
+    },
+    "folk_kid2": {
+      "anchor": {
+        "h": 28,
+        "w": 24,
+        "x": 4,
+        "y": 20
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_kid2"
+    },
+    "folk_merchant": {
+      "anchor": {
+        "h": 34,
+        "w": 28,
+        "x": 2,
+        "y": 14
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_merchant"
+    },
     "ghost_revenant": {
       "anchor": {
         "h": 36,

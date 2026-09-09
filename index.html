@@ -174,6 +174,21 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 .title-btn.secondary:hover:not(:disabled){border-color:rgba(135,98,38,.52);color:var(--parchment);}
 .title-btn:disabled{opacity:.22;cursor:not-allowed;}
 .save-info{font-size:.56rem;color:rgba(95,75,36,.55);font-family:var(--font-main);margin-top:4px;letter-spacing:.04em;}
+/* CREDITS */
+#creditsOverlay{position:absolute;inset:0;background:rgba(4,3,1,.94);z-index:90;display:none;align-items:center;justify-content:center;padding:18px 12px;}
+#creditsOverlay.show{display:flex;}
+#creditsBox{width:min(560px,96vw);max-height:min(86vh,720px);background:var(--panel-bg);border:1px solid var(--panel-border-strong);border-top:3px solid var(--tallow);display:flex;flex-direction:column;font-family:var(--font-main);}
+#creditsHead{display:flex;justify-content:space-between;align-items:center;padding:11px 15px;border-bottom:1px solid rgba(150,105,45,.22);color:var(--tallow);font-size:var(--ui-font-size);letter-spacing:.1em;flex-shrink:0;}
+#creditsBody{overflow-y:auto;padding:14px 18px 18px;color:var(--parchment);font-size:var(--ui-font-sm);line-height:1.75;}
+#creditsFoot{padding:8px 15px;border-top:1px solid rgba(150,105,45,.16);color:rgba(155,115,52,.5);font-size:var(--ui-font-xs);letter-spacing:.08em;text-align:center;flex-shrink:0;}
+.cr-sec{margin-bottom:17px;}
+.cr-sec:last-child{margin-bottom:0;}
+.cr-h{color:var(--ember);font-size:var(--ui-font-sm);letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid rgba(150,105,45,.2);padding-bottom:4px;margin-bottom:7px;}
+.cr-who{color:var(--bone);letter-spacing:.04em;}
+.cr-lic{color:var(--tallow);font-size:var(--ui-font-xs);letter-spacing:.05em;}
+.cr-what{color:rgba(200,185,144,.62);font-size:var(--ui-font-xs);line-height:1.6;}
+.cr-link{color:var(--sky);word-break:break-all;font-size:var(--ui-font-xs);}
+.cr-note{color:rgba(200,185,144,.5);font-size:var(--ui-font-xs);line-height:1.6;margin-top:9px;font-style:italic;}
 /* SAVE NOTIF */
 #saveNotif{position:absolute;bottom:86px;left:50%;transform:translateX(-50%);background:rgba(8,6,3,.96);border:1px solid rgba(72,102,44,.43);border-left:2px solid var(--sage);border-radius:0;padding:4px 14px;font-size:9px;color:#88b250;pointer-events:none;opacity:0;transition:opacity .3s;z-index:20;white-space:nowrap;letter-spacing:.05em;}
 #saveNotif.show{opacity:1;}
@@ -371,6 +386,20 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
   <button class="title-btn primary" onclick="openSaveSlotModal('new')">⟶ NEW GAME</button>
   <button class="title-btn primary" onclick="openSaveSlotModal('load')">⟳ CONTINUE</button>
   <button class="title-btn secondary" onclick="openSettings()">⚙ SETTINGS</button>
+  <button class="title-btn secondary" onclick="openCredits()">⚖ CREDITS</button>
+</div>
+
+<!-- Credits — attribution for third-party art. Several packs are CC-BY, which
+     requires this to be visible in the shipped game, so it is not optional. -->
+<div id="creditsOverlay">
+  <div id="creditsBox">
+    <div id="creditsHead">
+      <span>⚖ CREDITS &amp; ATTRIBUTION</span>
+      <button class="panel-close" onclick="closeCredits()">✕ CLOSE</button>
+    </div>
+    <div id="creditsBody"></div>
+    <div id="creditsFoot">Press [ESC] to close</div>
+  </div>
 </div>
 
 <!-- Save Slot Modal -->
@@ -7050,6 +7079,9 @@ window.addEventListener('keydown', e => {
   if (e.code==='Escape') {
     e.preventDefault();
     cancelAction(''); // cancel any pending timed action
+    // Credits sits above the title screen, so it must close before the
+    // title-screen pause check below runs.
+    if (creditsOpen)  { closeCredits();  return; }
     if (ranchPlacementMode) { ranchPlacementMode = false; if(_rHoldTimer){clearTimeout(_rHoldTimer);_rHoldTimer=null;} showMsg('Ranch placement cancelled.'); return; }
     if (merchantShopOpen) { closeMerchantShop(); return; }
     if (daySummaryOpen) { closeDaySummary(); return; }
@@ -10130,6 +10162,27 @@ const npcs = [
   },
 ];
 
+// Which sprite actor stands in for each hand-drawn character. Anything not
+// listed here — or listed but not yet loaded — keeps its painted art, so this
+// table can be filled in one character at a time.
+const NPC_SPRITES = {
+  'Maya (Market)': 'folk_barmaid',
+  'Trader Rex':    'folk_merchant',
+  'Farm Hand':     'folk_farmer',
+};
+// Sprite NPCs are drawn to this content height, matching the painted NPCs they
+// replace (feet on the shadow at sy+9, head around sy-23).
+const NPC_SPRITE_H = 32;
+
+// Turn a standing NPC to face the player once they are close enough to talk,
+// which is the only time anyone looks at them straight on.
+function npcSpriteFacing(npc) {
+  const dx = player.x - npc.x, dy = player.y - npc.y;
+  if (Math.hypot(dx, dy) > 96) return 'down';
+  return Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right')
+                                     : (dy < 0 ? 'up' : 'down');
+}
+
 function drawNPC(npc) {
   const sx=npc.x-gameState.camera.x, sy=npc.y-gameState.camera.y;
   if(sx<-T*3||sx>canvas.width+T*3||sy<-T*3||sy>canvas.height+T*3) return;
@@ -10140,7 +10193,19 @@ function drawNPC(npc) {
   ctx.beginPath(); ctx.ellipse(sx,sy+8,7,3,0,0,Math.PI*2); ctx.fill();
   ctx.globalAlpha=1;
 
-  if(npc.name==='Maya (Market)') {
+  // Sprite art when the pack for this character has loaded; otherwise fall
+  // through to the painted version below.
+  const _spriteId = NPC_SPRITES[npc.name];
+  let _drewSprite = false;
+  if (_spriteId && DHArt.ready(_spriteId)) {
+    DHArt.play(npc, 'idle');
+    DHArt.face(npc, npcSpriteFacing(npc));
+    _drewSprite = DHArt.drawActor(ctx, _spriteId, npc, sx, sy + bob,
+                                  { size: NPC_SPRITE_H, footY: 9 });
+  }
+
+  if(_drewSprite) { /* drawn above — skip the painted body */ }
+  else if(npc.name==='Maya (Market)') {
     // Maya — market keeper. Practical apron, bandana, sleeves rolled.
     // Boots
     ctx.fillStyle='#3a2210'; ctx.fillRect(sx-5,sy+4+bob,4,5); ctx.fillRect(sx+1,sy+4+bob,4,5);
@@ -33895,6 +33960,90 @@ window._drawJGNPC = function _drawJGNPC(npc, sx, sy, ctx) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // § INIT — showTitleScreen, INTRO_BEATS[], character customization, gameStart
+// ─────────────────────────────────────
+//  CREDITS
+//  Third-party art attribution. Several of these packs are CC-BY licensed,
+//  which requires the credit to be visible in the shipped game — so this
+//  screen is a release requirement, not a nicety.
+//
+//  Each entry lists the sprite groups it covers. The counts shown are read
+//  from the live sprite manifest rather than hardcoded, so importing more art
+//  cannot silently leave this screen out of date.
+// ─────────────────────────────────────
+const ART_CREDITS = [
+  {
+    who: 'Franuka',
+    licence: 'Creative Commons BY 4.0',
+    what: 'Medieval townsfolk character sprites — the market keeper, trader, '
+        + 'farm hand and other townspeople.',
+    prefixes: ['folk_'],
+    links: ['https://franuka.itch.io', 'https://creativecommons.org/licenses/by/4.0/'],
+  },
+  {
+    who: 'CraftPix.net',
+    licence: 'CraftPix file licence',
+    what: 'Creature and animal sprites — rats, slimes, predator plants, golems, '
+        + 'orcs, gnolls, ents, ghosts, skeletons, and the ranch animals.',
+    prefixes: ['rat_', 'slime_', 'plant_', 'golem_', 'orc_', 'gnoll_', 'ent_',
+               'ghost_', 'skeleton_', 'horse', 'foal', 'goat', 'goose',
+               'gosling', 'rabbit'],
+    links: ['https://craftpix.net', 'https://craftpix.net/file-licenses/'],
+  },
+];
+
+let creditsOpen = false;
+
+function _countCreditedActors(prefixes) {
+  if (typeof DHArt === 'undefined' || DHArt.progress().status !== 'ready') return 0;
+  return DHArt.list().filter(id => prefixes.some(p => id.startsWith(p))).length;
+}
+
+function renderCredits() {
+  const body = document.getElementById('creditsBody');
+  if (!body) return;
+  let html = '';
+
+  html += '<div class="cr-sec"><div class="cr-h">The Game</div>'
+        + '<div class="cr-who">DUST &amp; HARVEST</div>'
+        + '<div class="cr-what">Design, code and original pixel art.</div></div>';
+
+  html += '<div class="cr-sec"><div class="cr-h">Sprite Art</div>';
+  for (const c of ART_CREDITS) {
+    const n = _countCreditedActors(c.prefixes);
+    html += '<div style="margin-bottom:11px">'
+          + `<div class="cr-who">${c.who}`
+          + (n ? ` <span class="cr-lic">— ${n} character${n === 1 ? '' : 's'}</span>` : '')
+          + '</div>'
+          + `<div class="cr-lic">${c.licence}</div>`
+          + `<div class="cr-what">${c.what}</div>`
+          + c.links.map(l => `<div class="cr-link">${l}</div>`).join('')
+          + '</div>';
+  }
+  html += '</div>';
+
+  html += '<div class="cr-sec"><div class="cr-h">Fonts</div>'
+        + '<div class="cr-who">Special Elite · Rye</div>'
+        + '<div class="cr-what">Google Fonts, SIL Open Font License.</div>'
+        + '<div class="cr-link">https://fonts.google.com</div></div>';
+
+  html += '<div class="cr-note">Art assets are used under their respective '
+        + 'licences and remain the property of their creators. They are not '
+        + 'redistributed for reuse.</div>';
+
+  body.innerHTML = html;
+}
+
+function openCredits() {
+  creditsOpen = true;
+  renderCredits();
+  document.getElementById('creditsOverlay').classList.add('show');
+}
+
+function closeCredits() {
+  creditsOpen = false;
+  document.getElementById('creditsOverlay').classList.remove('show');
+}
+
 function showTitleScreen() {
   document.getElementById('titleScreen').classList.add('show');
 }

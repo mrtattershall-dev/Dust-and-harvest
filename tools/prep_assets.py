@@ -12,6 +12,9 @@ Layouts
            packs: PNG/<Variant>/Without_shadow/<Variant>_<Clip>_without_shadow.png
   dir4x2   One PNG for the whole actor. 8 rows = walk on rows 0-3, idle on rows
            4-7. Used by the farm animal pack: PNG/Without_shadow/<Name>_without_shadow.png
+  grid     Flat folder of <Name>_<clip>.png with non-square cells, 4 rows =
+           facings. Used by the Franuka townsfolk pack (32x48 cells in 2x/).
+           Requires --cell WxH since cell size cannot be inferred.
 
 Row order differs between packs and is NOT guessable, so it is passed in:
   --rows DULR   row0=down row1=up row2=left  row3=right   (rat / slime / plant)
@@ -86,16 +89,19 @@ def unzip_if_needed(src: Path, workdir: Path) -> Path:
     return dest
 
 
-def content_box(im: Image.Image, cell: int, row: int, frames: int):
+def content_box(im: Image.Image, cell: int, row: int, frames: int, cell_h=None):
     """Union bounding box of every frame in one row, in cell-local coords.
 
     Used for anchoring: the engine centres on box mid-x and stands the actor on
     box bottom, so sprites with wildly different cell padding all line up on the
     same ground line without per-actor hand tuning.
+
+    `cell` is the cell width; `cell_h` defaults to it for the square packs.
     """
+    ch = cell_h or cell
     box = None
     for f in range(frames):
-        cell_img = im.crop((f * cell, row * cell, (f + 1) * cell, (row + 1) * cell))
+        cell_img = im.crop((f * cell, row * ch, (f + 1) * cell, (row + 1) * ch))
         bb = cell_img.getbbox()
         if bb is None:
             continue
@@ -104,7 +110,7 @@ def content_box(im: Image.Image, cell: int, row: int, frames: int):
             max(box[2], bb[2]), max(box[3], bb[3]),
         )
     if box is None:
-        return {"x": 0, "y": 0, "w": cell, "h": cell}
+        return {"x": 0, "y": 0, "w": cell, "h": ch}
     return {"x": box[0], "y": box[1], "w": box[2] - box[0], "h": box[3] - box[1]}
 
 
@@ -275,11 +281,89 @@ def collect_dir4x2(pack: Path, name_map, rows, group, fps, dry):
     return actors
 
 
+def collect_grid(pack: Path, name_map, rows, group, fps, dry,
+                 cell_w, cell_h, src_dir, clip_alias=None):
+    """Flat folder of <Name>_<clip>.png, each a grid of non-square cells.
+
+    Cell size cannot be derived here: a 128x192 sheet is equally consistent with
+    4x4 cells of 32x48 and 4x8 cells of 32x24, so --cell is required.
+    """
+    clip_alias = clip_alias or {}
+    actors = {}
+    sheet_dir = pack / src_dir if src_dir else pack
+    if not sheet_dir.is_dir():
+        sys.exit(f"No such folder: {sheet_dir}")
+
+    # Group the flat file list by character name
+    by_name = {}
+    for png in sorted(sheet_dir.glob("*.png")):
+        m = re.match(r"(.+?)_([A-Za-z0-9]+)\.png$", png.name)
+        if not m:
+            log(f"  ?? {png.name}: not <Name>_<clip>.png — SKIPPED")
+            continue
+        by_name.setdefault(m.group(1), []).append((m.group(2).lower(), png))
+
+    for src_name, entries in sorted(by_name.items()):
+        actor_id = name_map.get(src_name, slug(src_name))
+        if name_map and src_name not in name_map:
+            log(f"  skip {src_name} (not in --map)")
+            continue
+
+        clips, anchor = {}, None
+        for clip, png in sorted(entries):
+            clip = clip_alias.get(clip, clip)
+            im = Image.open(png).convert("RGBA")
+            w, h = im.size
+            if w % cell_w or h % cell_h:
+                log(f"  !! {png.name}: {w}x{h} is not a multiple of "
+                    f"{cell_w}x{cell_h}, skipping")
+                continue
+            n_rows, frames = h // cell_h, w // cell_w
+            if n_rows < 4:
+                log(f"  !! {png.name}: only {n_rows} rows, need 4 facings, skipping")
+                continue
+            clips[clip] = {
+                "file": f"{clip}.png",
+                "frames": frames,
+                "loop": not is_oneshot(clip),
+            }
+            if clip in ("idle", "walk") and anchor is None:
+                anchor = content_box(im, cell_w, rows["down"], frames, cell_h)
+            if not dry:
+                out_dir = SPRITES / group / actor_id
+                out_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(png, out_dir / f"{clip}.png")
+
+        if not clips:
+            log(f"  skip {src_name}: no usable sheets")
+            continue
+
+        actors[actor_id] = {
+            "group": group,
+            "path": f"{group}/{actor_id}",
+            "cellW": cell_w,
+            "cellH": cell_h,
+            "fps": fps,
+            "dirRows": rows,
+            "clips": clips,
+            "anchor": anchor or {"x": 0, "y": 0, "w": cell_w, "h": cell_h},
+        }
+        log(f"  + {actor_id:14s} {cell_w}x{cell_h}  clips={','.join(sorted(clips))}")
+    return actors
+
+
+def parse_cell(s):
+    m = re.fullmatch(r"(\d+)x(\d+)", s.strip())
+    if not m:
+        sys.exit(f"--cell wants WxH, e.g. 32x48 — got: {s}")
+    return int(m.group(1)), int(m.group(2))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("pack", type=Path, help="pack folder or .zip")
-    ap.add_argument("--layout", required=True, choices=["dir4", "dir4x2"])
+    ap.add_argument("--layout", required=True, choices=["dir4", "dir4x2", "grid"])
     ap.add_argument("--group", required=True,
                     help="output bucket, e.g. enemies / farm / npcs")
     ap.add_argument("--rows", default="DULR", choices=sorted(ROW_ORDERS),
@@ -290,6 +374,11 @@ def main():
                     help="OLD=NEW,OLD=NEW — rename clips after normalizing, to "
                          "reconcile packs that name the same animation "
                          "inconsistently between variants")
+    ap.add_argument("--cell", default="",
+                    help="grid layout only: cell size as WxH, e.g. 32x48")
+    ap.add_argument("--src-dir", default="",
+                    help="grid layout only: subfolder inside the pack holding "
+                         "the sheets, e.g. 2x")
     ap.add_argument("--fps", type=float, default=DEFAULT_FPS)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
@@ -306,6 +395,13 @@ def main():
     if args.layout == "dir4":
         actors = collect_dir4(pack, name_map, rows, args.group, args.fps,
                               args.dry_run, parse_map(args.clip_alias))
+    elif args.layout == "grid":
+        if not args.cell:
+            sys.exit("--layout grid requires --cell WxH")
+        cw, ch = parse_cell(args.cell)
+        actors = collect_grid(pack, name_map, rows, args.group, args.fps,
+                              args.dry_run, cw, ch, args.src_dir,
+                              parse_map(args.clip_alias))
     else:
         actors = collect_dir4x2(pack, name_map, rows, args.group, args.fps, args.dry_run)
 
