@@ -583,6 +583,56 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 .cc-opt-btn:hover,.cc-opt-btn.sel{background:rgba(155,105,36,.15);border-color:rgba(180,130,50,.6);color:var(--bone);}
 .cc-swatch{width:clamp(32px,8vw,36px);height:clamp(32px,8vw,36px);border:2px solid transparent;border-radius:2px;cursor:pointer;transition:all .1s;touch-action:manipulation;}
 .cc-swatch:hover,.cc-swatch.sel{border-color:#e8c860;transform:scale(1.15);}
+/* ── Narrow screens ──────────────────────────────────────────────────────────
+   The HUD is a single nowrap row of eight chips that measures ~830px. It was
+   built to scroll sideways (#topBar has overflow-x:auto), but #hud sets
+   pointer-events:none, so it cannot be scrolled — the clock, gold, debt and
+   zone simply sat off the right edge, unreachable. A player could not see the
+   time or how much they owed, which is the whole loop of the game.
+
+   The breakpoint is 900px, not a phone width: a landscape phone is ~750px and
+   lost the debt and zone chips exactly the same way. */
+@media (max-width: 900px) {
+  #hud { padding: 5px 6px; padding-right: 74px; }
+  #topBar { flex-wrap: wrap; overflow-x: visible; gap: 4px; }
+  .stat-pill { padding: 3px 7px; gap: 4px; border-left-width: 2px; }
+  .slabel { font-size: 8px; letter-spacing: .02em; }
+  .bar-bg { width: 34px; }
+  #timeDisp, #goldDisp, #debtDisp, #zoneDisp { padding: 3px 7px; }
+  /* The multiplayer button is pinned to the top-right corner, which is where
+     the HUD now wraps to; the padding above reserves its width. */
+  #dhMpBtn { padding: 3px 7px; font-size: 9px; }
+  /* Both of these sat under the wrapped HUD at top:50px. */
+  #debtClock { top: 150px; }
+  #msgBanner { top: 84px; max-width: calc(100vw - 24px); }
+}
+
+/* ── Touch control layout ────────────────────────────────────────────────────
+   The control layer is a fixed 220px along the bottom. Panels and prompts
+   positioned for a desktop window print straight through it. */
+@media (max-width: 560px) {
+  /* The farm panel is a fixed 208px — 16% of a desktop screen but over half of
+     a phone — and it ran down over the d-pad and the ACT/TAB buttons. Anchoring
+     top and bottom (with the overflow-y:auto it already has) keeps it scrolling
+     inside a box that stops short of the touch controls. */
+  #farmPanel { top: 44px; bottom: 232px; max-height: none; width: 176px; right: 6px; }
+  /* Sat at bottom:160px, which is inside the control area — it printed across
+     the d-pad. */
+  #interactPrompt { bottom: 236px; }
+}
+
+/* ── Short viewports: a phone held sideways ──────────────────────────────────
+   220px of controls on a 342px-tall screen is 64% of it, leaving a slot of game
+   too small to play in. Scaling the layer keeps every button in proportion and
+   in place — transforms carry hit-testing with them — without re-tuning eight
+   absolute offsets. */
+@media (max-height: 520px) {
+  #mobileControls { transform: scale(.7); transform-origin: bottom center; }
+  #farmPanel { top: 40px; bottom: 168px; max-height: none; width: 176px; right: 6px; }
+  #interactPrompt { bottom: 172px; }
+  #debtClock { top: 92px; }
+  #msgBanner { top: 62px; }
+}
 @media (max-width: 480px) {
   /* Difficulty modal */
   .dcb-desc { font-size: 9px; }
@@ -880,6 +930,30 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 <div id="daySummary"><h3>☀ DAWN REPORT</h3><div id="daySummaryBody"></div><button id="daySummaryClose" onclick="closeDaySummary()">CONTINUE →</button></div>
 <div id="staminaFlash"></div>
 <div id="interactPrompt"></div>
+<script>
+// The interact prompt is rebuilt every frame by a dozen call sites, all of them
+// spelling out a keyboard key ("Press E — Farm Chest"). On a touch device that
+// key does not exist and the button is labelled ACT, so rewrite the rendered
+// text in one place rather than at every site that composes it.
+(function () {
+  if (!('ontouchstart' in window) && !navigator.maxTouchPoints) return;
+  const el = document.getElementById('interactPrompt');
+  if (!el) return;
+  let patching = false;
+  const fix = () => {
+    if (patching) return;
+    const before = el.innerHTML;
+    const after = before
+      .replace(/Press\s*\[\s*E\s*\]/gi, 'Tap ACT')
+      .replace(/Press\s*(<b[^>]*>)\s*E\s*(<\/b>)/gi, 'Tap $1ACT$2')
+      .replace(/Press\s+E\b/g, 'Tap ACT');
+    if (after !== before) { patching = true; el.innerHTML = after; patching = false; }
+  };
+  new MutationObserver(fix).observe(el,
+    { childList: true, subtree: true, characterData: true });
+  fix();
+})();
+</script>
 
 <!-- Action / Gather Progress Bar -->
 <div id="actionProgress">
