@@ -42,6 +42,34 @@ bottleneck.
 
 ---
 
+## Enemies — assessed and rejected
+
+The 33 hostile actors above are imported and animating, but **none of them are
+wired into combat**, and that is deliberate.
+
+The game's roster is western: bandits, wolves, rattlesnakes, vultures,
+scorpions, jaguars, spiders, a pirate skiff. The imported roster is generic
+fantasy: slimes, orcs, skeletons, golems, ents, ghosts, gnolls. **There is no
+human enemy sprite in any pack delivered so far**, which rules out bandits,
+raiders, outlaws and desperados — the enemies the player meets most.
+
+Mapping honestly, only two survive:
+
+| Game enemy | Sprite | Why it works |
+|---|---|---|
+| `jungleBoar` | `pig` | Four-legged, right silhouette, right size |
+| `dustDevil` | `ghost_wisp` | Formless drifting hazard either way |
+
+Two swaps is not worth a pipeline, and the rest would be worse than the painted
+art: an orc in the badlands reads as a different game. The honest fix is a
+western enemy pack (humans with hats and rifles, desert wildlife), not more
+fantasy monsters.
+
+The sprites stay imported. If the game ever grows a cave, ruin or haunted zone,
+the golems, skeletons and ghosts are already in the manifest and animating.
+
+---
+
 ## Townsfolk — imported and partly wired in
 
 Maya, Trader Rex and the Farm Hand render as sprites (`NPC_SPRITES`), as do all
@@ -136,11 +164,17 @@ pig sprites are in use. Its buildings, barn interior and plant tiles are not.
 | `hpmanastamina…` | `Bars.png` 368×976, plus icons | Drop-in for the HP/stamina/hunger bars |
 | `rpguielements` | **PSD only, zero PNGs** | Unusable as delivered — needs export from Photoshop/GIMP first |
 
-The icon packs matter because the game currently renders **every inventory item
-as an emoji** (`🥕` `⛏` `🐟`). Emoji render differently per OS and look wrong
-next to pixel art — swapping them for real icons is a large perceived-quality
-jump for comparatively little code, since it touches item rendering in one or
-two places rather than the map.
+The icon packs mattered because the game used to render **every inventory item
+as an emoji** (`🥕` `⛏` `🐟`), which renders differently per OS and looks wrong
+next to pixel art. **Done:** `tools/icon-map.json` maps all 114 items onto 96
+unique icons, packed by `tools/build_icons.py` into a 19 KB atlas and drawn by
+`assets/js/icons.js` through `itemIcon()` — inventory grid, seed pouch, chest,
+hotbar, tooltips and the nine market/shop rows. Items with no mapped icon fall
+back to their emoji, so nothing goes blank.
+
+The Minecraft expansion inside `Fantasy_RPG_icon_pack_by_Franuka` is
+**deliberately excluded** from the atlas: those icons copy a trademarked game's
+item designs, which is not a risk worth taking on a paid Steam release.
 
 ---
 
@@ -159,7 +193,7 @@ two places rather than the map.
 |---|---|
 | `pixelartmarketsquare…` | **Citizens imported** (5 actors). Its stall traders, lute player and flutist are single-row strips — one facing only, so they need a `strip` layout. `Objects.png` is market decor for the object pipeline. |
 | `topdownvillagefarmanimals…` | **Not imported.** Buffalo, Buffalo_cub, Cat, Colt, Dog, Donkey, Drake, Duck, Duckling. **No sheep.** None map to an existing ranch species, so using these means *adding new livestock or pets* — a game-design change, not an art swap. |
-| `freepixelartplantsforfarm` | **Not imported.** `Plants.png` is a crop growth-stage sheet: 4 stages per crop, ~10 crops, at native 32px, with each crop drawn twice (on tilled soil and on grass). Would replace `drawCrop`. |
+| `freepixelartplantsforfarm` | **Assessed and rejected.** `Plants.png` is a crop growth-stage sheet: 4 stages per crop, ~10 crops, at native 32px, each crop drawn twice (tilled soil and grass). The pack grows grapes, beans, chili, cauliflower, squash, pumpkin, pineapple, wheat and sunflower; the game grows 19 crops, and only **pumpkin, pepper and dustwheat** match cleanly. Six sprite crops beside thirteen painted ones would look worse than thirteen painted ones, so `drawCrop` stays as it is until a pack covers the roster. |
 | `freebasicpixelartuiforrpg` | **Not imported.** Buttons, panels, inventory frames, icons, numbers. Small and directly usable for the HUD. |
 
 ---
@@ -168,8 +202,8 @@ two places rather than the map.
 
 | Pack | Assessment |
 |---|---|
-| `deserttileset…` | **Strongest match in the whole library.** Native 32px sand, rock, cacti, skulls, bones, ruins, pyramids, dead trees — the exact palette of a dusty frontier and the Badlands. Crucially it ships ~250 **individually named** object PNGs in `Objects_separately/` (`Cactus3_sand_shadow1.png`, `Bones_sand_shadow2.png`, `Ruins1.png`), which sidesteps the atlas-region problem that makes the other object packs expensive. |
-| `freebase4direction{male,female}…` | **Naked mannequins.** Bald, unclothed base bodies, 13×22px of content in a 64px cell. They are layering bases for a developer to draw clothing and hair over — not usable characters. Full `dir4` clip sets (idle/walk/run/attack/hurt/death, plus Sword variants). |
+| `deserttileset…` | **Strongest match in the whole library — scatter props now imported.** Native 32px sand, rock, cacti, skulls, bones, ruins, pyramids, dead trees. It ships ~250 **individually named** object PNGs in `Objects_separately/`, which sidesteps the atlas-region problem that makes the other object packs expensive. 50 of its 32×32 objects are live (`tools/prop-map.json` → `assets/props/`), backing `TL.ROCK`, `TL.BUSH`, `BL.SKULL_ROCK`, `BL.TUMBLEWEED` and `BL.BL_BONE`. **Still pending:** the 64×64 and 128×128 pieces (large trees, mesas, pyramids, ruins), which need multi-tile handling, and the ground tilesheets. |
+| `freebase4direction{male,female}…` | **Naked mannequins — now the player base.** Bald, unclothed bodies, 13×22px of content in a 64px cell, with full `dir4` clip sets (idle/walk/run/attack/hurt/death, plus Sword variants). Unusable as characters on their own, which turned out to suit the customization system: `tools/build_player.py` splits each frame into skin / torso / legs / head / detail masks and `assets/js/player-sprite.js` tints and composites them per save, so hair, shirt, trousers and hat all still come from the creation screen. |
 | `fantasyrpghunterslodge…` | Lodge building interior/exterior plus a hunter NPC with several activity animations (tanning, leaving with knife) and a dog. Object-pipeline shaped. |
 | `fishingandgatheringicons` | 14 sheets, `Fish1`–`Fish10` plus gathering icons, 32px tall strips. Maps directly onto the game's fish items. |
 | `armorandweaponsicons` | `Armor.png` `Weapons.png` `Furniture.png` `Icons.png` — uniform icon grids. |
@@ -186,15 +220,29 @@ is ~1,200 lines driving a customization system (gender, skin tone, hair style
 and colour, shirt style and colour, trousers, hat) with its own creation UI and
 save fields. Any fixed sprite replaces that system rather than re-skinning it.
 
-Three ways forward, in increasing cost:
+Three ways forward were considered, in increasing cost:
 1. **Use a citizen sprite as the player.** Immediate, in the liked style, but
    character customization goes away — the creation screen would need removing
    or reducing to a name field.
 2. **Keep customization, restyle by hand.** Redraw `drawCharacter`'s output to
    match the citizens' proportions. No new art needed; keeps the feature.
-3. **Layer the base body.** Use the base mannequin plus new clothing and hair
-   art drawn per facing and per frame. Preserves customization in the new
-   style, but the clothing art does not exist in any delivered pack.
+3. **Layer the base body.** Use the base mannequin plus clothing and hair drawn
+   per facing and per frame. Preserves customization in the new style, but the
+   clothing art does not exist in any delivered pack.
+
+**Option 3 was taken, with the clothing generated rather than drawn.**
+`tools/build_player.py` reads each base frame and emits region masks — skin,
+torso, legs, head, detail — encoded as shade levels 0–5 in the red channel,
+plus per-frame head boxes. `assets/js/player-sprite.js` expands a 3-stop palette
+ramp to 6 stops per save field and composites the layers, cutting hair from the
+head silhouette and placing hats from the measured head box. Shirt styles
+(suspenders / full / vest / rolled / jacket, and the female set) are pixel rules
+over the torso mask, not separate art.
+
+`drawCharacter` is wrapped rather than replaced: one seam covers both the
+in-world player and the creation-screen preview, and it falls through to the
+painted character when the sheets are missing or `settings.spriteChar` is off.
+Every creation-screen field still does what it did.
 
 ---
 
