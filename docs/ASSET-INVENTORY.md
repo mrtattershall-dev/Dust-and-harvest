@@ -1,6 +1,6 @@
 # Asset inventory
 
-47 unique packs (49 delivered, 2 exact duplicates). Status of each, and what
+53 unique packs (56 delivered, 3 exact duplicates). Status of each, and what
 each category still needs before it can reach the game.
 
 Source zips are **not** in this repo — only the normalized output under
@@ -154,6 +154,40 @@ two places rather than the map.
 | `topdownvillagefarmanimals…` | **Not imported.** Buffalo, Buffalo_cub, Cat, Colt, Dog, Donkey, Drake, Duck, Duckling. **No sheep.** None map to an existing ranch species, so using these means *adding new livestock or pets* — a game-design change, not an art swap. |
 | `freepixelartplantsforfarm` | **Not imported.** `Plants.png` is a crop growth-stage sheet: 4 stages per crop, ~10 crops, at native 32px, with each crop drawn twice (on tilled soil and on grass). Would replace `drawCrop`. |
 | `freebasicpixelartuiforrpg` | **Not imported.** Buttons, panels, inventory frames, icons, numbers. Small and directly usable for the HUD. |
+
+---
+
+## Latest delivery — 7 packs
+
+| Pack | Assessment |
+|---|---|
+| `deserttileset…` | **Strongest match in the whole library.** Native 32px sand, rock, cacti, skulls, bones, ruins, pyramids, dead trees — the exact palette of a dusty frontier and the Badlands. Crucially it ships ~250 **individually named** object PNGs in `Objects_separately/` (`Cactus3_sand_shadow1.png`, `Bones_sand_shadow2.png`, `Ruins1.png`), which sidesteps the atlas-region problem that makes the other object packs expensive. |
+| `freebase4direction{male,female}…` | **Naked mannequins.** Bald, unclothed base bodies, 13×22px of content in a 64px cell. They are layering bases for a developer to draw clothing and hair over — not usable characters. Full `dir4` clip sets (idle/walk/run/attack/hurt/death, plus Sword variants). |
+| `fantasyrpghunterslodge…` | Lodge building interior/exterior plus a hunter NPC with several activity animations (tanning, leaving with knife) and a dog. Object-pipeline shaped. |
+| `fishingandgatheringicons` | 14 sheets, `Fish1`–`Fish10` plus gathering icons, 32px tall strips. Maps directly onto the game's fish items. |
+| `armorandweaponsicons` | `Armor.png` `Weapons.png` `Furniture.png` `Icons.png` — uniform icon grids. |
+| `freebasicpixelartuiforrpg` | **Duplicate** of the copy delivered earlier. |
+
+### On the player character
+
+The art style called out as preferred is CraftPix's market-square/base-character
+family — the same family as the imported `citizen1`–`citizen5`.
+
+Putting the **player** in that style is not a drop-in. The base packs have no
+clothes or hair, and the game's player is not a fixed sprite: `drawCharacter`
+is ~1,200 lines driving a customization system (gender, skin tone, hair style
+and colour, shirt style and colour, trousers, hat) with its own creation UI and
+save fields. Any fixed sprite replaces that system rather than re-skinning it.
+
+Three ways forward, in increasing cost:
+1. **Use a citizen sprite as the player.** Immediate, in the liked style, but
+   character customization goes away — the creation screen would need removing
+   or reducing to a name field.
+2. **Keep customization, restyle by hand.** Redraw `drawCharacter`'s output to
+   match the citizens' proportions. No new art needed; keeps the feature.
+3. **Layer the base body.** Use the base mannequin plus new clothing and hair
+   art drawn per facing and per frame. Preserves customization in the new
+   style, but the clothing art does not exist in any delivered pack.
 
 ---
 
