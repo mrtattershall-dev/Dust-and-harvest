@@ -2,9 +2,11 @@
  "period": 512,
  "terrains": {
   "dust": {
+   "base": "#d89b62",
    "oy": 0
   },
   "sand": {
+   "base": "#d2b268",
    "oy": 512
   }
  },

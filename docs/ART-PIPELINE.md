@@ -398,17 +398,29 @@ speckling, which is the one thing sand never looks like.
 
 ### Terrains
 
-| Name | Tile | Base |
-|---|---|---|
-| `sand` | `TL.SAND` | the pack's own `rgb(210,178,104)` |
-| `dust` | `BL.DUSTFLOOR` | the game's badlands tan `#c8a870` |
+Both are the same sand. The badlands is the same grains under a redder sun, so
+it is a **hue rotation** of the pack's colour rather than a second palette —
+base and mottling rotate together, which keeps the contrast the artist drew
+instead of flattening it.
 
-`dust` keeps the game's established colour rather than the pack's so the
-badlands does not shift hue, and the blobs are re-tinted by the same delta to
-preserve the contrast the artist drew.
+| Name | Tile | Hue | Sat | Base |
+|---|---|---|---|---|
+| `sand` | `TL.SAND` | — | — | `#d2b268` — the pack's own sand |
+| `dust` | `BL.DUSTFLOOR` | −13° | ×1.12 | `#d89b62` — orange-shifted |
 
-`TC[TL.SAND]` and the minimap colour were moved to the pack's sand so the
-painted fallback, the minimap and the baked texture all agree.
+−13° was picked against the badlands' own red rock, not in isolation. −6° is
+not distinguishable from tan; from −20° the sand turns salmon and starts
+competing with `BL.REDROCK` and `BL.MESA` instead of sitting under them. To
+retune, change `hue`/`sat` in `TERRAINS` and rebuild — nothing else needs to
+move.
+
+Each terrain's baked base colour is written into `ground.json`, so the value
+the game needs is never guessed from the tool source.
+
+The game's own colour tables were moved to match the baked textures, so the
+painted fallback, the minimap and the texture all agree: `TC[TL.SAND]`, and for
+the badlands `BL_TC[BL.DUSTFLOOR]`, the minimap entry, the minimap RGB triple
+and the `_blBase()` depth fallback.
 
 Both call sites keep their painted branch, so a missing texture changes nothing.
 `DHGround.init` also refuses a texture baked for a different tile size rather

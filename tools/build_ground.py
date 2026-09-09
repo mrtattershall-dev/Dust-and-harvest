@@ -25,6 +25,7 @@ Usage:
   ./tools/build_ground.py /path/to/deserttilesettopdownpixelart
 """
 
+import colorsys
 import json
 import random
 import sys
@@ -48,18 +49,20 @@ TONE_DARK = (174, 138, 90)
 TONE_SOFT = (194, 160, 98)
 PACK_SAND = (210, 178, 104)   # the pack's own flat ground colour
 
-# base     — the flat colour under everything
+# hue      — degrees to rotate the pack's sand by; negative goes toward orange
+# sat      — saturation multiplier
 # clusters — patches of mottling; sand clumps, it does not speckle evenly
 # per      — blobs dropped around each cluster centre
 # spread   — how far from the centre they land, in pixels
 # loose    — extra blobs strewn uniformly, to keep the gaps from reading as bald
 #
-# DUSTFLOOR keeps the game's established badlands colour rather than the pack's,
-# so the badlands does not shift hue; the blobs are re-tinted by the same delta
-# to preserve the contrast the artist drew.
+# Both terrains are the same sand. The badlands is the same grains under a
+# redder sun, so it is a hue rotation of the pack's colour rather than a
+# separate palette — base and mottling rotate together, which keeps the
+# contrast the artist drew instead of flattening it.
 TERRAINS = {
-    "sand": {"base": PACK_SAND,       "clusters": 26, "per": 14, "spread": 34, "loose": 90},
-    "dust": {"base": (200, 168, 112), "clusters": 20, "per": 12, "spread": 38, "loose": 70},
+    "sand": {"hue":   0, "sat": 1.00, "clusters": 26, "per": 14, "spread": 34, "loose": 90},
+    "dust": {"hue": -13, "sat": 1.12, "clusters": 22, "per": 13, "spread": 38, "loose": 78},
 }
 
 
@@ -115,18 +118,29 @@ def tone_of(blob):
     return "soft"
 
 
-def retint(blob, delta):
-    if delta == (0, 0, 0):
+def shift(rgb, hue, sat):
+    """Rotate a colour's hue and scale its saturation, leaving brightness alone."""
+    h, l, s = colorsys.rgb_to_hls(*(c / 255 for c in rgb))
+    h = (h + hue / 360.0) % 1.0
+    s = max(0.0, min(1.0, s * sat))
+    return tuple(round(c * 255) for c in colorsys.hls_to_rgb(h, l, s))
+
+
+def retint(blob, hue, sat):
+    if hue == 0 and sat == 1.0:
         return blob
     out = blob.copy()
     px = out.load()
+    cache = {}
     for y in range(out.size[1]):
         for x in range(out.size[0]):
             r, g, b, a = px[x, y]
-            if a:
-                px[x, y] = (max(0, min(255, r + delta[0])),
-                            max(0, min(255, g + delta[1])),
-                            max(0, min(255, b + delta[2])), a)
+            if not a:
+                continue
+            key = (r, g, b)
+            if key not in cache:
+                cache[key] = shift(key, hue, sat)
+            px[x, y] = cache[key] + (a,)
     return out
 
 
@@ -140,15 +154,15 @@ def stamp_wrapped(canvas, blob, x, y):
 
 
 def bake(name, cfg, pools, rng):
-    base = cfg["base"]
-    delta = tuple(base[i] - PACK_SAND[i] for i in range(3))
+    hue, sat = cfg["hue"], cfg["sat"]
+    base = shift(PACK_SAND, hue, sat)
     canvas = Image.new("RGBA", (PERIOD, PERIOD), base + (255,))
 
     def drop(tone, x, y):
         pool = pools[tone]
         if not pool:
             return 0
-        blob = retint(rng.choice(pool), delta)
+        blob = retint(rng.choice(pool), hue, sat)
         if rng.random() < 0.5:
             blob = blob.transpose(Image.FLIP_LEFT_RIGHT)
         if rng.random() < 0.5:
@@ -176,8 +190,8 @@ def bake(name, cfg, pools, rng):
         tone = "dark" if rng.random() < 0.25 else "soft"
         placed += drop(tone, rng.randrange(PERIOD), rng.randrange(PERIOD))
 
-    log(f"  {name:6s} base rgb{base}  {placed} blobs "
-        f"({cfg['clusters']} patches + {cfg['loose']} loose)")
+    log(f"  {name:6s} hue{hue:+4d} sat x{sat:.2f} -> #{base[0]:02x}{base[1]:02x}{base[2]:02x}"
+        f"  {placed} blobs ({cfg['clusters']} patches + {cfg['loose']} loose)")
     return canvas
 
 
@@ -203,8 +217,11 @@ def main():
     sheet = Image.new("RGBA", (PERIOD, PERIOD * len(names)), (0, 0, 0, 0))
     meta = {}
     for i, name in enumerate(names):
-        sheet.paste(bake(name, TERRAINS[name], pools, rng), (0, i * PERIOD))
-        meta[name] = {"oy": i * PERIOD}
+        cfg = TERRAINS[name]
+        sheet.paste(bake(name, cfg, pools, rng), (0, i * PERIOD))
+        base = shift(PACK_SAND, cfg["hue"], cfg["sat"])
+        meta[name] = {"oy": i * PERIOD,
+                      "base": "#%02x%02x%02x" % base}
 
     OUT.mkdir(parents=True, exist_ok=True)
     sheet.convert("RGB").save(OUT / "ground.png", optimize=True)

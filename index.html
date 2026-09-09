@@ -13400,7 +13400,8 @@ const BL_SOLID = new Set([BL.MESA, BL.CANYON, BL.OUTPOST_WALL, BL.SETTLEMENT_WAL
 const BL_TC = {
   [BL.CRACKED]:   ['#a06840','#8a5830'],
   [BL.REDROCK]:   ['#c05030','#a04020'],
-  [BL.DUSTFLOOR]: ['#c8a870','#b89860'],
+  [BL.DUSTFLOOR]: ['#d89b62','#c68a55'],  // orange-shifted sand, matching
+                                          // the baked texture
   [BL.DEADWOOD]:  ['#7a6040','#6a5030'],
   [BL.SKULL_ROCK]:['#706060','#605050'],
   [BL.MESA]:      ['#b04828','#983820'],
@@ -17876,7 +17877,7 @@ const MINIMAP_TILE_COLORS = {
 };
 // Badlands tile colors for minimap (merged here so numeric keys are available)
 Object.assign(MINIMAP_TILE_COLORS, {
-  [BL.CRACKED]:'#a06840',    [BL.REDROCK]:'#a04020',   [BL.DUSTFLOOR]:'#c8a870',
+  [BL.CRACKED]:'#a06840',    [BL.REDROCK]:'#a04020',   [BL.DUSTFLOOR]:'#d89b62',
   [BL.DEADWOOD]:'#7a6040',   [BL.SKULL_ROCK]:'#605050',[BL.MESA]:'#b04828',
   [BL.CANYON]:'#200e08',     [BL.SULFUR]:'#c0a020',    [BL.TUMBLEWEED]:'#9a8050',
   [BL.OUTPOST]:'#806050',    [BL.OUTPOST_WALL]:'#603020',
@@ -17941,7 +17942,7 @@ function renderMinimap() {
     const mpx = img.data;
     const scaleX = MM_W / BL_W, scaleY = MM_H / BL_H;
     const BL_MM_COLOR = {
-      [BL.CRACKED]:[160,104,64],[BL.REDROCK]:[192,80,48],[BL.DUSTFLOOR]:[200,168,112],
+      [BL.CRACKED]:[160,104,64],[BL.REDROCK]:[192,80,48],[BL.DUSTFLOOR]:[216,155,98],
       [BL.DEADWOOD]:[122,96,64],[BL.SKULL_ROCK]:[96,80,80],[BL.MESA]:[176,72,40],
       [BL.CANYON]:[32,14,8],[BL.SULFUR]:[212,180,48],[BL.TUMBLEWEED]:[154,128,80],
       [BL.OUTPOST]:[128,96,80],[BL.OUTPOST_WALL]:[96,48,32],
@@ -22223,7 +22224,7 @@ function drawBLTile(tx,ty,sx,sy) {
       if(!overlays.has(nt)&&BL_TC[nt]) return BL_TC[nt][0];
     }
     // Fallback by depth zone
-    if(tx<25) return '#c8a870'; // entry dustfloor
+    if(tx<25) return '#d89b62'; // entry dustfloor
     if(tx<45) return '#b89050'; // midlands cracked
     return '#686058'; // deep ash
   }
@@ -22261,8 +22262,8 @@ function drawBLTile(tx,ty,sx,sy) {
     // Real sand from the desert pack, retinted to the badlands' own tan.
     if(DHGround.draw(ctx,'dust',sx,sy,tx,ty)) return;
     // Sandy dust — warm tan with wind-streak texture
-    ctx.fillStyle='#c8a870'; ctx.fillRect(sx,sy,T,T);
-    ctx.fillStyle='#b89860'; ctx.fillRect(sx,sy,T,T/2); // slight horizon split
+    ctx.fillStyle='#d89b62'; ctx.fillRect(sx,sy,T,T);
+    ctx.fillStyle='#c68a55'; ctx.fillRect(sx,sy,T,T/2); // slight horizon split
     // Wind streaks — 2-3 per tile, stable
     ctx.fillStyle='rgba(180,150,90,.22)';
     if(h%5<3){ ctx.fillRect(sx+(h%10)+2,sy+(h2%8)+4,8+h%6,1); }
