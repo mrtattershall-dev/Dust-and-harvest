@@ -911,6 +911,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
      time. Fails soft: no manifest means hand-drawn art is used throughout. -->
 <script src="assets/js/sprite-engine.js"></script>
 <script src="assets/js/icons.js"></script>
+<script src="assets/js/player-sprite.js"></script>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -3858,6 +3859,7 @@ const SETTINGS_DEFAULTS = {
   showFishPrompt: true,
   campfireGlow: true,
   textSize:    'normal',
+  spriteChar:  true,
   zoomSlider:  75,
 };
 let settings = { ...SETTINGS_DEFAULTS };
@@ -4284,6 +4286,15 @@ function renderSettingsUI() {
     <div class="set-row">
       <div><div class="set-label">Day Speed</div><div class="set-desc">How fast time passes in the world</div></div>
       <div class="set-ctrl">${speedBtns}</div>
+    </div>
+
+    <div class="set-row">
+      <div><div class="set-label">Sprite Character</div><div class="set-desc">Draw the player as pixel-art sprites instead of the original hand-drawn art. Your customization carries over either way.</div></div>
+      <div class="set-ctrl">
+        <button class="set-btn${s.spriteChar!==false?' active':''}" onclick="setSetting('spriteChar',${s.spriteChar===false});if(typeof DHPlayer!=='undefined')DHPlayer.invalidate();renderSettingsUI();if(typeof refreshCharPreview==='function')refreshCharPreview()">
+          ${s.spriteChar!==false?'ON':'OFF'}
+        </button>
+      </div>
     </div>
 
     <div class="set-section">🔊 Audio</div>
@@ -10351,6 +10362,8 @@ function drawPlayer() {
   const isMovingNow = keys['ArrowLeft']||keys['ArrowRight']||keys['ArrowUp']||keys['ArrowDown']||
                       keys['KeyA']||keys['KeyD']||keys['KeyW']||keys['KeyS'];
   const bob   = isMovingNow ? Math.sin(t * 0.003) * 1.5 : 0;
+  // Which sprite clip the player-sprite hook should play this frame.
+  window._dhCharClip = isMovingNow ? (player.sprinting ? 'run' : 'walk') : 'idle';
   // Idle breathe: very subtle chest scale pulse — passed to drawCharacter so only torso is affected
   const idleBreath = isMovingNow ? 0 : Math.sin(t * 0.0012) * 0.5;
 
@@ -34035,8 +34048,8 @@ const ART_CREDITS = [
     who: 'CraftPix.net',
     licence: 'CraftPix file licence',
     what: 'Creature and animal sprites — rats, slimes, predator plants, golems, '
-        + 'orcs, gnolls, ents, ghosts, skeletons, the ranch livestock, and the '
-        + 'market square townspeople.',
+        + 'orcs, gnolls, ents, ghosts, skeletons, the ranch livestock, the '
+        + 'market square townspeople, and the player character base.',
     prefixes: ['rat_', 'slime_', 'plant_', 'golem_', 'orc_', 'gnoll_', 'ent_',
                'ghost_', 'skeleton_', 'horse', 'foal', 'goat', 'goose',
                'gosling', 'rabbit', 'chicken', 'cow', 'pig', 'citizen'],
@@ -34356,6 +34369,7 @@ function charPreviewFacing(f) {
 }
 
 function ccSet(key, val) {
+  if (typeof DHPlayer !== 'undefined') DHPlayer.invalidate();
   window._ccDraft[key] = val;
   // Reset hair/shirt style to 0 on gender change so index stays valid
   if (key === 'gender') {
@@ -35346,6 +35360,33 @@ function shadeColor(hex, amt) {
   r=Math.max(0,Math.min(255,r+amt)); g=Math.max(0,Math.min(255,g+amt)); b=Math.max(0,Math.min(255,b+amt));
   return '#'+r.toString(16).padStart(2,'0')+g.toString(16).padStart(2,'0')+b.toString(16).padStart(2,'0');
 }
+
+// ─────────────────────────────────────
+//  PLAYER SPRITE HOOK
+//  drawCharacter is the single seam both the in-world player and the character
+//  creation preview go through, so wrapping it here re-skins both at once.
+//  Falls through to the hand-drawn character whenever the sprite layers are
+//  not available, so nothing depends on the art loading.
+// ─────────────────────────────────────
+const _paintedDrawCharacter = drawCharacter;
+
+// Set by drawPlayer each frame; the preview leaves it idle.
+window._dhCharClip = 'idle';
+
+const _DH_CLIP_FPS = { idle: 6, walk: 9, run: 12, hurt: 8, death: 6 };
+
+drawCharacter = function (ctx, sx, sy, facing, wf, sprinting, cfg) {
+  if (typeof DHPlayer !== 'undefined' && DHPlayer.isReady() && settings.spriteChar !== false) {
+    const clip = window._dhCharClip || 'idle';
+    const fps = _DH_CLIP_FPS[clip] || 6;
+    const frame = Math.floor(performance.now() / 1000 * fps);
+    // Measured against the painted character it replaces: that stands 40px tall
+    // with its feet exactly on the anchor, so match both or the player appears
+    // to shrink and float when the setting is toggled.
+    if (DHPlayer.draw(ctx, sx, sy, facing, clip, frame, cfg, { size: 38 })) return;
+  }
+  return _paintedDrawCharacter.apply(this, arguments);
+};
 
 function startNewGame() {
   // Apply difficulty starting gold

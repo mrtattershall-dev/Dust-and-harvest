@@ -210,6 +210,81 @@ orange, wool = yarn, hoe = shovel); these are listed in the map's comment block.
 Unmapped areas worth filling if a suitable pack turns up: badlands loot, jungle
 crops and produce, most cooked meals, and the mine's quality-tiered ores.
 
+## The player character
+
+The player is the one thing that could not be a sprite drop-in: it is not a
+fixed character but a customization system — gender, skin tone, hair style and
+colour, shirt style and colour, trousers, hat — with its own creation screen and
+save fields. A fixed sprite would have deleted that feature.
+
+So nothing is baked. The CraftPix base packs ship unclothed mannequins, which is
+exactly the right raw material: `tools/build_player.py` turns them into region
+masks, and the runtime tints each region with whatever the player picked.
+
+```
+tools/build_player.py         base packs -> layers
+assets/sprites/player/
+  player.json                 clips, frame counts, per-frame head boxes
+  {male,female}/
+    <clip>.png                skin, shade-LEVEL encoded
+    <clip>_torso.png          torso + arms   -> shirt colour
+    <clip>_legs.png           legs + feet    -> trouser colour
+    <clip>_head.png           head silhouette -> hair is cut from this
+    <clip>_detail.png         eyes and mouth, never recoloured
+assets/js/player-sprite.js    DHPlayer: composes and caches the finished sheet
+```
+
+Rebuild with:
+
+```sh
+./tools/build_player.py MALE_PACK FEMALE_PACK
+```
+
+### How the recolouring works
+
+The source art uses a 6-step ramp (one outline plus five skin shades). The tool
+collapses those to a **level 0-5 stored in the red channel**, so the runtime
+maps level → colour without matching source RGB. The game's palettes are
+`[shadow, mid, highlight]`; `ramp6()` expands each to six stops by adding an
+outline below the shadow and midpoints between the stops.
+
+### How the regions are found
+
+- **Head** is free — the packs ship separate head and body part layers.
+- **Waist** is found per frame as the narrowest row in the lower-middle of the
+  body, so it tracks the legs through a walk cycle instead of assuming a fixed
+  row. It is then raised one row: on these chibi proportions the legs are only
+  ~3px, and trousers that stop at the hip read as boots.
+- **Torso and legs exclude anything behind the head**, or the shirt paints over
+  the chin — the body layer's shoulders sit behind the head in the source.
+
+### Hair
+
+Hair is **cut out of the head silhouette**, not drawn as a shape on top. The
+game's original `_drawHair` draws a rectangular cap fitted to the old square
+head; on this round skull it read as a bracket. Instead `HAIR_STYLES` in
+`player-sprite.js` describes each style as coverage rules — how far down the
+crown reaches, how far the sides hang — and the runtime keeps that portion of
+the head mask and tints it. The hairline then follows the skull in every frame
+and facing, including the walk cycle's head bob. Facing away, the whole head is
+hair.
+
+Hats still use the game's `_drawHat`, re-anchored to the measured head box.
+
+### Sizing
+
+Matched by measurement, not by eye: the painted character stands **40px tall
+with its feet exactly on the anchor** `drawCharacter` is called with, so the
+sprite uses `size: 38` at the same anchor. Toggling **Settings → Sprite
+Character** swaps between them without the player appearing to shrink or float.
+
+### The seam
+
+`drawCharacter` is wrapped once. Both the in-world player and the character
+creation preview go through it, so both re-skin together, and it falls through
+to the painted character whenever the layers are missing or the setting is off.
+`drawPlayer` sets `window._dhCharClip` each frame to pick idle / walk / run.
+
 ## Note for the Steam build
 
 Keeping art as loose files (rather than base64 inside the HTML) is what makes an
