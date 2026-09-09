@@ -117,6 +117,31 @@ def content_box(im: Image.Image, cell: int, row: int, frames: int, cell_h=None):
     return {"x": box[0], "y": box[1], "w": box[2] - box[0], "h": box[3] - box[1]}
 
 
+def row_frame_counts(im: Image.Image, cw: int, ch: int, base: int, frames: int):
+    """Frames actually drawn in each of the 4 facing rows.
+
+    Packs sometimes give one facing a shorter animation and pad the rest of the
+    row with blank cells — the market citizens' back-facing idle is 6 frames
+    where the other three are 12. Looping all four to the sheet width would make
+    that actor vanish for half its cycle, so the per-row counts are recorded and
+    the engine loops each facing on its own length.
+
+    Returns None when every row is full, which is the common case and keeps the
+    manifest free of noise.
+    """
+    counts = []
+    for d in range(4):
+        r = base + d
+        n = 0
+        for f in range(frames):
+            if im.crop((f * cw, r * ch, (f + 1) * cw, (r + 1) * ch)).getbbox():
+                n = f + 1
+        counts.append(n)
+    if all(c == frames for c in counts):
+        return None
+    return counts
+
+
 def parse_map(s):
     """'Rat1=rat1,Rat2=rat2' -> {'Rat1': 'rat1', ...}"""
     if not s:
@@ -201,6 +226,10 @@ def collect_dir4(pack: Path, name_map, rows, group, fps, dry, clip_alias=None):
                 "frames": frames,
                 "loop": not is_oneshot(clip),
             }
+            rf = row_frame_counts(im, cell, cell, 0, frames)
+            if rf:
+                clips[clip]["rowFrames"] = rf
+                log(f"  ~~ {actor_id}/{clip}: ragged rows {rf}")
             if clip in ("idle", "walk") and anchor is None:
                 anchor = content_box(im, cell, rows["down"], frames)
             if not dry:
@@ -264,6 +293,11 @@ def collect_dir4x2(pack: Path, name_map, rows, group, fps, dry):
             "walk": {"file": "sheet.png", "frames": cols, "rowBase": 0, "loop": True},
             "idle": {"file": "sheet.png", "frames": idle_frames, "rowBase": 4, "loop": True},
         }
+        for cname, cdef in clips.items():
+            rf = row_frame_counts(im, cell, cell, cdef["rowBase"], cdef["frames"])
+            if rf:
+                cdef["rowFrames"] = rf
+                log(f"  ~~ {actor_id}/{cname}: ragged rows {rf}")
         anchor = content_box(im, cell, rows["down"], cols)
 
         if not dry:
@@ -300,7 +334,11 @@ def collect_grid(pack: Path, name_map, rows, group, fps, dry,
     # Group the flat file list by character name
     by_name = {}
     for png in sorted(sheet_dir.glob("*.png")):
-        m = re.match(r"(.+?)_([A-Za-z0-9]+)\.png$", png.name)
+        # Some packs suffix every sheet with _without_shadow; it is not a clip.
+        stem = re.sub(r"_with(out)?_shadow$", "", png.stem, flags=re.I)
+        if re.fullmatch(r"(?i).*shadow.*", stem):
+            continue   # a bare shadow sheet, not a character
+        m = re.match(r"(.+?)_([A-Za-z0-9]+)$", stem)
         if not m:
             log(f"  ?? {png.name}: not <Name>_<clip>.png — SKIPPED")
             continue
@@ -330,6 +368,10 @@ def collect_grid(pack: Path, name_map, rows, group, fps, dry,
                 "frames": frames,
                 "loop": not is_oneshot(clip),
             }
+            rf = row_frame_counts(im, cell_w, cell_h, 0, frames)
+            if rf:
+                clips[clip]["rowFrames"] = rf
+                log(f"  ~~ {actor_id}/{clip}: ragged rows {rf}")
             if clip in ("idle", "walk") and anchor is None:
                 anchor = content_box(im, cell_w, rows["down"], frames, cell_h)
             if not dry:
@@ -417,6 +459,10 @@ def collect_coldir(pack: Path, name_map, rows, group, fps, dry, cell, src_dir,
                 "frames": frames,
                 "loop": True,
             }
+            rf = row_frame_counts(out, cell, cell, 0, frames)
+            if rf:
+                clips[clip_name]["rowFrames"] = rf
+                log(f"  ~~ {actor_id}/{clip_name}: ragged rows {rf}")
             if anchor is None:
                 anchor = content_box(out, cell, rows["down"], frames)
             if not dry:

@@ -31,6 +31,191 @@
       "group": "farm",
       "path": "farm/chicken"
     },
+    "citizen1": {
+      "anchor": {
+        "h": 26,
+        "w": 17,
+        "x": 8,
+        "y": 2
+      },
+      "cellH": 32,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 12,
+          "loop": true,
+          "rowFrames": [
+            12,
+            12,
+            12,
+            6
+          ]
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/citizen1"
+    },
+    "citizen2": {
+      "anchor": {
+        "h": 24,
+        "w": 16,
+        "x": 6,
+        "y": 4
+      },
+      "cellH": 32,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 12,
+          "loop": true,
+          "rowFrames": [
+            12,
+            12,
+            12,
+            6
+          ]
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/citizen2"
+    },
+    "citizen3": {
+      "anchor": {
+        "h": 26,
+        "w": 19,
+        "x": 5,
+        "y": 2
+      },
+      "cellH": 32,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 12,
+          "loop": true,
+          "rowFrames": [
+            12,
+            12,
+            12,
+            6
+          ]
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/citizen3"
+    },
+    "citizen4": {
+      "anchor": {
+        "h": 24,
+        "w": 17,
+        "x": 7,
+        "y": 4
+      },
+      "cellH": 32,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 12,
+          "loop": true,
+          "rowFrames": [
+            12,
+            12,
+            12,
+            6
+          ]
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/citizen4"
+    },
+    "citizen5": {
+      "anchor": {
+        "h": 25,
+        "w": 16,
+        "x": 7,
+        "y": 3
+      },
+      "cellH": 32,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 12,
+          "loop": true,
+          "rowFrames": [
+            12,
+            12,
+            12,
+            6
+          ]
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/citizen5"
+    },
     "cow": {
       "anchor": {
         "h": 27,

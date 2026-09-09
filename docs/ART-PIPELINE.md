@@ -77,6 +77,19 @@ In the Sprite Lab the four columns are labelled DOWN / UP / LEFT / RIGHT. **If
 the last two columns look mirrored, re-run `prep_assets.py` with the other
 `--rows` value.** That is the whole check.
 
+## Ragged rows — the other thing that bites
+
+Some packs give one facing a shorter animation and pad the rest of its row with
+blank cells. The market citizens' back-facing idle is **6 frames where the other
+three are 12**; looping all four to the sheet width made those NPCs vanish for
+half their cycle while walking away from the camera.
+
+`prep_assets.py` now measures every facing row and, when they differ, records
+`rowFrames: [12,12,12,6]` on the clip and prints a `~~ ragged rows` line. The
+engine loops each facing on its own length. **If you see that line during an
+import, it is informational, not an error** — but do check that facing in the
+Lab.
+
 ## Anchoring
 
 `prep_assets.py` measures the union bounding box of the down-facing idle/walk
@@ -133,17 +146,21 @@ and hold the last frame, and `finished()` goes true. Everything else loops.
 
 ## Current inventory
 
-53 actors, 236 sheets. See `docs/ASSET-INVENTORY.md` for the full list and for
+58 actors, 246 sheets. See `docs/ASSET-INVENTORY.md` for the full list and for
 the packs not yet imported.
 
 | Group | Actors |
 |---|---|
 | `enemies` | 33 creatures — rats, 9 slimes, plants, golems, orcs, gnolls, ents, ghosts, skeletons |
 | `farm` | 11 ranch animals |
-| `npcs` | 9 townsfolk (`folk_*`, 32×48 cells) |
+| `npcs` | 9 townsfolk (`folk_*`, 32×48) + 5 market citizens (`citizen1-5`, 32×32) |
 
 Creatures have all six clips; orcs also have `run_attack` / `walk_attack`. Farm
-animals and townsfolk have `walk` and `idle` only.
+animals, townsfolk and citizens have `walk` and `idle` only.
+
+Actor ids matter for attribution: the credits screen groups by id prefix, so
+`folk_*` is Franuka and everything else is CraftPix. Do not reuse a prefix
+across authors.
 
 ## Credits
 

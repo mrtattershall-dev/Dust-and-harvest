@@ -1,6 +1,6 @@
 # Asset inventory
 
-43 unique packs (45 delivered, 2 exact duplicates). Status of each, and what
+47 unique packs (49 delivered, 2 exact duplicates). Status of each, and what
 each category still needs before it can reach the game.
 
 Source zips are **not** in this repo — only the normalized output under
@@ -8,7 +8,7 @@ Source zips are **not** in this repo — only the normalized output under
 
 ---
 
-## Imported — 14 packs, 53 actors, 236 sheets
+## Imported — 15 packs, 58 actors, 246 sheets
 
 Live in `assets/sprites/manifest.json`. Creature actors have
 `idle walk run attack hurt death`; farm animals and townsfolk have
@@ -26,6 +26,7 @@ Live in `assets/sprites/manifest.json`. Creature actors have
 | Ghosts (64px) | `ghost_wisp` `ghost_wraith` `ghost_revenant` |
 | Skeletons (64px) | `skeleton_bones` `skeleton_guard` `skeleton_lord` |
 | Farm (16–64px) | `horse` `foal` `goat` `goatling` `goose` `gosling` `rabbit` `rabbit_cub` `chicken` `cow` `pig` — `walk` + `idle` only |
+| Citizens (32×32) | `citizen1`–`citizen5` — market square townspeople |
 | Townsfolk (32×48) | `folk_farmer` `folk_fisherman` `folk_blacksmith` `folk_merchant` `folk_alchemist` `folk_barmaid` `folk_bartender` `folk_kid1` `folk_kid2` |
 
 **Ranch coverage: 6 of 7 species.** `chicken`, `cow` and `pig` come from
@@ -142,6 +143,17 @@ two places rather than the map.
 - `hpmanastamina…_2` — byte-identical, ignore.
 - `freetopdowntreespixelart` — 164 tree PNGs, no `.tmx`. Individual trees rather
   than a tileset; fits the object-atlas pipeline.
+
+---
+
+## Later delivery — 4 packs
+
+| Pack | Status |
+|---|---|
+| `pixelartmarketsquare…` | **Citizens imported** (5 actors). Its stall traders, lute player and flutist are single-row strips — one facing only, so they need a `strip` layout. `Objects.png` is market decor for the object pipeline. |
+| `topdownvillagefarmanimals…` | **Not imported.** Buffalo, Buffalo_cub, Cat, Colt, Dog, Donkey, Drake, Duck, Duckling. **No sheep.** None map to an existing ranch species, so using these means *adding new livestock or pets* — a game-design change, not an art swap. |
+| `freepixelartplantsforfarm` | **Not imported.** `Plants.png` is a crop growth-stage sheet: 4 stages per crop, ~10 crops, at native 32px, with each crop drawn twice (on tilled soil and on grass). Would replace `drawCrop`. |
+| `freebasicpixelartuiforrpg` | **Not imported.** Buttons, panels, inventory frames, icons, numbers. Small and directly usable for the HUD. |
 
 ---
 

@@ -145,13 +145,24 @@ window.DHArt = (function () {
   // render() does not have one — and an entity animates at the right rate no
   // matter how many times per frame it is drawn, or if it is skipped while
   // offscreen.
-  function frameOf(a, s, clip) {
-    if (!clip || clip.frames <= 1) return 0;
+  // `dirIdx` is the facing's row within the clip (0-3), not the absolute sheet
+  // row. Some packs give one facing fewer frames than the others and pad the
+  // rest of the row with blanks — the market citizens' back-facing idle is 6
+  // frames against 12 — so the loop has to be per facing, or the actor vanishes
+  // for half its cycle.
+  function frameOf(a, s, clip, dirIdx) {
+    if (!clip) return 0;
+    const n = (clip.rowFrames && clip.rowFrames[dirIdx]) || clip.frames;
+    if (n <= 1) return 0;
     const elapsed = (performance.now() - s.t0) / 1000;
     const i = Math.floor(elapsed * (a.fps || 6.667));
     if (i < 0) return 0;
-    if (clip.loop === false) return Math.min(i, clip.frames - 1);
-    return i % clip.frames;
+    if (clip.loop === false) return Math.min(i, n - 1);
+    return i % n;
+  }
+
+  function dirIndex(a, s) {
+    return a.dirRows[s.dir] != null ? a.dirRows[s.dir] : 0;
   }
 
   function resolveClip(a, s) {
@@ -178,9 +189,12 @@ window.DHArt = (function () {
   function finished(ent, actorId) {
     const a = state.actors[actorId];
     if (!a || !ent._art) return false;
-    const clip = a.clips[resolveClip(a, ent._art)];
+    const s2 = ent._art;
+    const clip = a.clips[resolveClip(a, s2)];
     if (!clip || clip.loop !== false) return false;
-    return frameOf(a, ent._art, clip) >= clip.frames - 1;
+    const di = dirIndex(a, s2);
+    const n = (clip.rowFrames && clip.rowFrames[di]) || clip.frames;
+    return frameOf(a, s2, clip, di) >= n - 1;
   }
 
   // ── Drawing ─────────────────────────────────────────────────────────────────
@@ -215,8 +229,9 @@ window.DHArt = (function () {
     const targetH = o.size || 24;
     const k = targetH / (anchor.h || ch);
 
-    const row = (clip.rowBase || 0) + (a.dirRows[s.dir] != null ? a.dirRows[s.dir] : 0);
-    const frame = frameOf(a, s, clip);
+    const di = dirIndex(a, s);
+    const row = (clip.rowBase || 0) + di;
+    const frame = frameOf(a, s, clip, di);
 
     // Where the anchor box sits inside the cell, in destination px
     const anchorCX = (anchor.x + anchor.w / 2) * k;

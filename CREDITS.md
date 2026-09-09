@@ -35,7 +35,12 @@ Used for the creature and livestock actors: giant rats, three slime packs,
 predator plants, golems, orcs, gnolls, ents, ghosts, skeletons, and the ranch
 animals — `horse` `foal` `goat` `goatling` `goose` `gosling` `rabbit`
 `rabbit_cub` (*Top-Down Cute Farm Animals*) and `chicken` `cow` `pig`
-(*Top-Down Farm with Animals*).
+(*Top-Down Farm with Animals*). Also the five market-square townspeople
+`citizen1`-`citizen5` (*Pixel Art Market Square*).
+
+Actor ids are the attribution key: the in-game credits screen groups actors by
+id prefix, `folk_*` to Franuka and the rest to CraftPix. Never reuse a prefix
+across two authors.
 
 ---
 
