@@ -115,7 +115,15 @@ window.DHArt = (function () {
   // caller tracking anything.
 
   function ensureState(ent) {
-    if (!ent._art) ent._art = { clip: null, dir: 'down', t0: performance.now() };
+    if (!ent._art) {
+      // Non-enumerable so it stays out of JSON.stringify. Ranch animals are
+      // saved as whole objects, and `t0` is a performance.now() timestamp that
+      // means nothing once reloaded in a new page session.
+      Object.defineProperty(ent, '_art', {
+        value: { clip: null, dir: 'down', t0: performance.now() },
+        writable: true, configurable: true, enumerable: false,
+      });
+    }
     return ent._art;
   }
 
@@ -241,6 +249,9 @@ window.DHArt = (function () {
   // game's day/night lighting, which a baked shadow cannot.
   function drawShadow(ctx, actorId, sx, sy, opts) {
     const a = state.actors[actorId];
+    // Some packs paint the drop shadow into the frames themselves; adding
+    // another underneath doubles it up.
+    if (a && a.bakedShadow) return;
     const o = opts || {};
     const targetH = o.size || 24;
     let rx = targetH * 0.32;

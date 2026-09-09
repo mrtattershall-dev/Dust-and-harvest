@@ -1,5 +1,67 @@
 {
   "actors": {
+    "chicken": {
+      "anchor": {
+        "h": 17,
+        "w": 14,
+        "x": 9,
+        "y": 11
+      },
+      "bakedShadow": true,
+      "cell": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 6,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 3,
+        "right": 2,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/chicken"
+    },
+    "cow": {
+      "anchor": {
+        "h": 27,
+        "w": 20,
+        "x": 22,
+        "y": 19
+      },
+      "bakedShadow": true,
+      "cell": 64,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 3,
+        "right": 2,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/cow"
+    },
     "ent_ancient": {
       "anchor": {
         "h": 71,
@@ -1250,6 +1312,37 @@
       "fps": 6.667,
       "group": "enemies",
       "path": "enemies/orc_warlord"
+    },
+    "pig": {
+      "anchor": {
+        "h": 19,
+        "w": 21,
+        "x": 6,
+        "y": 9
+      },
+      "bakedShadow": true,
+      "cell": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 3,
+        "right": 2,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/pig"
     },
     "plant_azure": {
       "anchor": {

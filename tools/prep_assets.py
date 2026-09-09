@@ -12,6 +12,9 @@ Layouts
            packs: PNG/<Variant>/Without_shadow/<Variant>_<Clip>_without_shadow.png
   dir4x2   One PNG for the whole actor. 8 rows = walk on rows 0-3, idle on rows
            4-7. Used by the farm animal pack: PNG/Without_shadow/<Name>_without_shadow.png
+  coldir   Transposed: direction is the COLUMN (walk 0-3, idle 4-7) and frame
+           is the ROW. Used by the farm asset pack. Transposed on import so the
+           engine only ever sees row-major sheets.
   grid     Flat folder of <Name>_<clip>.png with non-square cells, 4 rows =
            facings. Used by the Franuka townsfolk pack (32x48 cells in 2x/).
            Requires --cell WxH since cell size cannot be inferred.
@@ -352,6 +355,97 @@ def collect_grid(pack: Path, name_map, rows, group, fps, dry,
     return actors
 
 
+def collect_coldir(pack: Path, name_map, rows, group, fps, dry, cell, src_dir,
+                   baked_shadow=False):
+    """Transposed sheets: direction is the COLUMN, frame is the ROW.
+
+    Columns 0-3 are the walk cycle per facing, 4-7 the idle cycle. The farm
+    asset pack ships <Name>_animation.png this way, which is the opposite
+    orientation to every other pack.
+
+    Rather than teach the engine a second orientation, the sheet is transposed
+    here and written out row-major like everything else, so there is exactly one
+    runtime convention.
+    """
+    actors = {}
+    sheet_dir = pack / src_dir if src_dir else pack
+    if not sheet_dir.is_dir():
+        sys.exit(f"No such folder: {sheet_dir}")
+
+    for png in sorted(sheet_dir.glob("*.png")):
+        src_name = re.sub(r"_animation$", "", png.stem)
+        actor_id = name_map.get(src_name, slug(src_name))
+        if name_map and src_name not in name_map:
+            continue
+
+        im = Image.open(png).convert("RGBA")
+        w, h = im.size
+        if w % cell or h % cell:
+            log(f"  !! {png.name}: {w}x{h} not a multiple of {cell}, skipping")
+            continue
+        n_cols, n_rows = w // cell, h // cell
+        if n_cols < 8:
+            log(f"  !! {png.name}: {n_cols} columns, need 8 "
+                f"(4 walk facings + 4 idle), skipping")
+            continue
+
+        clips, anchor = {}, None
+        for clip_name, col0 in (("walk", 0), ("idle", 4)):
+            # Frame count varies per clip — trailing rows are blank when a clip
+            # is shorter than the sheet is tall.
+            frames = n_rows
+            for r in range(n_rows):
+                if not im.crop((col0 * cell, r * cell,
+                                (col0 + 1) * cell, (r + 1) * cell)).getbbox():
+                    frames = r
+                    break
+            if frames == 0:
+                continue
+
+            # Build the normalized sheet: 4 rows of facings, `frames` columns.
+            out = Image.new("RGBA", (frames * cell, 4 * cell), (0, 0, 0, 0))
+            for d in range(4):
+                for f in range(frames):
+                    src_col = col0 + d
+                    out.paste(
+                        im.crop((src_col * cell, f * cell,
+                                 (src_col + 1) * cell, (f + 1) * cell)),
+                        (f * cell, d * cell))
+
+            clips[clip_name] = {
+                "file": f"{clip_name}.png",
+                "frames": frames,
+                "loop": True,
+            }
+            if anchor is None:
+                anchor = content_box(out, cell, rows["down"], frames)
+            if not dry:
+                out_dir = SPRITES / group / actor_id
+                out_dir.mkdir(parents=True, exist_ok=True)
+                out.save(out_dir / f"{clip_name}.png")
+
+        if not clips:
+            log(f"  skip {src_name}: no usable clips")
+            continue
+
+        actors[actor_id] = {
+            "group": group,
+            "path": f"{group}/{actor_id}",
+            "cell": cell,
+            "fps": fps,
+            "dirRows": rows,
+            "clips": clips,
+            "anchor": anchor,
+        }
+        # These sheets have the drop shadow painted in, so the engine must not
+        # add its own underneath.
+        if baked_shadow:
+            actors[actor_id]["bakedShadow"] = True
+        summary = ", ".join(f"{k}={v['frames']}" for k, v in sorted(clips.items()))
+        log(f"  + {actor_id:14s} cell={cell:<4d} {summary}")
+    return actors
+
+
 def parse_cell(s):
     m = re.fullmatch(r"(\d+)x(\d+)", s.strip())
     if not m:
@@ -363,7 +457,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("pack", type=Path, help="pack folder or .zip")
-    ap.add_argument("--layout", required=True, choices=["dir4", "dir4x2", "grid"])
+    ap.add_argument("--layout", required=True,
+                    choices=["dir4", "dir4x2", "grid", "coldir"])
     ap.add_argument("--group", required=True,
                     help="output bucket, e.g. enemies / farm / npcs")
     ap.add_argument("--rows", default="DULR", choices=sorted(ROW_ORDERS),
@@ -375,7 +470,11 @@ def main():
                          "reconcile packs that name the same animation "
                          "inconsistently between variants")
     ap.add_argument("--cell", default="",
-                    help="grid layout only: cell size as WxH, e.g. 32x48")
+                    help="grid layout: cell size as WxH, e.g. 32x48. "
+                         "coldir layout: square cell size, e.g. 32x32")
+    ap.add_argument("--baked-shadow", action="store_true",
+                    help="the sheets already have a drop shadow painted in, so "
+                         "the engine must not draw its own")
     ap.add_argument("--src-dir", default="",
                     help="grid layout only: subfolder inside the pack holding "
                          "the sheets, e.g. 2x")
@@ -402,6 +501,14 @@ def main():
         actors = collect_grid(pack, name_map, rows, args.group, args.fps,
                               args.dry_run, cw, ch, args.src_dir,
                               parse_map(args.clip_alias))
+    elif args.layout == "coldir":
+        if not args.cell:
+            sys.exit("--layout coldir requires --cell WxH (square, e.g. 32x32)")
+        cw, ch = parse_cell(args.cell)
+        if cw != ch:
+            sys.exit("--layout coldir needs square cells")
+        actors = collect_coldir(pack, name_map, rows, args.group, args.fps,
+                                args.dry_run, cw, args.src_dir, args.baked_shadow)
     else:
         actors = collect_dir4x2(pack, name_map, rows, args.group, args.fps, args.dry_run)
 

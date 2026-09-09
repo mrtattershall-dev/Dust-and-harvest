@@ -31,10 +31,11 @@ the raw assets is not.
 - <https://craftpix.net>
 - <https://craftpix.net/file-licenses/>
 
-Used for the 41 creature and animal actors: giant rats, three slime packs,
+Used for the creature and livestock actors: giant rats, three slime packs,
 predator plants, golems, orcs, gnolls, ents, ghosts, skeletons, and the ranch
-animals (`horse` `foal` `goat` `goatling` `goose` `gosling` `rabbit`
-`rabbit_cub`).
+animals — `horse` `foal` `goat` `goatling` `goose` `gosling` `rabbit`
+`rabbit_cub` (*Top-Down Cute Farm Animals*) and `chicken` `cow` `pig`
+(*Top-Down Farm with Animals*).
 
 ---
 

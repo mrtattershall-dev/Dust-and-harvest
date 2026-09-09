@@ -8,10 +8,11 @@ Source zips are **not** in this repo — only the normalized output under
 
 ---
 
-## Imported — 12 packs, 41 actors, 212 sheets, 4.2 MB
+## Imported — 14 packs, 53 actors, 236 sheets
 
-All use the `dir4` layout and are live in `assets/sprites/manifest.json`.
-Every actor has `idle walk run attack hurt death` unless noted.
+Live in `assets/sprites/manifest.json`. Creature actors have
+`idle walk run attack hurt death`; farm animals and townsfolk have
+`walk` + `idle` only.
 
 | Group | Actors |
 |---|---|
@@ -24,7 +25,15 @@ Every actor has `idle walk run attack hurt death` unless noted.
 | Gnolls (64px) | `gnoll_scav` `gnoll_hunter` `gnoll_alpha` |
 | Ghosts (64px) | `ghost_wisp` `ghost_wraith` `ghost_revenant` |
 | Skeletons (64px) | `skeleton_bones` `skeleton_guard` `skeleton_lord` |
-| Farm (16–64px) | `horse` `foal` `goat` `goatling` `goose` `gosling` `rabbit` `rabbit_cub` — `walk` + `idle` only |
+| Farm (16–64px) | `horse` `foal` `goat` `goatling` `goose` `gosling` `rabbit` `rabbit_cub` `chicken` `cow` `pig` — `walk` + `idle` only |
+| Townsfolk (32×48) | `folk_farmer` `folk_fisherman` `folk_blacksmith` `folk_merchant` `folk_alchemist` `folk_barmaid` `folk_bartender` `folk_kid1` `folk_kid2` |
+
+**Ranch coverage: 6 of 7 species.** `chicken`, `cow` and `pig` come from
+*Top-Down Farm with Animals*; `goat`, `horse` and `rabbit` from *Cute Farm
+Animals*, which also supplies `goatling`, `foal` and `rabbit_cub` for the
+game's `_baby` state. **There is no sheep sprite in any pack delivered so far**,
+so sheep keep their painted art — the fallback handles this with no special
+casing. A sheep pack would close the set.
 
 That is 33 hostile actors against roughly a dozen enemy types currently in the
 game, so this category is already oversupplied. More monster packs are not the
@@ -32,7 +41,15 @@ bottleneck.
 
 ---
 
-## Townsfolk — 1 pack, needs a new layout handler
+## Townsfolk — imported and partly wired in
+
+Maya, Trader Rex and the Farm Hand render as sprites. The remaining six await a
+character-by-character decision; add them to `NPC_SPRITES` in `index.html`.
+
+Silas, Maren and the hobo camp residents are deliberately still painted — their
+hand-drawn art has specific poses and colour schemes (Silas sits on a crate with
+a pickaxe; Maren wears a teal oilskin) that a generic standing townsperson would
+lose.
 
 **`Fantasy_RPG_character_pack`** (Franuka) — 9 NPCs, `walk` + `idle`:
 Farmer, Fisherman, Blacksmith, Merchant, Alchemist, Barmaid, Bartender,
@@ -42,11 +59,9 @@ Probably the single most directly useful pack delivered. The game has ~15 named
 NPCs (Silas, Maya, Rex, Jed, Crane, Maren, Kit, Tobias, Vera, the five hobo camp
 residents) all drawn by hand in canvas path code.
 
-Why it needs new code: cells are **32×48, not square**, and the layout is
-4 cols × 4 rows per file with `walk` and `idle` in separate files. Row order
-looks like down / left / right / up (`DLRU`) but needs a Sprite Lab check.
-`prep_assets.py` currently assumes square cells and derives cell size from
-`height / 4`, which would produce 48×48 cells and misalign every frame.
+This needed the `grid` layout: cells are **32×48, not square**, and the earlier
+layouts derived cell size from `height / 4`, which would have produced 48×48
+cells and misaligned every frame. Row order is `DLRU`, a third variant.
 
 **Licence: CC-BY 4.0 — requires visible credit to Franuka.** The others are
 CraftPix licence (commercial use fine, redistribution of the raw assets not).
@@ -97,6 +112,9 @@ Directly relevant to existing locations: fishing village → your Ocean/Dock zon
 blacksmith → the forge, herbalist hut and tavern → town buildings, camp → the
 hobo camp, farm-with-animals → the ranch, miner's cave → the mine.
 
+`topdownfarmwithanimals` is **partly imported** already — its chicken, cow and
+pig sprites are in use. Its buildings, barn interior and plant tiles are not.
+
 ---
 
 ## UI and icons — 6 packs, 119.6 MB
@@ -137,11 +155,10 @@ Two different licences are mixed together here:
 - **CC-BY 4.0** (Franuka's character pack, icon pack, UI pack): commercial use
   permitted **but requires visible credit**.
 
-Practical consequence: the game needs a credits screen listing at minimum
-Franuka (link to their itch page) and CraftPix. Worth adding as its own guide
-tab or title-screen entry before release rather than as an afterthought — and
-worth keeping a `CREDITS.md` updated as packs are imported, since tracking down
-which pack an asset came from later is painful.
+**Done:** the title screen has a CREDITS button, and `CREDITS.md` mirrors it.
+Character counts there are read from the live manifest, so they cannot drift.
+Keep both updated as packs are imported — tracing which pack an asset came from
+after the fact is painful.
 
 This is a summary of the licence files as shipped, not legal advice; read the
 `license.txt` in each pack before release.

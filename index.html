@@ -15922,6 +15922,28 @@ function updateAnimals(dt) {
 }
 
 // ── Draw Animals ──────────────────────
+// Which sprite actor stands in for each ranch species. Sheep has no match in
+// any pack on hand, so it keeps its painted art — the fallback in drawAnimals
+// handles that without any special casing here.
+const ANIMAL_SPRITES = {
+  chicken: 'chicken', cow: 'cow', pig: 'pig',
+  rabbit: 'rabbit',   goat: 'goat', horse: 'horse',
+};
+// Species with a dedicated child sprite. Everything else scales the adult down.
+const ANIMAL_BABY_SPRITES = {
+  rabbit: 'rabbit_cub', goat: 'goatling', horse: 'foal',
+};
+// Drawn content height per species, roughly matching the painted animals they
+// replace and keeping the relative sizes sensible (a cow dwarfs a chicken).
+const ANIMAL_SPRITE_H = {
+  chicken: 18, rabbit: 18, pig: 24, goat: 24, sheep: 22, cow: 32, horse: 34,
+};
+
+function animalSpriteFor(a) {
+  if (a._baby && ANIMAL_BABY_SPRITES[a.type]) return ANIMAL_BABY_SPRITES[a.type];
+  return ANIMAL_SPRITES[a.type] || null;
+}
+
 function drawAnimals(cx, cy) {
   // Draw products (pickup items)
   products.forEach(p => {
@@ -15947,13 +15969,31 @@ function drawAnimals(cx, cy) {
     ctx.save();
     ctx.globalAlpha = a.state === 'sleeping' ? 0.7 : 1;
 
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,.25)';
-    ctx.beginPath(); ctx.ellipse(sx, sy+9, 7, 3, 0, 0, Math.PI*2); ctx.fill();
+    // Sprite art when the species has it; otherwise the painted animal below.
+    const _aSprite = animalSpriteFor(a);
+    let _drewAnimal = false;
+    if (_aSprite && DHArt.ready(_aSprite)) {
+      const moving = a.state !== 'sleeping' && (a.moveX || a.moveY);
+      DHArt.play(a, moving ? 'walk' : 'idle');
+      DHArt.face(a, a.facing || 'down');
+      // Babies of species with no dedicated child sprite are drawn smaller.
+      const size = ANIMAL_SPRITE_H[a.type] * (a._baby && !ANIMAL_BABY_SPRITES[a.type] ? 0.6 : 1);
+      DHArt.drawShadow(ctx, _aSprite, sx, sy + 9, { size });
+      _drewAnimal = DHArt.drawActor(ctx, _aSprite, a, sx, sy + bob, {
+        size, footY: 9,
+        flash: a.state === 'panic' ? 'rgba(255,60,60,.35)' : null,
+      });
+    }
+    if (!_drewAnimal) {
+      // Shadow — sprite path draws its own (or has one baked in)
+      ctx.fillStyle = 'rgba(0,0,0,.25)';
+      ctx.beginPath(); ctx.ellipse(sx, sy+9, 7, 3, 0, 0, Math.PI*2); ctx.fill();
+    }
 
     // Per-species pixel sprite — no emoji dependency
     const walk = a.state!=='sleeping' ? Math.sin(Date.now()*.009+a.id*1.3)*2 : 0;
-    if (a.type === 'chicken') {
+    if (_drewAnimal) { /* drawn above — skip the painted body */ }
+    else if (a.type === 'chicken') {
       // Body — plump teardrop
       ctx.fillStyle = '#e8c840'; ctx.beginPath();
       ctx.ellipse(sx, sy+bob, 7, 6, 0, 0, Math.PI*2); ctx.fill();
@@ -16209,8 +16249,9 @@ function drawAnimals(cx, cy) {
       ctx.fillRect(sx-10, sy+20+bob+hl, 5, 3); ctx.fillRect(sx-3, sy+20+bob-hl, 5, 3);
       ctx.fillRect(sx+5, sy+20+bob+hl, 5, 3);
     }
-    // Panic tint overlay
-    if (tint) { ctx.fillStyle = tint; ctx.fillRect(sx-14, sy-16+bob, 28, 28); }
+    // Panic tint overlay — the sprite path tints the silhouette itself, so this
+    // flat rect is only for the painted animals.
+    if (tint && !_drewAnimal) { ctx.fillStyle = tint; ctx.fillRect(sx-14, sy-16+bob, 28, 28); }
 
     // Health dot
     const hpPct = a.hp / a.maxHp;
@@ -33983,10 +34024,10 @@ const ART_CREDITS = [
     who: 'CraftPix.net',
     licence: 'CraftPix file licence',
     what: 'Creature and animal sprites — rats, slimes, predator plants, golems, '
-        + 'orcs, gnolls, ents, ghosts, skeletons, and the ranch animals.',
+        + 'orcs, gnolls, ents, ghosts, skeletons, and the ranch livestock.',
     prefixes: ['rat_', 'slime_', 'plant_', 'golem_', 'orc_', 'gnoll_', 'ent_',
                'ghost_', 'skeleton_', 'horse', 'foal', 'goat', 'goose',
-               'gosling', 'rabbit'],
+               'gosling', 'rabbit', 'chicken', 'cow', 'pig'],
     links: ['https://craftpix.net', 'https://craftpix.net/file-licenses/'],
   },
 ];

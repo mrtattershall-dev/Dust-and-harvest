@@ -40,6 +40,10 @@ game falls back to the existing hand-drawn art everywhere. Nothing breaks.
      Path shape: `PNG/<Variant>/Without_shadow/<Variant>_<Clip>_without_shadow.png`
    - **`dir4x2`** — one PNG for the whole actor, 8 rows: walk on 0–3, idle on 4–7.
      Path shape: `PNG/Without_shadow/<Name>_without_shadow.png`
+   - **`coldir`** — *transposed*: direction is the **column** (walk 0–3, idle
+     4–7) and frame is the **row**. Transposed on import, so the engine only
+     ever sees row-major sheets. Needs `--cell`. Add `--baked-shadow` if the
+     frames already have a drop shadow painted in.
    - **`grid`** — flat folder of `<Name>_<clip>.png`, 4 rows = facings, cells
      need not be square. Needs `--cell WxH`, because cell size cannot be
      inferred: a 128×192 sheet is equally consistent with 4×4 cells of 32×48 and
@@ -122,20 +126,20 @@ while offscreen.
 | `DHArt.faceFromVector(ent, dx, dy)` | set facing from movement; ties keep current facing |
 | `DHArt.finished(ent, id)` | a one-shot clip reached its last frame |
 | `DHArt.drawActor(ctx, id, ent, sx, sy, opts)` | draw. `opts: {size, alpha, flash, footY}` |
-| `DHArt.drawShadow(ctx, id, sx, sy, opts)` | ground ellipse sized from the anchor box |
+| `DHArt.drawShadow(ctx, id, sx, sy, opts)` | ground ellipse sized from the anchor box; a no-op for actors whose art has a shadow baked in |
 
 `attack`, `hurt` and `death` are marked non-looping at prep time: they play once
 and hold the last frame, and `finished()` goes true. Everything else loops.
 
 ## Current inventory
 
-50 actors, 230 sheets. See `docs/ASSET-INVENTORY.md` for the full list and for
+53 actors, 236 sheets. See `docs/ASSET-INVENTORY.md` for the full list and for
 the packs not yet imported.
 
 | Group | Actors |
 |---|---|
 | `enemies` | 33 creatures — rats, 9 slimes, plants, golems, orcs, gnolls, ents, ghosts, skeletons |
-| `farm` | 8 ranch animals |
+| `farm` | 11 ranch animals |
 | `npcs` | 9 townsfolk (`folk_*`, 32×48 cells) |
 
 Creatures have all six clips; orcs also have `run_attack` / `walk_attack`. Farm
