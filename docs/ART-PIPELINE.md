@@ -168,6 +168,48 @@ Importing a pack means adding its author to **both** `CREDITS.md` and the
 `ART_CREDITS` table in `index.html`. Some packs are CC-BY, where the in-game
 credit is a licence obligation rather than a courtesy.
 
+## Item icons
+
+Separate from the sprite engine, and simpler: one atlas plus a hand-curated map.
+
+```
+tools/icon-map.json     item id -> 'set:number', grouped and commented
+tools/build_icons.py    packs the named icons into an atlas
+assets/icons/items.png  the atlas, 16 icons per row at 32px
+assets/icons/items.json { cell, cols, icons: { itemId: index } }
+assets/js/icons.js      runtime (DHIcons) + the itemIcon() helper
+```
+
+To change or extend the mapping, edit `tools/icon-map.json` and re-run:
+
+```sh
+./tools/build_icons.py ~/packs/Fantasy_RPG_icon_pack_by_Franuka
+```
+
+The numbers are the ones in the pack's own `License and index.txt`, which are
+also its individual PNG filenames — so picking an icon means finding it in that
+index, not counting cells in a sheet.
+
+### Using an icon
+
+```js
+`<span class="pr-icon">${itemIcon(itemId, 20, fallbackEmoji)}</span>`
+```
+
+`itemIcon` returns the icon when one is mapped and the emoji otherwise, both in
+a box of the requested size so mixed rows still line up. Canvas callers use
+`DHIcons.draw(ctx, id, x, y, size)`.
+
+### Coverage is deliberately partial
+
+114 of ~240 items have icons. The rest keep their emoji, because a wrong icon
+reads worse than an emoji — a "Cloth cap" standing in for cloth, say. Some
+entries are deliberate approximations that read correctly at 20px (pumpkin =
+orange, wool = yarn, hoe = shovel); these are listed in the map's comment block.
+
+Unmapped areas worth filling if a suitable pack turns up: badlands loot, jungle
+crops and produce, most cooked meals, and the mine's quality-tiered ores.
+
 ## Note for the Steam build
 
 Keeping art as loose files (rather than base64 inside the HTML) is what makes an

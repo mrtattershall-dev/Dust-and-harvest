@@ -173,6 +173,8 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 .title-btn.secondary{background:transparent;border:1px solid rgba(95,75,36,.28);color:rgba(155,115,52,.65);}
 .title-btn.secondary:hover:not(:disabled){border-color:rgba(135,98,38,.52);color:var(--parchment);}
 .title-btn:disabled{opacity:.22;cursor:not-allowed;}
+.dh-ic{display:inline-block;background-image:url('assets/icons/items.png');background-repeat:no-repeat;image-rendering:pixelated;vertical-align:middle;flex-shrink:0;}
+.dh-ic-emoji{display:inline-block;line-height:1;text-align:center;vertical-align:middle;flex-shrink:0;font-style:normal;}
 .save-info{font-size:.56rem;color:rgba(95,75,36,.55);font-family:var(--font-main);margin-top:4px;letter-spacing:.04em;}
 /* CREDITS */
 #creditsOverlay{position:absolute;inset:0;background:rgba(4,3,1,.94);z-index:90;display:none;align-items:center;justify-content:center;padding:18px 12px;}
@@ -908,6 +910,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 <!-- Sprite engine — must load before the main script so DHArt exists at draw
      time. Fails soft: no manifest means hand-drawn art is used throughout. -->
 <script src="assets/js/sprite-engine.js"></script>
+<script src="assets/js/icons.js"></script>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -3389,21 +3392,21 @@ function buildHotbar() {
   // 1. Tools you own
   for (const toolId of TOOL_ORDER) {
     if (countItem(toolId) > 0) {
-      slots.push({ icon:ITEMS[toolId].icon, name:ITEMS[toolId].name.replace(' Can','').replace('Harvest ',''), qty:null, active: player.tool===TOOL_ACTION[toolId], action:()=>{ selectTool(TOOL_ACTION[toolId]); } });
+      slots.push({ itemId:toolId, icon:ITEMS[toolId].icon, name:ITEMS[toolId].name.replace(' Can','').replace('Harvest ',''), qty:null, active: player.tool===TOOL_ACTION[toolId], action:()=>{ selectTool(TOOL_ACTION[toolId]); } });
     }
   }
 
   // 1b. Sprinklers in inventory (placeable)
   const sprinklerHeld = countItem('sprinkler');
   if (sprinklerHeld > 0) {
-    slots.push({ icon:'🚿', name:'Sprinkler', qty:sprinklerHeld, active: player.tool==='sprinkler', action:()=>{ selectTool('sprinkler'); } });
+    slots.push({ itemId:'sprinkler', icon:'🚿', name:'Sprinkler', qty:sprinklerHeld, active: player.tool==='sprinkler', action:()=>{ selectTool('sprinkler'); } });
   }
 
   // 2. Seeds you own (from seed pouch)
   for (const crop of SEED_CROPS) {
     const qty = inventory.seeds[SEED_MAP[crop]] || 0;
     if (qty > 0) {
-      slots.push({ icon:ITEMS[crop].icon, name:ITEMS[crop].name, qty, active: player.tool==='plant'&&player.selectedSeed===crop, action:()=>{ selectSeed(crop); } });
+      slots.push({ itemId:crop, icon:ITEMS[crop].icon, name:ITEMS[crop].name, qty, active: player.tool==='plant'&&player.selectedSeed===crop, action:()=>{ selectSeed(crop); } });
     }
   }
 
@@ -3412,7 +3415,7 @@ function buildHotbar() {
     if (HUNGER_RESTORE[id]) continue; // edible raw — use from inventory instead
     const qty = countItem(id);
     if (qty > 0) {
-      slots.push({ icon:ITEMS[id].icon, name:ITEMS[id].name, qty, active:false, action:()=>{ openMarket(); setMktTab('buysell'); } });
+      slots.push({ itemId:id, icon:ITEMS[id].icon, name:ITEMS[id].name, qty, active:false, action:()=>{ openMarket(); setMktTab('buysell'); } });
     }
   }
 
@@ -3420,7 +3423,7 @@ function buildHotbar() {
   for (const id of FOOD_ITEMS) {
     const qty = countItem(id);
     if (qty > 0) {
-      slots.push({ icon:ITEMS[id].icon, name:ITEMS[id].name, qty, active:false, action:()=>{ useConsumable(id); } });
+      slots.push({ itemId:id, icon:ITEMS[id].icon, name:ITEMS[id].name, qty, active:false, action:()=>{ useConsumable(id); } });
     }
   }
 
@@ -3432,7 +3435,7 @@ function buildHotbar() {
   slots.forEach((s, i) => {
     const d = document.createElement('div');
     d.className = 'hb-slot' + (s.active ? ' active' : '');
-    d.innerHTML = `<span class="hb-key">${i+1}</span><span class="hb-icon">${s.icon}</span><span class="hb-name">${s.name}</span>${s.qty!==null?`<span class="hb-qty">${s.qty}</span>`:''}`;
+    d.innerHTML = `<span class="hb-key">${i+1}</span><span class="hb-icon">${itemIcon(s.itemId, 20, s.icon)}</span><span class="hb-name">${s.name}</span>${s.qty!==null?`<span class="hb-qty">${s.qty}</span>`:''}`;
     d.onclick = s.action;
     bar.appendChild(d);
   });
@@ -3724,7 +3727,7 @@ function renderLivestock(body) {
     const price = economy.prices[id] || BASE_PRICES[id] || 10;
     const total = qty * price;
     h += `<div class="price-row">
-      <span class="pr-icon">${ITEMS[id].icon}</span>
+      <span class="pr-icon">${itemIcon(id, 20, ITEMS[id].icon)}</span>
       <span class="pr-name">${ITEMS[id].name}</span>
       <span style="flex:1;font-size:8px;color:#705030">${ITEMS[id].desc}</span>
       <span class="pr-held">${qty} held</span>
@@ -4443,7 +4446,7 @@ function renderMineTab(body) {
     const tCol  = price > base*1.1  ? '#60e060' : price < base*.9 ? '#e06060' : '#a09060';
     const it    = ITEMS[ore.id];
     h += `<div class="price-row">
-      <span class="pr-icon">${it?.icon||'⛏'}</span>
+      <span class="pr-icon">${itemIcon(ore.id, 20, it?.icon||'⛏')}</span>
       <span class="pr-name">${it?.name||ore.id} <span style="font-size:8px;color:#505040">[${ore.label}]</span></span>
       <span class="pr-held">${held} held</span>
       <span class="pr-price" style="color:${col}">$${price}</span>
@@ -4685,7 +4688,7 @@ function renderBuySell(body) {
     const evTag = (economy.event && economy.event.effect && economy.event.effect[item.id])
       ? `<span style="font-size:8px;color:#e0a030;margin-left:4px;letter-spacing:.03em">📢 ${economy.event.name}</span>` : '';
     return `<div class="price-row">
-      <span class="pr-icon">${item.icon}</span>
+      <span class="pr-icon">${itemIcon(item.id, 20, item.icon)}</span>
       <span class="pr-name">${item.name}${evTag}</span>
       <span class="pr-held">${held} held</span>
       <span class="pr-price" style="color:${priceColor}">$${cur}</span>
@@ -4804,7 +4807,7 @@ function renderBuySell(body) {
     const tm = TIER_META[tier];
     const tierTag = `<span style="font-size:7px;padding:1px 4px;border-radius:2px;margin-left:4px;background:${tm.bg};border:1px solid ${tm.border};color:${tm.color}">${tm.label}</span>`;
     h += `<div class="price-row">
-      <span class="pr-icon">${icon}</span>
+      <span class="pr-icon">${itemIcon(id, 20, icon)}</span>
       <span class="pr-name">${name}${multTag}${tierTag}</span>
       <span class="pr-held">${held} held</span>
       <span class="pr-price" style="color:${priceColor}">$${cur}</span>
@@ -4868,7 +4871,7 @@ function renderBuySell(body) {
       const priceColor = isJunk ? '#806050' : displayPrice>base*1.3?'#60e060':displayPrice<base*.7?'#e06060':'#d4b870';
       totalValue += held * displayPrice;
       h += `<div class="price-row">
-        <span class="pr-icon">${item.icon}</span>
+        <span class="pr-icon">${itemIcon(item.id, 20, item.icon)}</span>
         <span class="pr-name">${item.name}</span>
         <span class="pr-held">${held} held</span>
         <span class="pr-price" style="color:${priceColor}">$${displayPrice}</span>
@@ -4915,7 +4918,7 @@ function renderBuySell(body) {
       const held  = countItem(id);
       totalValue += held * price;
       h += `<div class="price-row">
-        <span class="pr-icon">${it.icon}</span>
+        <span class="pr-icon">${itemIcon(id, 20, it.icon)}</span>
         <span class="pr-name">${it.name}</span>
         <span style="flex:1;font-size:8px;color:#705030">${it.desc}</span>
         <span class="pr-held">${held} held</span>
@@ -4936,7 +4939,7 @@ function renderBuySell(body) {
       const held  = countItem(id);
       totalValue += held * price;
       h += `<div class="price-row">
-        <span class="pr-icon">${it.icon}</span>
+        <span class="pr-icon">${itemIcon(id, 20, it.icon)}</span>
         <span class="pr-name">${it.name}</span>
         <span class="pr-held">${held} held</span>
         <span class="pr-price" style="color:#e09040">$${price}</span>
@@ -4976,7 +4979,7 @@ function renderBuySell(body) {
       ? `<span style="font-size:8px;color:#e0a040;margin-left:3px">×${(economy.mult[item.id]).toFixed(1)}</span>` : '';
     if (held > 0) totalValue += held * cur;
     h += `<div class="price-row" style="border-left:2px solid rgba(200,120,40,.3);opacity:${held>0?1:0.6}">
-      <span class="pr-icon">${item.icon}</span>
+      <span class="pr-icon">${itemIcon(item.id, 20, item.icon)}</span>
       <span class="pr-name" style="color:${held>0?'#d4a060':'#806040'}">${item.name}${multTag}</span>
       <span class="pr-held" style="color:${held>0?'#d4b870':'#504020'}">${held>0?held+' held':'—'}</span>
       <span class="pr-price" style="color:${priceColor}">$${cur}</span>
@@ -5000,7 +5003,7 @@ function renderBuySell(body) {
   for (const it of storeItems) {
     const held = countItem(it.id);
     h += `<div class="price-row">
-      <span class="pr-icon">${it.icon}</span>
+      <span class="pr-icon">${itemIcon(it.id, 20, it.icon)}</span>
       <span class="pr-name">${it.name}</span>
       <span style="flex:1;font-size:8px;color:#705030">${it.desc}</span>
       <span class="pr-held">${held} held</span>
@@ -5219,7 +5222,7 @@ function refreshInvUI() {
     if (slot) {
       const qualBadge = (slot.quality && slot.quality !== 'standard')
         ? `<span class="cqual ${slot.quality}">${slot.quality === 'pure' ? '★' : '▲'}</span>` : '';
-      cell.innerHTML = `${qualBadge}<span class="ci">${(ITEMS[slot.itemId] && ITEMS[slot.itemId].icon)||'?'}</span>`
+      cell.innerHTML = `${qualBadge}<span class="ci">${itemIcon(slot.itemId, 22)}</span>`
         + `<span class="cn">${((ITEMS[slot.itemId] && ITEMS[slot.itemId].name)||''). split(' ')[0]}</span>`
         + `<span class="cq">${slot.qty}</span>`;
     } else {
@@ -5239,7 +5242,7 @@ function refreshInvUI() {
     const qty = inventory.seeds[sid] || 0;
     const cell = document.createElement('div');
     cell.className = 'inv-cell' + (qty>0?' filled':'');
-    cell.innerHTML = `<span class="ci">${ic}</span><span class="cn">${nm}</span><span class="cq">${qty}</span>`;
+    cell.innerHTML = `<span class="ci">${itemIcon(sid, 22, ic)}</span><span class="cn">${nm}</span><span class="cq">${qty}</span>`;
     sg.appendChild(cell);
   }
   document.getElementById('invWeightLabel').textContent = `${inventory.totalWeight}/${getEffectiveWeightCap()} kg · ${effSlots} slots`;
@@ -5258,7 +5261,7 @@ function showTooltip(slot, e) {
   const QUAL_MULT = { flawed: 0.7, standard: 1.0, pure: 1.4 };
   const qm = QUAL_MULT[slot.quality || 'standard'] || 1.0;
   const adjPrice = mktPrice ? Math.round(mktPrice * qm) : null;
-  document.getElementById('ttName').textContent = item.icon+' '+item.name;
+  document.getElementById('ttName').innerHTML = itemIcon(slot.itemId, 18, item.icon)+' '+item.name;
   document.getElementById('ttMeta').textContent = item.type.toUpperCase()+' • '+item.weight+'kg each • qty: '+slot.qty;
   document.getElementById('ttDesc').textContent = item.desc;
   // Quality line for ores
@@ -10542,7 +10545,7 @@ function refreshChestUI() {
     cell.className = 'inv-cell' + (slot ? ' filled' : '');
     if (slot) {
       const it = ITEMS[slot.itemId];
-      cell.innerHTML = `<span class="ci">${it ? it.icon : '?'}</span><span class="cn">${it ? it.name.split(' ')[0] : ''}</span><span class="cq">${slot.qty}</span>`;
+      cell.innerHTML = `<span class="ci">${itemIcon(slot.itemId, 22, it ? it.icon : '?')}</span><span class="cn">${it ? it.name.split(' ')[0] : ''}</span><span class="cq">${slot.qty}</span>`;
       totalW += ((it && it.weight) || 0) * slot.qty;
       // Click to move slot back to player inventory
       cell.addEventListener('click', () => {
@@ -34021,6 +34024,14 @@ const ART_CREDITS = [
     links: ['https://franuka.itch.io', 'https://creativecommons.org/licenses/by/4.0/'],
   },
   {
+    who: 'Franuka',
+    licence: 'Creative Commons BY 4.0',
+    what: 'Fantasy RPG icon pack — the inventory, market and hotbar item icons.',
+    countFn: () => (typeof DHIcons !== 'undefined' ? DHIcons.count() : 0),
+    countNoun: 'item icon',
+    links: ['https://franuka.itch.io', 'https://creativecommons.org/licenses/by/4.0/'],
+  },
+  {
     who: 'CraftPix.net',
     licence: 'CraftPix file licence',
     what: 'Creature and animal sprites — rats, slimes, predator plants, golems, '
@@ -34040,6 +34051,12 @@ function _countCreditedActors(prefixes) {
   return DHArt.list().filter(id => prefixes.some(p => id.startsWith(p))).length;
 }
 
+// Entries either count sprite actors by id prefix or supply their own counter.
+function _creditCount(c) {
+  if (c.countFn) { try { return c.countFn(); } catch (e) { return 0; } }
+  return _countCreditedActors(c.prefixes || []);
+}
+
 function renderCredits() {
   const body = document.getElementById('creditsBody');
   if (!body) return;
@@ -34049,12 +34066,13 @@ function renderCredits() {
         + '<div class="cr-who">DUST &amp; HARVEST</div>'
         + '<div class="cr-what">Design, code and original pixel art.</div></div>';
 
-  html += '<div class="cr-sec"><div class="cr-h">Sprite Art</div>';
+  html += '<div class="cr-sec"><div class="cr-h">Art</div>';
   for (const c of ART_CREDITS) {
-    const n = _countCreditedActors(c.prefixes);
+    const n = _creditCount(c);
+    const noun = c.countNoun || 'character';
     html += '<div style="margin-bottom:11px">'
           + `<div class="cr-who">${c.who}`
-          + (n ? ` <span class="cr-lic">— ${n} character${n === 1 ? '' : 's'}</span>` : '')
+          + (n ? ` <span class="cr-lic">— ${n} ${noun}${n === 1 ? '' : 's'}</span>` : '')
           + '</div>'
           + `<div class="cr-lic">${c.licence}</div>`
           + `<div class="cr-what">${c.what}</div>`

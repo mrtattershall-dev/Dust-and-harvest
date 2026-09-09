@@ -24,6 +24,19 @@ Because this is CC-BY, the visible in-game credit is a **licence obligation**,
 not a courtesy. Do not ship a build with the credits screen removed or
 unreachable.
 
+### Franuka — *Fantasy RPG Icon Pack*
+**Licence: Creative Commons BY 4.0** — commercial use permitted, **credit required**.
+
+- <https://franuka.itch.io>
+- <https://creativecommons.org/licenses/by/4.0/>
+
+Used for the inventory, market, chest and hotbar item icons (base set, colour
+variations and fishing expansions).
+
+The pack's **Minecraft expansion is deliberately unused**: those icons are
+recreations of Minecraft's items and carry trademark risk in a paid release.
+Do not add them to `tools/icon-map.json`.
+
 ### CraftPix.net — creature and animal packs
 **Licence: CraftPix file licence** — commercial use permitted; redistribution of
 the raw assets is not.
