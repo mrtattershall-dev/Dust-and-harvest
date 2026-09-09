@@ -58,6 +58,11 @@ pack's ground colour and its `spots.png` mottling, re-scattered by
 `tools/build_ground.py` into the seamless surface under `TL.SAND` and the
 badlands dust floor.
 
+The main map's ground comes from two more CraftPix packs through the same tool:
+the grass from *Top-Down Farmlands Tileset* and the packed earth from *Top-Down
+Farm with Animals*. Both ship 16px cells that are mutually seamless, so they are
+laid as a mosaic rather than a tile set.
+
 Actor ids are the attribution key: the in-game credits screen groups actors by
 id prefix, `folk_*` to Franuka and the rest to CraftPix. Never reuse a prefix
 across two authors.

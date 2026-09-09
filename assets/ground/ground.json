@@ -1,13 +1,21 @@
 {
  "period": 512,
  "terrains": {
+  "dirt": {
+   "base": "#8f4f35",
+   "oy": 0
+  },
   "dust": {
    "base": "#d89b62",
-   "oy": 0
+   "oy": 512
+  },
+  "grass": {
+   "base": "#598166",
+   "oy": 1024
   },
   "sand": {
    "base": "#d2b268",
-   "oy": 512
+   "oy": 1536
   }
  },
  "tile": 32

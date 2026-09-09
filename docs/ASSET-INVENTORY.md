@@ -105,17 +105,24 @@ Both matter for a paid Steam release; see *Licensing* below.
 
 ---
 
-## Tilesets — 6 packs, 2.6 MB, native 32×32
+## Tilesets — 6 packs, 2.6 MB, native 16×16
 
 `greenforest` · `greenvillage` · `greendungeon` · `medievalinterior` ·
 `minerscave` · `topdownfarmlands`
 
-Each ships `All Tileset/{16,32,48,64}.png`. **The 32×32 sheets match the game's
-`T = 32` exactly** — no scaling, no resampling.
+Each ships `All Tileset/{16,32,48,64}.png`.
+
+**Correction:** an earlier note here said the 32×32 sheets "match the game's
+`T = 32` exactly". They match in *size*, not in resolution. All of these packs
+are **16×16 native**; the 32, 48 and 64 sheets are exact nearest-neighbour
+upscales (verified by re-downscaling and comparing). Drawing the 32px sheet at
+1:1 would render every art pixel at 2×2 screen pixels — twice the size of the
+props, characters and sand already in the game. The 16px sheets are the ones to
+use, with a game tile spanning 2×2 of them.
 
 | Pack | 32×32 grid |
 |---|---|
-| `topdownfarmlands` | 32 × 43 tiles |
+| `topdownfarmlands` | 32 × 43 tiles — **grass imported** |
 | `medievalinterior` | 35 × 21 |
 | `minerscave` | 26 × 29 |
 | `greenforest` | 26 × 15 |
@@ -124,9 +131,20 @@ Each ships `All Tileset/{16,32,48,64}.png`. **The 32×32 sheets match the game's
 
 This is the biggest visual change available and the most invasive. `drawTile()`
 is a ~800-line switch that draws all 54 `TL.*` tile types with canvas paths.
-Replacing it means a tile atlas plus a `TL.* -> (atlas, col, row)` table, built
-by picking tiles out of the sheets by hand. Doable incrementally — one tile type
-at a time, falling back to the painted version for anything unmapped.
+Doable incrementally — one tile type at a time, falling back to the painted
+version for anything unmapped.
+
+**Done so far: `TL.GRASS`, `TL.FLOWERS` and `TL.DIRT`** — 55% of the overworld
+between them. Not via a tile atlas: these packs have no per-tile ground
+structure to slice. Their grass and dirt are small 16px cells that are mutually
+seamless, so `tools/build_ground.py` lays them as a random mosaic on one
+wrap-seamless texture, the same surface the sand uses. See `docs/ART-PIPELINE.md`.
+
+**Not yet: `TL.STONE` (9.4%), `TL.TOWN_FLOOR` (14.3%), `TL.ROAD`, `TL.WATER`.**
+Art exists for all four — the farm pack ships cobble and water, and
+`freepathandroad` ships five road styles. The terrain-*edge* sets in these packs
+stay unusable until the game has an autotiling concept; it currently has none,
+only a 4px colour blend on grass.
 
 ---
 
@@ -149,7 +167,12 @@ blacksmith → the forge, herbalist hut and tavern → town buildings, camp → 
 hobo camp, farm-with-animals → the ranch, miner's cave → the mine.
 
 `topdownfarmwithanimals` is **partly imported** already — its chicken, cow and
-pig sprites are in use. Its buildings, barn interior and plant tiles are not.
+pig sprites are in use, and `ground_grass_bricks.png` now supplies the main
+map's packed earth. Its buildings, barn interior and plant tiles are not; the
+same sheet also holds cobble and water for a later pass.
+
+Its `All Tileset` sheet also contains a **sheep** (plus dog, wolf, buffalo),
+which would close the ranch's one missing species noted above.
 
 ---
 

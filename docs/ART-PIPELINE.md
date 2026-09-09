@@ -351,14 +351,27 @@ mesas, pyramids, full ruins — need multi-tile handling and are left for later.
 
 ## Ground surfaces
 
-Sand is the desert pack's own art now, but it does not arrive as tiles and
-cannot be imported like the props.
+Grass, dirt and sand are the packs' own art now. None of it arrives as
+32×32 game tiles, and the packs fail to supply them in two different ways, so
+the tool bakes two different ways.
 
-**The pack's ground is a flat colour.** Every sand tile in `Ground_grass.png`
-and `Water_coasts.png` measures a standard deviation of exactly 0 — one solid
-`rgb(210,178,104)`. All the texture lives in `spots.png`, a sheet of loose
-mottling blobs meant to be strewn over that colour. There is nothing to slice
-into cells, so the honest import is to lift the blobs out and re-scatter them.
+**Everything is 16×16 native.** Every pack checked — desert, farmlands, green
+forest, green village, farm-with-animals — draws at 16px. Their `32x32.png`
+sheets are exact 2× nearest-neighbour upscales, verified, not assumed. Using
+those would double the pixel size against the props and characters already in
+the game, so the 16px sources are used at 1:1 and a game tile spans 2×2 of them.
+
+**`scatter` — the desert pack's ground is a flat colour.** Every sand tile in
+`Ground_grass.png` and `Water_coasts.png` measures a standard deviation of
+exactly 0 — one solid `rgb(210,178,104)`. All the texture lives in `spots.png`,
+a sheet of loose mottling blobs meant to be strewn over that colour. There is
+nothing to slice, so the blobs are lifted out and re-scattered.
+
+**`mosaic` — the farm packs ship interchangeable cells.** Their grass and dirt
+come as small textured 16px cells that are *mutually seamless*: any cell can
+follow any other in either direction with no visible join. That makes them a
+random mosaic rather than a tile set, and it is a property that has to be
+measured, so the tool measures it (see *Mutual seams*).
 
 ```
 tools/build_ground.py       extracts the blobs and bakes the textures
@@ -396,17 +409,49 @@ speckling, which is the one thing sand never looks like.
 
 `SEED` in the tool is fixed, so a rebuild is byte-identical.
 
+### Mutual seams, and why cells get flipped
+
+A mosaic is only safe if every cell joins every other cell invisibly. The tool
+checks all ordered pairs in both directions and compares the worst join against
+the *grain* the artist already drew — the average neighbouring-pixel step inside
+the cells. A seam no larger than the grain cannot be seen, because the texture
+already varies that much; a seam under 8/255 cannot be seen either way. If a
+pair fails, the build stops and names the two cells rather than shipping a
+visible grid (`--loose` overrides).
+
+Four near-identical cells still repeat on the 16px grid, which reads as
+wallpaper — the dirt did exactly that on the first bake. Flipping and rotating a
+cell moves its motif inside the square and breaks the lattice, but it also
+changes the cell's edges, so each transform is *tried and measured*: it is kept
+only if the whole set stays seamless with it added.
+
+```
+dirt   4 cells, seam  7.79 <=  8.00   + 8 from flip-h, rot-90
+grass  4 cells, seam  2.85 <= 12.52   +20 from flip-h, flip-v, rot-90, rot-180, rot-270
+```
+
+Dirt's edges are asymmetric enough that flip-v and rot-180 push the join over
+tolerance, so they are dropped. That is measured per terrain, not assumed.
+
 ### Terrains
 
-Both are the same sand. The badlands is the same grains under a redder sun, so
+Sand and dust are the same sand. The badlands is the same grains under a redder sun, so
 it is a **hue rotation** of the pack's colour rather than a second palette —
 base and mottling rotate together, which keeps the contrast the artist drew
 instead of flattening it.
 
-| Name | Tile | Hue | Sat | Base |
+| Name | Kind | Tile | Tone | Base |
 |---|---|---|---|---|
-| `sand` | `TL.SAND` | — | — | `#d2b268` — the pack's own sand |
-| `dust` | `BL.DUSTFLOOR` | −13° | ×1.12 | `#d89b62` — orange-shifted |
+| `grass` | mosaic | `TL.GRASS`, `TL.FLOWERS` | — | `#598166` — farmlands turf |
+| `dirt` | mosaic | `TL.DIRT` | — | `#8f4f35` — farmyard packed earth |
+| `sand` | scatter | `TL.SAND` | — | `#d2b268` — the desert pack's sand |
+| `dust` | scatter | `BL.DUSTFLOOR` | −13° hue, ×1.12 sat | `#d89b62` — orange-shifted |
+
+Every terrain takes `hue`/`sat`, so any of them can be retuned in one line and
+rebuilt. `grass` and `dirt` ship at the packs' own colours.
+
+`TL.FLOWERS` draws the grass texture as its base before its flowers. Without
+that it keeps its own darker green and reads as squares punched out of the lawn.
 
 −13° was picked against the badlands' own red rock, not in isolation. −6° is
 not distinguishable from tan; from −20° the sand turns salmon and starts
@@ -427,6 +472,15 @@ Both call sites keep their painted branch, so a missing texture changes nothing.
 than resampling the pixel art.
 
 ### Not done, and why
+
+- **`TL.STONE`, `TL.ROAD`, `TL.WATER`, `TL.TOWN_FLOOR`** — art exists for all of
+  them (the farm pack ships cobble and water; `freepathandroad` ships five road
+  styles). They are the obvious next terrains; this pass stopped at the two that
+  are 53% of the map between them.
+- **The road and terrain-edge sets** — `freepathandroad` and the packs'
+  `Ground_grass` sheets are mostly *transition* pieces for terrain meeting
+  terrain. The game has no terrain-edge concept, so they need autotiling first.
+  `TL.GRASS` keeps its 4px neighbour blend, which is the cheap stand-in.
 
 - **`BL.CRACKED`** — the pack's `sand.png` is not sand at all; it is a set of
   thin vertical *crack segments* meant to stack into continuous fissures. That
