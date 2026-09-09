@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>DUST & HARVEST</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Rye&display=swap" rel="stylesheet">
@@ -27,8 +27,14 @@
   --ui-font-lg:   calc(var(--ui-font-size) * 1.08);  /* ~14px at normal */
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select:none;color:var(--parchment);}
-#gameCanvas{display:block;position:absolute;top:0;left:0;}
+body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select:none;color:var(--parchment);overscroll-behavior:none;-webkit-tap-highlight-color:transparent;}/* overscroll-behavior stops the pull-to-refresh / rubber-band bounce that
+   fires when a drag starts on the game and the page decides it owns it. */
+#gameCanvas{display:block;position:absolute;top:0;left:0;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;}/* touch-action:none so a drag or double-tap on the world is not taken by
+   the browser as a scroll or a zoom. The d-pad buttons already set this;
+   the canvas did not, so gestures over the game fought the page. *//* The backing store is CSS-pixel sized, so on a 2x/3x phone the browser
+   scales it up. Without this it does that with smoothing, which blurs
+   every sprite. ctx.imageSmoothingEnabled only covers drawing INTO the
+   canvas, not the canvas element's own upscale. */
 /* HUD */
 #hud{position:absolute;top:0;left:0;width:100%;pointer-events:none;padding:7px 10px;z-index:10;}
 #topBar{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;}
@@ -61,7 +67,9 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 #nightOverlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5;transition:background .4s;}
 #seasonTag{position:absolute;top:50px;right:10px;background:var(--panel-bg);border:1px solid rgba(95,75,36,.32);border-radius:0;padding:4px 10px;font-size:var(--ui-font-xs);color:var(--tallow);pointer-events:none;z-index:10;letter-spacing:.04em;}
 /* FARM PANEL */
-#farmPanel{position:absolute;right:10px;top:50px;width:208px;background:var(--panel-bg);border:1px solid var(--panel-border);border-top:3px solid var(--tallow);border-radius:0;padding:10px;pointer-events:all;display:none;z-index:15;}
+#farmPanel{position:absolute;right:10px;top:50px;width:208px;background:var(--panel-bg);border:1px solid var(--panel-border);border-top:3px solid var(--tallow);border-radius:0;padding:10px;pointer-events:all;display:none;z-index:15;max-height:calc(100vh - 60px);overflow-y:auto;-webkit-overflow-scrolling:touch;}/* Its content runs to ~1130px. Unconstrained it simply ran off the bottom
+   of any short screen — on a 664px phone most of the seed list and every
+   button below it were unreachable. */
 #farmPanel h3{font-size:var(--ui-font-size);color:var(--parchment);margin-bottom:8px;letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid rgba(110,85,40,.28);padding-bottom:5px;display:flex;justify-content:space-between;align-items:center;}
 .tbtn{display:flex;align-items:center;gap:6px;width:100%;padding:6px 8px;margin-bottom:3px;background:rgba(255,255,255,.02);border:1px solid rgba(95,75,36,.2);border-left:2px solid transparent;border-radius:0;cursor:pointer;font-family:var(--font-main);font-size:var(--ui-font-size);color:var(--tallow);transition:all .1s;}
 .tbtn:hover,.tbtn.sel{background:rgba(155,105,36,.1);color:var(--bone);border-left-color:var(--ember);}
@@ -832,6 +840,30 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
     <button id="controlsClose">▸ START FARMING</button>
   </div>
 </div>
+<script>
+// On a touch device the card above lists eleven keyboard shortcuts and not one
+// of them can be pressed. Swap in what the on-screen controls actually do.
+(function () {
+  if (!('ontouchstart' in window) && !navigator.maxTouchPoints) return;
+  const grid = document.getElementById('controlsGrid');
+  const title = document.getElementById('controlsTitle');
+  if (!grid) return;
+  if (title) title.textContent = '\uD83C\uDFAE CONTROLS';
+  const TOUCH = [
+    ['D-pad',    'Move'],
+    ['ACT',      'Interact / use tool / attack'],
+    ['\uD83C\uDF3E', 'Farm panel'],
+    ['M',        'Market / upgrades'],
+    ['TAB',      'Inventory'],
+    ['Hotbar',   'Tap a tool along the bottom'],
+    ['\u23F8',  'Pause'],
+    ['\uD83C\uDFAE ON/OFF', 'Hide or show these controls'],
+  ];
+  grid.innerHTML = TOUCH.map(([k, d]) =>
+    `<div class="ctrl-row"><span class="ctrl-key">${k}</span>` +
+    `<span class="ctrl-desc">${d}</span></div>`).join('');
+})();
+</script>
 
 <!-- DEBT-FREE ENDING SCREEN -->
 <div id="endingScreen">
@@ -990,7 +1022,12 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const BASE_W = 1280, BASE_H = 720;
 const T = 32;
-let BASE_ZOOM = (('ontouchstart' in window) || navigator.maxTouchPoints > 0) ? 0.85 : 3.25;
+// ZOOM is BASE_ZOOM scaled so the same number of tiles fits any screen, so
+// BASE_ZOOM is a tile-count choice, not a device choice. Touch devices used to
+// get 0.85 here, which on a 390px-wide phone worked out to ZOOM 0.26 — 8px
+// tiles and 47 tiles across, against 12 on desktop. The farm rendered as a
+// stamp in the corner. One value for every device; the settings slider moves it.
+let BASE_ZOOM = 3.25;
 let ZOOM = BASE_ZOOM * Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H);
 
 function resize(){
@@ -3887,10 +3924,10 @@ function applySettings() {
   const _wbEl = document.getElementById('weightBar'); if (_wbEl) _wbEl.style.display = settings.showWeight ? 'flex' : 'none';
   _soundVol = (settings.masterVol || 80) / 100;
   // Zoom — slider 0-100 maps to BASE_ZOOM 1-4
-  if(!('ontouchstart' in window) && !navigator.maxTouchPoints){
-    BASE_ZOOM = 1 + ((settings.zoomSlider ?? 75) / 100) * 3;
-    ZOOM = BASE_ZOOM * Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H);
-  }
+  // Applies on every device. This used to be desktop-only, which left phones
+  // with no way to change zoom at all.
+  BASE_ZOOM = 1 + ((settings.zoomSlider ?? 75) / 100) * 3;
+  ZOOM = BASE_ZOOM * Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H);
   // Text size -- drives ALL text in the game
   const sizeMap = { small:'11px', normal:'13px', large:'16px' };
   const baseSize = sizeMap[settings.textSize] || '13px';
@@ -36521,13 +36558,35 @@ function _drawGuideCover() {
     { id:'dp-right', code:'ArrowRight' },
   ];
 
+  // Every overlay that should take the screen from the player. Checked in the
+  // DOM rather than through window flags: the flags this used to read
+  // (invOpen, marketOpen, pauseOpen, ...) are all `let` inside the game's own
+  // scope and never reach window, so the test was `undefined === true` sixteen
+  // times over and the d-pad sat on top of every menu — and over the title
+  // screen at boot. The visual washes (night, weather, sky) are deliberately
+  // absent: they are always up and are not modal. `farmPanel` and
+  // `controlsOverlay` are absent for the same reason — both are HUD layers that
+  // stay visible the whole time you are playing, and listing them hid the d-pad
+  // permanently.
+  const OVERLAY_IDS = [
+    'titleScreen','creditsOverlay','saveSlotModal','difficultyModal',
+    'charCustomModal','introScreen','settingsOverlay','pauseOverlay',
+    'deathScreen','foreclosureScreen','endingScreen','marketOverlay',
+    'invOverlay','chestOverlay','farmhandOverlay','npcTalkOverlay',
+    'encounterPanel','confirmModal',
+    'smeltOverlay','minerOverlay','hcTalkOverlay','blBountyOverlay',
+    'blVendorOverlay','statsOverlay','guideOverlay',
+  ];
   function isAnyOverlayOpen() {
-    // Check all modal/overlay state variables that exist on window
-    const flags = ['invOpen','marketOpen','settingsOpen','pauseOpen',
-                   'daySummaryOpen','deathScreenOpen','chestOpen',
-                   'npcTalkOpen','farmhandOpen','blBountyBoardOpen','blVendorOpen',
-                   'minerOverlayOpen','merchantShopOpen','statsOpen','hcTalkOpen','guideOpen'];
-    return flags.some(f => window[f] === true);
+    for (const id of OVERLAY_IDS) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      const st = getComputedStyle(el);
+      if (st.display !== 'none' && st.visibility !== 'hidden' &&
+          parseFloat(st.opacity) > 0.05 &&
+          el.getBoundingClientRect().width > 0) return true;
+    }
+    return false;
   }
 
   // ── Touch helper: prevent default to kill ghost clicks ──
@@ -36651,7 +36710,9 @@ function _drawGuideCover() {
     slots.forEach((slot) => {
       const iconEl = slot.querySelector('.hb-icon');
       const qtyEl  = slot.querySelector('.hb-qty');
-      const icon   = iconEl ? iconEl.textContent : '?';
+      // innerHTML, not textContent: item icons are <i> sprite elements now, and
+      // textContent on those is the empty string — every mobile slot went blank.
+      const icon   = iconEl ? iconEl.innerHTML : '?';
       const qty    = qtyEl  ? qtyEl.textContent  : null;
       const active = slot.classList.contains('active');
 
