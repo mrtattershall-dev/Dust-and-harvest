@@ -84,7 +84,13 @@ became which group.
 | Group | Source pack | Author |
 |---|---|---|
 | `treeLarge` `treeMed` `treeSmall` `bush` `rock` | Pixel Art Herbalist's Hut — Top Down Asset Pack | CraftPix |
-| `liana` | Rocky Top Down Tileset Pixel Art for RPG | CraftPix |
+| `liana` `hutRound` | Rocky Top Down Tileset Pixel Art for RPG | CraftPix |
+| `hut` | 2D Pixel Fishing Village Pack — Dock, Interior, Boats, NPCs | CraftPix |
+| `campfire` | Green Forest Top Down Pixel Art Tileset | CraftPix |
+
+Jungle NPCs reuse actors already credited under Sprite art — no new sources.
+Kit is mapped to the same actor in the jungle as in the hobo camp on purpose:
+she is one character in two places.
 
 These are temperate-rainforest species standing in for tropical ones — no pack
 on hand has palms, banana leaves or buttress roots. Swapping in a tropical pack

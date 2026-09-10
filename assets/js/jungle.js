@@ -55,14 +55,29 @@ window.DHJungle = (function () {
     return list[h % list.length];
   }
 
+  // Draw a specific sprite from `group` by index — for animations, where the
+  // frame comes from the clock rather than from the tile coordinate.
+  function drawFrame(ctx, group, index, sx, sy, tileSize) {
+    if (!ready(group)) return false;
+    const list = state.data.groups[group];
+    return blit(ctx, list[((index % list.length) + list.length) % list.length],
+                sx, sy, tileSize);
+  }
+
   // Draw one sprite from `group` anchored to the bottom-centre of the tile whose
   // top-left corner is at (sx, sy). `tileSize` is the zone's tile pixel size.
   // Returns false when the atlas is not up yet.
   function draw(ctx, group, sx, sy, tx, ty, tileSize) {
     const s = pick(group, tx, ty);
     if (!s) return false;
+    return blit(ctx, s, sx, sy, tileSize);
+  }
+
+  // Shared placement: anchor the sprite's footprint on the tile, with whatever
+  // is above it (canopy, roof, flame) overhanging upward.
+  function blit(ctx, s, sx, sy, tileSize) {
+    if (!s) return false;
     const T = tileSize || 32;
-    // Anchor the sprite's footprint on the tile, canopy overhanging upward.
     const dx = Math.round(sx + T / 2 - s.ax);
     const dy = Math.round(sy + T - s.ay + Math.round(T * 0.15));
     const prev = ctx.imageSmoothingEnabled;
@@ -77,7 +92,7 @@ window.DHJungle = (function () {
     return Object.values(state.data.groups).reduce((n, g) => n + g.length, 0);
   }
 
-  return { init, ready, draw, pick, count, _state: state };
+  return { init, ready, draw, drawFrame, pick, count, _state: state };
 })();
 
 DHJungle.init();

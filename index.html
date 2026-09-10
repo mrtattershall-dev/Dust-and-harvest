@@ -25435,6 +25435,9 @@ function setJGT(x, y, t) {
   }
 }
 function getJGSolid(x, y) {
+  // Village huts are placed rather than mapped (see JG_STRUCTURES), so their
+  // footprints have to block movement here instead of via a solid tile type.
+  if (typeof jgStructureSolid === 'function' && jgStructureSolid(x, y)) return true;
   return JG_SOLID.has(getJGT(x, y));
 }
 
@@ -34098,6 +34101,43 @@ function _jgTintGround(ctx, sx, sy, T) {
   ctx.fillRect(sx, sy, T, T);
 }
 
+/* Kit's Settlement was an empty clearing with the villagers standing in it.
+   The village has almost no structure tiles on the map — three WALL and seven
+   FLOOR in the whole jungle — so rather than rewrite the map, the huts are
+   placed here as structures and drawn in the same y-ordered overlay pass as the
+   trees, which is what lets a roof overhang the ground behind it.
+
+   Each hut's footprint is solid so you walk around it rather than through it,
+   minus a doorway tile on its south face so it reads as somewhere people live.
+   Positions sit behind their villager, clear of the paths between them —
+   _jgVillageReachable() checks every NPC is still walkable-to from the dock. */
+const JG_STRUCTURES = [
+  // group      anchor tx, ty   footprint w,h   doorway dx (from left of footprint)
+  { group:'hutRound', tx:40, ty:30, w:4, h:3, door:2 },   // Kit's lodge, behind her
+  { group:'hut',      tx:32, ty:34, w:3, h:2, door:1 },   // Malu
+  { group:'hut',      tx:46, ty:29, w:3, h:2, door:1 },   // Ren
+  { group:'hut',      tx:36, ty:39, w:3, h:2, door:1 },   // Pira — the stores
+];
+
+// tileKey -> structure, for the draw pass; and a solid-tile set for movement.
+const _jgStructAt = new Map();
+const _jgStructSolid = new Set();
+(function _jgIndexStructures() {
+  JG_STRUCTURES.forEach((st, i) => {
+    _jgStructAt.set(st.tx + ',' + st.ty, Object.assign({ variant: i }, st));
+    const x0 = st.tx - (st.w >> 1);
+    for (let dy = 0; dy < st.h; dy++) {
+      for (let dx = 0; dx < st.w; dx++) {
+        // Leave the doorway on the southern row open.
+        if (dy === st.h - 1 && dx === st.door) continue;
+        _jgStructSolid.add((x0 + dx) + ',' + (st.ty - (st.h - 1) + dy));
+      }
+    }
+  });
+})();
+
+function jgStructureSolid(tx, ty) { return _jgStructSolid.has(tx + ',' + ty); }
+
 const JG_OVERLAY_GROUP = {};   // tile -> atlas group, built after JG exists
 function _jgBuildOverlayGroups() {
   JG_OVERLAY_GROUP[JG.TREE]       = 'treeMed';
@@ -34117,9 +34157,21 @@ function drawJungleOverlay(ctx, cx, cy, W, H) {
   for (let ty = ty0; ty <= ty1; ty++) {
     for (let tx = tx0; tx <= tx1; tx++) {
       if (!exploredJungle[ty * JG_W + tx]) continue;
-      const group = JG_OVERLAY_GROUP[getJGT(tx, ty)];
-      if (!group) continue;
       const sx = tx * JG_T - cx, sy = ty * JG_T - cy;
+
+      // Village huts sit on their anchor tile and overhang upward like a tree.
+      const st = _jgStructAt.get(tx + ',' + ty);
+      if (st) DHJungle.draw(ctx, st.group, sx, sy, tx + st.variant * 31, ty, JG_T);
+
+      const tile = getJGT(tx, ty);
+      // Campfire: frame from the clock, not the tile — it has to actually burn.
+      if (tile === JG.CAMPFIRE && DHJungle.ready('campfire')) {
+        DHJungle.drawFrame(ctx, 'campfire', (Date.now() / 140) | 0, sx, sy, JG_T);
+        continue;
+      }
+
+      const group = JG_OVERLAY_GROUP[tile];
+      if (!group) continue;
       DHJungle.draw(ctx, group, sx, sy, tx, ty, JG_T);
       // A liana hangs from roughly one dense tree in five — enough to read as
       // rainforest without curtaining the whole canopy.
@@ -34358,6 +34410,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       break;
     }
     case JG.CAMPFIRE: {
+      if (window.DHJungle && DHJungle.ready('campfire')) { drawJGTile(JG.JUNGLE_FLOOR, sx, sy, tx, ty); break; }
       ctx.fillStyle = '#2a2010'; ctx.fillRect(sx, sy, T, T);
       // Stone ring
       ctx.fillStyle = '#3c3428';

@@ -77,7 +77,8 @@ def cut_sheet(path, min_px):
 def collect(args):
     """Resolve the map into { group: [Image, ...] }, in map order."""
     raw = json.loads(MAP.read_text())
-    packs = {"herbalist": args.herbalist, "rocky": args.rocky}
+    packs = {"herbalist": args.herbalist, "rocky": args.rocky,
+             "fishing": args.fishing, "greenforest": args.greenforest}
     groups, problems = {}, []
 
     for sheet_name, spec in raw.get("sheets", {}).items():
@@ -102,6 +103,28 @@ def collect(args):
                     problems.append(f"{group}[{idx}] is {got}, map says {want} — pack changed?")
                     continue
                 groups.setdefault(group, []).append(im.crop((x, y, x+w, y+h)))
+
+    # Animation frames are cut at a fixed pitch rather than by connected region:
+    # the campfire's five frames touch, so a region cut returns them as one blob.
+    for strip_name, spec in raw.get("strips", {}).items():
+        root = packs.get(spec["pack"])
+        if not root:
+            problems.append(f"no --{spec['pack']} directory given")
+            continue
+        path = Path(root) / spec["file"]
+        if not path.is_file():
+            problems.append(f"missing strip {path}")
+            continue
+        im = Image.open(path).convert("RGBA")
+        fw, fh = spec["frameW"], spec["frameH"]
+        for f in spec["frames"]:
+            x = spec["x"] + f * fw
+            y = spec["y"]
+            if x + fw > im.width or y + fh > im.height:
+                problems.append(f"{strip_name} frame {f} runs off the sheet")
+                continue
+            groups.setdefault(spec["group"], []).append(im.crop((x, y, x + fw, y + fh)))
+        log(f"{strip_name}: {len(spec['frames'])} frames from {spec['file']}")
 
     for pack_name, spec in raw.get("files", {}).items():
         root = packs.get(spec["pack"])
@@ -154,6 +177,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--herbalist", help="Herbalist's Hut pack root")
     ap.add_argument("--rocky", help="Rocky tileset pack root")
+    ap.add_argument("--fishing", help="Fishing Village pack root")
+    ap.add_argument("--greenforest", help="Green Forest tileset pack root")
     args = ap.parse_args()
 
     groups, problems = collect(args)
