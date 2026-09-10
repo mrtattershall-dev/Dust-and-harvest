@@ -74,7 +74,7 @@
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select:none;color:var(--parchment);overscroll-behavior:none;-webkit-tap-highlight-color:transparent;}/* overscroll-behavior stops the pull-to-refresh / rubber-band bounce that
    fires when a drag starts on the game and the page decides it owns it. */
-#gameCanvas{display:block;position:absolute;top:0;left:0;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;}/* touch-action:none so a drag or double-tap on the world is not taken by
+#gameCanvas{display:block;position:absolute;top:0;left:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;}/* touch-action:none so a drag or double-tap on the world is not taken by
    the browser as a scroll or a zoom. The d-pad buttons already set this;
    the canvas did not, so gestures over the game fought the page. *//* The backing store is CSS-pixel sized, so on a 2x/3x phone the browser
    scales it up. Without this it does that with smoothing, which blurs
@@ -1225,16 +1225,61 @@ const T = 32;
 let BASE_ZOOM = 3.25;
 let ZOOM = BASE_ZOOM * Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H);
 
+// Size the drawing buffer to the size the browser actually laid the canvas
+// out at, rather than to window.innerHeight.
+//
+// This was a real bug, reported from Facebook Messenger's in-app browser on
+// iOS: the world rendered as a thin strip across the top of the screen with
+// black below it, while the HUD sat correctly over the whole display. The
+// canvas had no CSS width or height, so it displayed at exactly its buffer
+// size — which is window.innerHeight as read the instant resize() last ran.
+// An in-app browser has not finished laying out its own chrome at that
+// point, and its resize event is not dependable, so the canvas kept the
+// short height it was born with and the rest of the page showed body
+// background.
+//
+// Two changes make that failure impossible rather than less likely. CSS now
+// sizes the element to fill the screen, so it always covers the display no
+// matter what the buffer says; and the buffer is measured from
+// clientWidth/clientHeight, which is what the browser actually laid out, so
+// the two can never disagree about aspect. innerWidth/innerHeight are only a
+// fallback for the frame before first layout.
 function resize(){
-  canvas.width  = window.innerWidth;
-  canvas.height = window.innerHeight;
+  const w = canvas.clientWidth  || window.innerWidth;
+  const h = canvas.clientHeight || window.innerHeight;
+  if (canvas.width === w && canvas.height === h) return;   // no-op when unchanged
+  canvas.width  = w;
+  canvas.height = h;
   ZOOM = BASE_ZOOM * Math.min(canvas.width/BASE_W, canvas.height/BASE_H);
   // ZOOM is fractional, so bilinear filtering would smear pixel-art sheets.
   // Resizing the canvas resets context state, so this is re-applied here.
   ctx.imageSmoothingEnabled = false;
+  // The camera eases toward the player at 8*dt. A late size correction — which
+  // is the normal case in an in-app browser — otherwise leaves it drifting in
+  // from wherever the stale size had put it, which is a visible slide across
+  // the map on the first frames the player sees. Snap instead.
+  //
+  // try/catch rather than a typeof guard: resize() is defined and first called
+  // hundreds of lines above `gameState`, and `typeof` on a const still inside
+  // its temporal dead zone throws rather than returning 'undefined'.
+  try { if (gameState.camera) centerCameraOnPlayer(); } catch (e) { /* not built yet */ }
 }
 resize();
 window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', resize);
+// Restoring from the back/forward cache does not fire resize.
+window.addEventListener('pageshow', resize);
+// visualViewport is the one that moves when an in-app browser's chrome or the
+// on-screen keyboard appears; plain resize can stay silent through both.
+if (window.visualViewport) {
+  visualViewport.addEventListener('resize', resize);
+  visualViewport.addEventListener('scroll', resize);
+}
+// Last line of defence. Every listener above is best-effort in a webview, and
+// a game that renders into a stale buffer shows the player a black screen with
+// no way to recover. resize() returns immediately unless the size actually
+// changed, so this is two property reads twice a second, forever.
+setInterval(resize, 500);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // § ECONOMY ENGINE — BASE_PRICES, VOLATILITY, MARKET_EVENTS, economy{}
@@ -8343,8 +8388,6 @@ function drawTile(tx,ty,sx,sy) {
     }
   }
   else if(t===TL.DIRT){
-    // Real packed earth from the farm tileset, sampled from one continuous surface.
-    if(DHGround.draw(ctx,'dirt',sx,sy,tx,ty)) return;
     // Cached ImageData tiles — baked once at startup, single drawImage per frame.
     // 8 variants with naturally varying ochre tones — no checkerboard, smooth flow across map.
     if(!drawTile._dirtV){
@@ -8429,6 +8472,19 @@ function drawTile(tx,ty,sx,sy) {
       drawTile._fenceHV=drawTile._dirtV.map(bakeFenceH);
       drawTile._fenceGateV=drawTile._dirtV.map(bakeGate);
     }
+    // The baked ground draws the dirt itself, but the early return for it has
+    // to come AFTER the block above, not before it. That block builds the
+    // fence, fence-gate and dirt variants together, and TL.FENCE relies on
+    // drawing a dirt tile to trigger it ("force dirt init", below). When dirt
+    // was wired to DHGround the return jumped that block, so _dirtV stayed
+    // undefined, _fenceV fell back to `(_dirtV||[])` = an empty array, and the
+    // first fence tile on screen indexed it, got undefined, and threw out of
+    // drawImage — which aborts render() for the whole frame. The result was a
+    // black screen with a strip of world at the top, and it only appeared when
+    // a fence tile was in view, so it depended on the shape of the viewport:
+    // reported from a phone, invisible in every desktop test.
+    // Real packed earth from the farm tileset, sampled from one continuous surface.
+    if(DHGround.draw(ctx,'dirt',sx,sy,tx,ty)) return;
     // Smooth value noise: average neighbors so no tile jumps far from adjacent ones
     const n=(x,y)=>((x*374761393+y*668265263+x*y*1234567)>>>0)&255;
     const v=Math.round((n(tx,ty)+n(tx+1,ty)+n(tx,ty+1)+n(tx-1,ty)+n(tx,ty-1))/5/32)&7;
@@ -8626,7 +8682,7 @@ function drawTile(tx,ty,sx,sy) {
     const nN=getT(tx,ty-1), nS=getT(tx,ty+1);
     const isEW=(nN===TL.FENCE||nN===TL.FENCE_GATE||nS===TL.FENCE||nS===TL.FENCE_GATE);
     const variants=isEW?drawTile._fenceHV:drawTile._fenceV;
-    if(variants){const n=(x,y)=>((x*374761393+y*668265263+x*y*1234567)>>>0)&255;const v=Math.round((n(tx,ty)+n(tx+1,ty)+n(tx,ty+1)+n(tx-1,ty)+n(tx,ty-1))/5/32)&7;ctx.drawImage(variants[v],sx,sy);}
+    if(variants&&variants.length){const n=(x,y)=>((x*374761393+y*668265263+x*y*1234567)>>>0)&255;const v=Math.round((n(tx,ty)+n(tx+1,ty)+n(tx,ty+1)+n(tx-1,ty)+n(tx,ty-1))/5/32)&7;ctx.drawImage(variants[v],sx,sy);}
   }
   else if(t===TL.WALL){
     ctx.fillStyle='#3a3228'; ctx.fillRect(sx,sy,T,T);
@@ -8713,7 +8769,7 @@ function drawTile(tx,ty,sx,sy) {
   }
   else if(t===TL.SPRINKLER){
     // Draw farm soil base first so sprinkler sits on terrain
-    if(drawTile._dirtV) ctx.drawImage(drawTile._dirtV[((tx*374761393^ty*668265263)>>>0)%8],sx,sy);
+    if(drawTile._dirtV&&drawTile._dirtV.length) ctx.drawImage(drawTile._dirtV[((tx*374761393^ty*668265263)>>>0)%8],sx,sy);
     else { ctx.fillStyle='#a38762'; ctx.fillRect(sx,sy,T,T); }
     ctx.fillStyle='#506070';
     ctx.fillRect(sx+T/2-2,sy+6,4,T-12);
@@ -8910,7 +8966,7 @@ function drawTile(tx,ty,sx,sy) {
   else if(t===TL.FENCE_GATE){
     if(!drawTile._dirtV) drawTile(0,36,0,0);
     if(!drawTile._fenceGateV||!drawTile._fenceGateV.length) drawTile._fenceGateV=(drawTile._dirtV||[]).filter(Boolean).map(d=>{const oc=document.createElement('canvas');oc.width=oc.height=32;const fc=oc.getContext('2d');fc.drawImage(d,0,0);fc.fillStyle='#887040';fc.fillRect(14,0,4,8);fc.fillRect(14,24,4,8);fc.fillStyle='#988050';fc.fillRect(14,0,2,8);fc.fillRect(14,24,2,8);fc.fillStyle='rgba(160,110,55,0.5)';fc.fillRect(0,10,32,4);fc.fillStyle='rgba(180,130,65,0.35)';fc.fillRect(0,10,32,1);return oc;});
-    if(drawTile._fenceGateV){const n=(x,y)=>((x*374761393+y*668265263+x*y*1234567)>>>0)&255;const v=Math.round((n(tx,ty)+n(tx+1,ty)+n(tx,ty+1)+n(tx-1,ty)+n(tx,ty-1))/5/32)&7;ctx.drawImage(drawTile._fenceGateV[v],sx,sy);}
+    if(drawTile._fenceGateV&&drawTile._fenceGateV.length){const n=(x,y)=>((x*374761393+y*668265263+x*y*1234567)>>>0)&255;const v=Math.round((n(tx,ty)+n(tx+1,ty)+n(tx,ty+1)+n(tx-1,ty)+n(tx,ty-1))/5/32)&7;ctx.drawImage(drawTile._fenceGateV[v],sx,sy);}
   }
   else if(t===TL.FEED_TROUGH){
     ctx.fillStyle='#5a3810'; ctx.fillRect(sx+2,sy+7,T-4,T-13);

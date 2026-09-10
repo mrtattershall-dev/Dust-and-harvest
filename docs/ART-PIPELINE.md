@@ -238,6 +238,51 @@ pixel-diff test will happily report success while the override draws something
 else. The check that actually catches it is a draw-call trace — wrap
 `DHArt.drawActor`, call your draw function, and assert on the ids it pushed.
 
+## Wiring a tile to baked ground: mind what the painted path also did
+
+`drawTile`'s painted branches are not pure drawing code. The dirt branch also
+**builds the fence, fence-gate and dirt tile variants**, all in one lazy block,
+and `TL.FENCE` depends on that side effect — its first line is literally
+`if(!drawTile._dirtV) drawTile(0,36,0,0); // force dirt init`.
+
+Adding `if (DHGround.draw(...)) return;` to the top of the dirt branch jumped
+that block. `_dirtV` stayed undefined, the fence fell back to
+`(drawTile._dirtV || [])` — an empty array, which is truthy, so the `if`
+guarding it passed — and the first fence tile on screen indexed it, got
+`undefined`, and threw out of `drawImage`. An exception there aborts
+`render()` for the entire frame, so the screen went black with only the tiles
+drawn before the fence still visible.
+
+**It only showed on a phone.** Whether a fence tile is on screen depends on
+the shape of the viewport, so every desktop test passed and the bug arrived as
+a photo of a phone. Two habits follow:
+
+* When routing a tile type to baked art, read the whole painted branch first
+  and check what else it initialises. Put the early return **after** any setup
+  other branches rely on.
+* Test the world render at several viewport shapes, not just several sizes. A
+  tall narrow viewport shows a different set of tiles than a wide one.
+
+Guards were added at the three variant lookups so the same class of mistake
+degrades to a missing fence rather than a black screen. `arr && arr.length`,
+not `arr` — an empty array passes a truthiness check.
+
+## Canvas sizing in an in-app browser
+
+`#gameCanvas` had no CSS width or height, so it displayed at exactly its
+buffer size — which was `window.innerHeight` as read the moment `resize()` last
+ran. An in-app browser has not finished laying out its own chrome at that
+point and its `resize` event is not dependable.
+
+The element is now sized by CSS to fill the screen, and the buffer is measured
+from `clientWidth`/`clientHeight` — what the browser actually laid out — so the
+two can never disagree. `innerWidth`/`innerHeight` survive only as a fallback
+for the frame before first layout. Listeners cover `resize`,
+`orientationchange`, `pageshow` and both `visualViewport` events, and a 500ms
+poll backs all of them up, because a game that renders into a stale buffer
+shows a black screen with no way to recover. `resize()` returns immediately
+when nothing changed, so the poll costs two property reads.
+
 ## Fixed decorations
 
 `tools/build_fixtures.py` cuts nine pieces out of two packs into
