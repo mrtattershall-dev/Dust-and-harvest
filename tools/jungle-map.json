@@ -179,6 +179,16 @@
     ],
     "hutRound": [
      "House.png"
+    ],
+    "biolum": [
+     "Big_mushrooms_ground_shadow1.png",
+     "Big_mushrooms_ground_shadow2.png",
+     "Big_mushrooms_ground_shadow3.png",
+     "Blue-green_mushrooms_ground_shadow2.png",
+     "Blue-green_mushrooms_ground_shadow3.png",
+     "Wall_mushrooms1.png",
+     "Wall_mushrooms2.png",
+     "Wall_mushrooms3.png"
     ]
    }
   }

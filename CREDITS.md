@@ -84,7 +84,7 @@ became which group.
 | Group | Source pack | Author |
 |---|---|---|
 | `treeLarge` `treeMed` `treeSmall` `bush` `rock` | Pixel Art Herbalist's Hut — Top Down Asset Pack | CraftPix |
-| `liana` `hutRound` | Rocky Top Down Tileset Pixel Art for RPG | CraftPix |
+| `liana` `hutRound` `biolum` | Rocky Top Down Tileset Pixel Art for RPG | CraftPix |
 | `hut` `dock` | 2D Pixel Fishing Village Pack — Dock, Interior, Boats, NPCs | CraftPix |
 | `campfire` | Green Forest Top Down Pixel Art Tileset | CraftPix |
 | `ruinWall` | Top Down Dungeon Pixel Tileset for RPG and Roguelike Game | CraftPix |

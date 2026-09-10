@@ -5529,7 +5529,11 @@ function revealAround(px, py, radius, grid, gw, gh) {
       }
     }
   }
-  if (revealed) _minimapCacheDirty = true;
+  if (revealed) {
+    _minimapCacheDirty = true;
+    // The deep zone keeps its own baked minimap; fog is what makes it stale.
+    if (grid === exploredDeep) _djMinimapDirty = true;
+  }
 }
 
 function isExplored(tx, ty) {
@@ -33328,7 +33332,7 @@ let _deepMapBuilt    = false;
 let gameState_inDeep = false; // alias — set via gameState.inDeepJungle
 
 function getDJT(x, y) { return deepJungleMap[y * DJ_W + x]; }
-function setDJT(x, y, t) { deepJungleMap[y * DJ_W + x] = t; }
+function setDJT(x, y, t) { deepJungleMap[y * DJ_W + x] = t; _djMinimapDirty = true; }
 function getDJSolid(x, y) {
   if (x < 0 || x >= DJ_W || y < 0 || y >= DJ_H) return true;
   return JG_SOLID.has(getDJT(x, y));
@@ -33517,7 +33521,7 @@ function _buildAncientCourtZone() {
 //   ROOT — dark brown with vein-like detail
 //   ANCIENT tiles — cool grey-blue, geometric, non-organic
 
-function _drawDeepJGTile(t, sx, sy, c, timeMs) {
+function _drawDeepJGTile(t, sx, sy, c, timeMs, tx, ty) {
   const T = DJ_T;
   switch (t) {
     case JG.VINE: {
@@ -33565,6 +33569,11 @@ function _drawDeepJGTile(t, sx, sy, c, timeMs) {
         c.beginPath(); c.arc(bx + 0.5, by + 0.5, r, 0, Math.PI * 2); c.fill();
       }
       c.globalAlpha = 1;
+      // Real fungi on top of the glow. The dots stay underneath as the light
+      // they cast, so the ground still reads as lit rather than just decorated.
+      if (tx !== undefined && window.DHJungle && DHJungle.ready('biolum')) {
+        DHJungle.draw(c, 'biolum', sx, sy, tx, ty, T);
+      }
       break;
     }
     case JG.FORMATION: {
@@ -33710,6 +33719,37 @@ function _drawDeepJGTile(t, sx, sy, c, timeMs) {
 // ── Deep jungle renderer ──────────────────────────────────────────────────────
 // Full render pipeline for the deep map: tiles → fog → NPCs → player → effects
 
+/* Baked radial glows for the deep zone. Building a gradient and filling a
+   2r-square per glowing tile per frame was costing more than everything else in
+   the zone put together; a gradient's falloff never changes, only its strength,
+   so it is drawn once and then blitted with globalAlpha carrying the pulse. */
+let _djBg = null;
+function _djBgGrad(ctx, W, H) {
+  if (_djBg && _djBg.w === W && _djBg.h === H) return _djBg.grad;
+  const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W, H) * 0.8);
+  grad.addColorStop(0, '#060c08');
+  grad.addColorStop(1, '#020402');
+  _djBg = { w: W, h: H, grad };
+  return grad;
+}
+
+const _djGlowCache = {};
+function _djGlowSprite(kind, r) {
+  const key = kind + r;
+  if (_djGlowCache[key]) return _djGlowCache[key];
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = r * 2;
+  const g = cv.getContext('2d');
+  const grad = g.createRadialGradient(r, r, 0, r, r, r);
+  // Full strength in the sprite; the caller scales it with globalAlpha.
+  grad.addColorStop(0, kind === 'formation' ? 'rgb(200,110,20)' : 'rgb(20,180,140)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, r * 2, r * 2);
+  _djGlowCache[key] = cv;
+  return cv;
+}
+
 function renderDeepJungleZone() {
   if (!gameState.inDeepJungle) return;
   const canvas = document.getElementById('gameCanvas');
@@ -33722,12 +33762,9 @@ function renderDeepJungleZone() {
   ctx.save();
   ctx.scale(ZOOM, ZOOM);
 
-  // Background — deep, oppressive dark
-  ctx.fillStyle = '#04080400';
-  const bgGrad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H) * 0.8);
-  bgGrad.addColorStop(0, '#060c08');
-  bgGrad.addColorStop(1, '#020402');
-  ctx.fillStyle = bgGrad;
+  // Background — deep, oppressive dark. Cached: it only changes when the
+  // viewport does, and rebuilding a gradient every frame is not free.
+  ctx.fillStyle = _djBgGrad(ctx, W, H);
   ctx.fillRect(0, 0, W, H);
 
   // Tile pass
@@ -33741,7 +33778,7 @@ function renderDeepJungleZone() {
       if (!exploredDeep[ty * DJ_W + tx]) continue;
       const t = getDJT(tx, ty);
       const sx = tx * DJ_T - cx, sy = ty * DJ_T - cy;
-      _drawDeepJGTile(t, sx, sy, ctx, now);
+      _drawDeepJGTile(t, sx, sy, ctx, now, tx, ty);
     }
   }
 
@@ -33758,26 +33795,31 @@ function renderDeepJungleZone() {
   // ── Formation ambient glow pass ───────────────────────────────────────────
   // The formation radiates a soft golden light in all directions.
   // We do a second pass drawing radial glows over explored formation tiles.
+  //
+  // This used to allocate a fresh radial gradient and fill a 2r-square under
+  // 'lighter' compositing for every glowing tile, every frame. With a hundred
+  // of them on screen that was most of the deep zone's frame budget: the zone
+  // ran at ~26 fps against 60 everywhere else, and profiling put almost none of
+  // it in script — it was paint. The falloff is now baked into an offscreen
+  // canvas once per colour and blitted, with the pulse applied as globalAlpha.
   const formPulse = 0.4 + 0.3 * Math.sin(now * 0.0008);
   ctx.globalCompositeOperation = 'lighter';
   for (let ty = ty0; ty <= ty1; ty++) {
     for (let tx = tx0; tx <= tx1; tx++) {
       if (!exploredDeep[ty * DJ_W + tx]) continue;
-      if (getDJT(tx, ty) !== JG.FORMATION && getDJT(tx, ty) !== JG.BIOLUM) continue;
+      const dt = getDJT(tx, ty);
+      if (dt !== JG.FORMATION && dt !== JG.BIOLUM) continue;
       const sx = tx * DJ_T + DJ_T/2 - cx;
       const sy = ty * DJ_T + DJ_T/2 - cy;
-      const isForm = getDJT(tx, ty) === JG.FORMATION;
+      const isForm = dt === JG.FORMATION;
       const r = isForm ? 64 : 28;
-      const col = isForm
-        ? `rgba(200, 110, 20, ${formPulse * 0.18})`
-        : `rgba(20, 180, 140, ${0.3 + 0.2 * Math.sin(now * 0.0015 + tx + ty) * 0.12})`;
-      const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
-      glow.addColorStop(0, col);
-      glow.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = glow;
-      ctx.fillRect(sx - r, sy - r, r * 2, r * 2);
+      ctx.globalAlpha = isForm
+        ? formPulse * 0.18
+        : 0.3 + 0.2 * Math.sin(now * 0.0015 + tx + ty) * 0.12;
+      ctx.drawImage(_djGlowSprite(isForm ? 'formation' : 'biolum', r), sx - r, sy - r);
     }
   }
+  ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
 
   // ── Biolum ground fog ─────────────────────────────────────────────────────
@@ -33814,6 +33856,15 @@ function renderDeepJungleZone() {
 }
 
 // ── Deep jungle minimap ───────────────────────────────────────────────────────
+/* The deep minimap redrew all 4,800 tiles every frame — a fillStyle assignment
+   and a fillRect each — while the overworld's has been cached behind
+   _minimapCacheDirty since it was written. It only changes when the fog does,
+   so it is baked to an offscreen canvas and blitted, with the player dot drawn
+   live on top. */
+let _djMinimapCache = null;
+let _djMinimapDirty = true;
+function _djInvalidateMinimap() { _djMinimapDirty = true; }
+
 function _renderDeepMinimap() {
   const mm = document.getElementById('minimapCanvas');
   if (!mm) return;
@@ -33821,6 +33872,24 @@ function _renderDeepMinimap() {
   const mw = mm.width, mh = mm.height;
   const scaleX = mw / (DJ_W * DJ_T), scaleY = mh / (DJ_H * DJ_T);
 
+  if (!_djMinimapCache || _djMinimapCache.width !== mw || _djMinimapCache.height !== mh) {
+    _djMinimapCache = document.createElement('canvas');
+    _djMinimapCache.width = mw; _djMinimapCache.height = mh;
+    _djMinimapDirty = true;
+  }
+  if (_djMinimapDirty) {
+    _djMinimapDirty = false;
+    _djBakeMinimap(_djMinimapCache.getContext('2d'), mw, mh, scaleX, scaleY);
+  }
+  c.clearRect(0, 0, mw, mh);
+  c.drawImage(_djMinimapCache, 0, 0);
+
+  // Player dot — drawn live, it moves every frame.
+  const px = Math.round(player.x * scaleX), py = Math.round(player.y * scaleY);
+  c.fillStyle = '#f0e080'; c.fillRect(px - 1, py - 1, 3, 3);
+}
+
+function _djBakeMinimap(c, mw, mh, scaleX, scaleY) {
   c.fillStyle = '#030805'; c.fillRect(0, 0, mw, mh);
 
   for (let ty = 0; ty < DJ_H; ty++) {
@@ -33848,10 +33917,6 @@ function _renderDeepMinimap() {
       c.fillRect(mx, my, mw2, mh2);
     }
   }
-
-  // Player dot
-  const px = Math.round(player.x * scaleX), py = Math.round(player.y * scaleY);
-  c.fillStyle = '#f0e080'; c.fillRect(px - 1, py - 1, 3, 3);
 }
 
 // ── Zone transitions ──────────────────────────────────────────────────────────
