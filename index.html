@@ -618,7 +618,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
   .stat-pill { padding: 3px 7px; gap: 4px; border-left-width: 2px; }
   .slabel { font-size: 8px; letter-spacing: .02em; }
   .bar-bg { width: 34px; }
-  #timeDisp, #goldDisp, #debtDisp, #zoneDisp { padding: 3px 7px; }
+  #timeDisp, #goldDisp, #debtDisp, #zoneDisp, #fundDisp, #roleDisp { padding: 3px 7px; }
   /* The multiplayer button is pinned to the top-right corner, which is where
      the HUD now wraps to; the padding above reserves its width. */
   #dhMpBtn { padding: 3px 7px; font-size: 9px; }
@@ -756,6 +756,8 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
     </div>
     <div id="timeDisp" style="background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:0;padding:4px 10px;font-size:var(--ui-font-xs);color:var(--tallow);letter-spacing:.04em;flex-shrink:0;">☀ Day 1 — 06:00 AM</div>
     <div id="goldDisp" style="background:var(--panel-bg);border:1px solid rgba(180,150,50,.35);border-radius:0;padding:4px 10px;font-size:var(--ui-font-xs);color:#d4b860;letter-spacing:.04em;flex-shrink:0;">💰 $60</div>
+    <div id="fundDisp" onclick="showFundBreakdown()" title="The farm's shared purse — crops, contracts and the chest pay into it, and the weekly bill comes out of it." style="display:none;background:var(--panel-bg);border:1px solid rgba(90,170,110,.45);border-left:3px solid #4a9a60;border-radius:0;padding:4px 10px;font-size:var(--ui-font-xs);color:#8ad0a0;letter-spacing:.04em;flex-shrink:0;cursor:pointer;">🌾 $0</div>
+    <div id="roleDisp" onclick="openRolePicker()" title="Your crew role — click to change." style="display:none;background:var(--panel-bg);border:1px solid rgba(150,120,60,.4);border-radius:0;padding:4px 10px;font-size:var(--ui-font-xs);color:#c0a870;letter-spacing:.04em;flex-shrink:0;cursor:pointer;">— Role</div>
     <div id="debtDisp" style="background:rgba(8,4,0,.9);border:1px solid rgba(200,60,40,.4);border-radius:0;padding:4px 11px;font-size:var(--ui-font-sm);color:#e07050;flex-shrink:0;">🏦 $7,500</div>
     <div id="zoneDisp">📍 Farm</div>
     <div id="mineHUD">⛏ Floor 1/3</div>
@@ -809,6 +811,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 </div>
 
 <!-- Market Overlay -->
+<div id="rolePickerOverlay" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.72);align-items:center;justify-content:center;padding:16px;"></div>
 <div id="marketOverlay">
   <div id="mktHeader">
     <h2>📊 FRONTIER MARKET — Day <span id="mktDay">1</span>
@@ -1849,7 +1852,7 @@ function claimQuest(questId) {
   const progress = getQuestStat(q.stat) - q.startVal;
   if (progress < q.goal) { showMsg('⚠️ Quest not complete yet.'); return; }
 
-  player.gold += q.reward;
+  addFarmIncome(q.reward);   // shared quest -> shared purse (everyone who helped benefits)
   trackGoldEarned(q.reward);
   if (q.rep) gainRep(q.rep, 8);
   spawnParticles(player.x, player.y, '#f0d060', 8, '+$'+q.reward);
@@ -1989,7 +1992,7 @@ function fulfillContract(idx) {
   const hadStreakBonus = c.hasStreakBonus;
   if (hadStreakBonus) earned = Math.round(earned * 1.2);
 
-  player.gold += earned;
+  addFarmIncome(earned);   // shared contract -> shared purse
   trackGoldEarned(earned);
   stats.contractsCompleted++;
   gainRep('town', 3); // completing a contract boosts town rep
@@ -2250,9 +2253,8 @@ function countItem(itemId) {
 // ─────────────────────────────────────────────────────────────────────────────
 // § BUY / SELL — buySeed, buyItem, sellItem, market tab renderers
 function buySeed(crop, qty) {
-  const cost = economy.seedPrices[crop] * qty;
-  if (player.gold < cost) { showMsg(`⚠️ Need $${cost} for ${qty} seeds. You have $${player.gold}.`); return; }
-  player.gold -= cost;
+  const cost = Math.round(economy.seedPrices[crop] * qty * roleBuyMult());
+  if (!spendFarmCost(cost)) { showMsg(`⚠️ Need $${cost} for ${qty} seeds. Available: $${coopSpendable()}.`); return; }
   trackGoldSpent(cost);
   inventory.seeds[SEED_MAP[crop]] = (inventory.seeds[SEED_MAP[crop]]||0) + qty;
   spawnParticles(player.x, player.y, '#80c040', 5, `+${qty} seeds`);
@@ -2298,7 +2300,7 @@ function sellItem(itemId, qty) {
     if (totalUnits > 0) effectivePrice = weightedPrice / totalUnits;
   }
 
-  const earned = Math.floor(sellQty * effectivePrice * repMult);
+  const earned = Math.floor(sellQty * effectivePrice * repMult * roleSellMult());
 
   // Track last haul quality for mine tab display
   if (isOre && gameState.inMine) {
@@ -2317,7 +2319,7 @@ function sellItem(itemId, qty) {
   }
 
   removeItem(itemId, sellQty);
-  player.gold += earned;
+  addSaleIncome(earned, itemId);
   trackGoldEarned(earned);
   spawnParticles(player.x, player.y, '#f0d060', 6, '+$'+earned);
   // Rep gain: each sale earns a tiny amount of town rep (capped by tier thresholds)
@@ -2330,7 +2332,7 @@ function sellItem(itemId, qty) {
 }
 
 function sellAllCrops() {
-  let total=0, count=0;
+  let total=0, count=0, farmPart=0, personalPart=0;
   const repMult = getRepSellMult();
   const QUAL_MULT = { flawed: 0.7, standard: 1.0, pure: 1.4 };
   // Skip raw ore (worth smelting), raw fish (worth cooking), and jungle-only crops (sell via Tobias)
@@ -2359,12 +2361,16 @@ function sellAllCrops() {
       }
       if (totalUnits > 0) effectivePrice = weightedPrice / totalUnits;
     }
-    total += Math.floor(qty * effectivePrice * repMult);
+    const line = Math.floor(qty * effectivePrice * repMult * roleSellMult());
+    total += line;
+    if (isFarmGoods(id)) farmPart += line; else personalPart += line;
     count += qty;
     removeItem(id, qty);
   }
   if (count > 0) {
-    player.gold += total;
+    // Farm produce pays the farm; anything you dug or found stays yours.
+    addFarmIncome(farmPart);
+    addPersonalIncome(personalPart);
     trackGoldEarned(total); // was missing — gold earned stat not tracked by sell-all
     gainRep('town', Math.min(5, Math.ceil(total / 100)));
     spawnParticles(player.x, player.y, '#f0d060', 8, '+$'+total);
@@ -3473,14 +3479,19 @@ function renderCrafting(body) {
 
 const purchasedUpgrades = new Set();
 
-function getEffectiveWeightCap() { return player._debugInstant ? 99999 : (player._weightCap || WEIGHT_CAP); }
+function getEffectiveWeightCap() { return player._debugInstant ? 99999 : Math.round((player._weightCap || WEIGHT_CAP) * roleWeightMult()); }
 function getEffectiveSlotCount() { return player._slotCount || INV_SIZE; }
 function getEffectiveAttackDmg() { return player._attackDmg || ATTACK_DAMAGE; }
 function getEffectiveAttackRange(){ return player._attackRange || ATTACK_RANGE; }
 function getEffectiveTillCd()    { return player._tillCd || 0.28; }
-function getEffectiveHarvestBonus(){ return player._harvestBonus || 0; }
+function getEffectiveHarvestBonus(){
+  let b = player._harvestBonus || 0;
+  // Grower: a chance at one extra crop per plot.
+  if (roleYieldChance() > 0 && Math.random() < roleYieldChance()) b += 1;
+  return b;
+}
 function getEffectiveHarvestCd() { return player._harvestCd || 0.38; }
-function getEffectiveGrowMult()  { return player._growMult || 1; }
+function getEffectiveGrowMult()  { return (player._growMult || 1) * roleGrowMult(); }
 function getEffectiveHoeW()      { return player._hoeW || 1; }
 function getEffectiveHoeH()      { return player._hoeH || 1; }
 function getEffectiveCanW()      { return player._canW || 1; }
@@ -3507,8 +3518,7 @@ function buyUpgrade(id) {
   if (!upg) return;
   if (!upg.repeatable && purchasedUpgrades.has(id)) { showMsg('Already purchased!'); return; }
   if (upg.requires && !purchasedUpgrades.has(upg.requires)) { showMsg(`⚠️ Requires "${(UPGRADES.find(u=>u.id===upg.requires)||{}).name}" first.`); return; }
-  if (player.gold < upg.cost) { showMsg(`⚠️ Need $${upg.cost}. You have $${player.gold}.`); return; }
-  player.gold -= upg.cost;
+  if (!spendFarmCost(upg.cost)) { showMsg(`⚠️ Need $${upg.cost}. Available: $${coopSpendable()}.`); return; }
   trackGoldSpent(upg.cost);
   purchasedUpgrades.add(id); // for requires-chains; harmless to re-add
   upg.apply();
@@ -3534,7 +3544,7 @@ function renderUpgrades(body) {
     for (const upg of items) {
       const bought = purchasedUpgrades.has(upg.id);
       const locked = upg.requires && !purchasedUpgrades.has(upg.requires);
-      const canAfford = player.gold >= upg.cost;
+      const canAfford = coopSpendable() >= upg.cost;
       const reqName = upg.requires ? (UPGRADES.find(u=>u.id===upg.requires)||{}).name : '';
       h += `<div style="display:flex;align-items:center;gap:8px;padding:7px 9px;margin-bottom:3px;background:rgba(255,255,255,.02);border:1px solid rgba(180,140,60,${bought?'.4':locked?'.06':'.14'});border-radius:4px;opacity:${locked ? 0.45 : 1}">
         <span style="font-size:18px;width:24px;text-align:center">${upg.icon}</span>
@@ -3800,10 +3810,9 @@ function applyDebtInterest() {
 function payDebt(amount) {
   const totalDebt = getTotalDebt();
   if (totalDebt <= 0) { showMsg('No outstanding debt — you\'re clear!'); return; }
-  if (player.gold < amount) { showMsg(`⚠️ Need $${amount} — you only have $${player.gold}.`); return; }
-  let remaining = Math.min(amount, totalDebt);
-  const actual = remaining;
-  player.gold -= actual;
+  const _due = Math.min(amount, totalDebt);
+  if (!spendFarmCost(_due)) { showMsg(`⚠️ Need $${_due} — available: $${coopSpendable()}.`); return; }
+  const actual = _due;
   trackGoldSpent(actual);
   stats.debtRepaid += actual;
   debtPaidLog.push({ day: gameState.day, amount: actual });
@@ -3959,19 +3968,19 @@ function renderBank(body) {
       <div style="background:rgba(200,80,20,.06);border:1px solid rgba(200,80,20,.2);border-radius:4px;padding:8px 12px;margin-bottom:12px;font-size:9px;color:#c07840">
         ⏰ ${isLastWeek ? 'Final week — clear your balance to end the season.' : `Week ${nextWeek} payment due in <b>${daysUntilNextBill} day${daysUntilNextBill!==1?'s':''}</b>: $${nextBillAmt.toLocaleString()} (bills increase $${DEBT_WEEKLY_STEP}/week)`}
       </div>
-      <div style="font-size:9px;color:#6a5020;margin-bottom:7px;letter-spacing:.04em">MAKE A PAYMENT — your gold: <span style="color:#f0d060">$${player.gold.toLocaleString()}</span></div>
+      <div style="font-size:9px;color:#6a5020;margin-bottom:7px;letter-spacing:.04em">MAKE A PAYMENT — available: <span style="color:#f0d060">$${coopSpendable().toLocaleString()}</span>${coopActive() ? ` <span style="color:#8ad0a0">(farm purse $${farmFundBalance().toLocaleString()} + your $${player.gold.toLocaleString()})</span>` : ''}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
         ${payments.map(a => `
-          <button onclick="payDebt(${a})" ${player.gold<a?'disabled':''} style="padding:7px 16px;font-size:10px;font-family:'Special Elite',serif;cursor:pointer;border-radius:3px;background:rgba(180,140,60,.12);border:1px solid rgba(180,140,60,${player.gold>=a?'.5':'.2'});color:${player.gold>=a?'#f0d060':'#504020'};transition:all .12s"
+          <button onclick="payDebt(${a})" ${coopSpendable()<a?'disabled':''} style="padding:7px 16px;font-size:10px;font-family:'Special Elite',serif;cursor:pointer;border-radius:3px;background:rgba(180,140,60,.12);border:1px solid rgba(180,140,60,${coopSpendable()>=a?'.5':'.2'});color:${coopSpendable()>=a?'#f0d060':'#504020'};transition:all .12s"
             onmouseover="this.style.background='rgba(180,140,60,.25)'" onmouseout="this.style.background='rgba(180,140,60,.12)'">
             PAY $${a.toLocaleString()}
           </button>`).join('')}
-        ${player.gold > 0 && player.gold < debt ? `
-          <button onclick="payDebt(${player.gold})" style="padding:7px 16px;font-size:10px;font-family:'Special Elite',serif;cursor:pointer;border-radius:3px;background:rgba(80,160,60,.1);border:1px solid rgba(80,160,60,.4);color:#80d060"
+        ${coopSpendable() > 0 && coopSpendable() < debt ? `
+          <button onclick="payDebt(${coopSpendable()})" style="padding:7px 16px;font-size:10px;font-family:'Special Elite',serif;cursor:pointer;border-radius:3px;background:rgba(80,160,60,.1);border:1px solid rgba(80,160,60,.4);color:#80d060"
             onmouseover="this.style.background='rgba(80,160,60,.22)'" onmouseout="this.style.background='rgba(80,160,60,.1)'">
-            PAY ALL ($${player.gold.toLocaleString()})
+            PAY ALL ($${coopSpendable().toLocaleString()})
           </button>` : ''}
-        ${player.gold >= debt ? `
+        ${coopSpendable() >= debt ? `
           <button onclick="payDebt(${debt})" style="padding:7px 16px;font-size:10px;font-family:'Special Elite',serif;cursor:pointer;border-radius:3px;background:rgba(60,200,60,.15);border:1px solid rgba(60,200,60,.6);color:#80ff80;font-weight:bold"
             onmouseover="this.style.background='rgba(60,200,60,.28)'" onmouseout="this.style.background='rgba(60,200,60,.15)'">
             ✓ CLEAR ALL DEBT ($${debt.toLocaleString()})
@@ -4698,7 +4707,7 @@ function renderMineTab(body) {
     for (const id of notOwned.slice(0, 4)) {
       const upg      = UPGRADES.find(u => u.id === id);
       if (!upg) continue;
-      const canAfford = player.gold >= upg.cost;
+      const canAfford = coopSpendable() >= upg.cost;
       const locked    = upg.requires && !purchasedUpgrades.has(upg.requires);
       h += `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:9px;color:${locked?'#504030':'#c0a060'};opacity:${locked ? '.45' : 1}">
         <span>${upg.icon}</span>
@@ -4919,7 +4928,7 @@ function renderBuySell(body) {
   let displayCrops = cropItems.map(item => {
     const tier      = getCropSeasonTier(item.id);
     const cur       = economy.prices[item.id] || 1;
-    const seedPrice = economy.seedPrices[item.id] || 0;
+    const seedPrice = Math.round((economy.seedPrices[item.id] || 0) * roleBuyMult());
     const held      = countItem(item.id);
     const seedHeld  = inventory.seeds[SEED_MAP[item.id]] || 0;
     return { ...item, tier, cur, seedPrice, held, seedHeld };
@@ -5947,6 +5956,311 @@ player.hunger = 100;
 let _hungerWarnedHungry   = false;
 let _hungerWarnedStarving = false;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// § CO-OP — team purse, contribution ledger, crew roles, teamwork
+//
+// DESIGN RULE: SINGLE PLAYER IS UNCHANGED. Every system below is inert unless a
+// partner is actually connected (coopActive()). Solo keeps one wallet, solo-speed
+// work and the same numbers it always had. The only thing a solo player gains is
+// the ability to pick a crew role.
+//
+// The co-op split — the farm is shared, so the farm's money is shared:
+//   FARM income   (crops, ranch produce, chest sales, quest + contract rewards)
+//        → the TEAM PURSE. It is the farm's money, and the farm's weekly bill is
+//          paid out of it. That bill is the shared goal you sweat together.
+//   PERSONAL income (mining, fishing, foraging, salvage, loot, treasure)
+//        → YOUR OWN WALLET, to buy your own gear.
+//
+// Everything paid into the purse is recorded per player, so nobody's work is
+// invisible and nobody quietly subsidises everyone else.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// The purse is derived from the ledger rather than stored on its own. Each
+// player's earned/paid totals only ever go up, so peers merge them by taking
+// the higher of each and every client converges on the same balance no matter
+// what order the packets arrive in — no central authority, no lost income when
+// two players sell at the same moment.
+let farmLedger = {};   // pid -> { name, earned, paid }
+
+function farmFundBalance() {
+  let bal = 0;
+  for (const e of Object.values(farmLedger)) bal += (e.earned || 0) - (e.paid || 0);
+  return Math.max(0, Math.round(bal));
+}
+
+function coopActive() {
+  try { return !!(window.dhMp && window.dhMp.isActive()); } catch(_) { return false; }
+}
+function coopSelfId() {
+  try { return (window.dhMp && window.dhMp.peerId) || 'solo'; } catch(_) { return 'solo'; }
+}
+function coopLedgerEntry(pid, name) {
+  if (!farmLedger[pid]) farmLedger[pid] = { name: name || 'Partner', earned: 0, paid: 0 };
+  if (name) farmLedger[pid].name = name;
+  return farmLedger[pid];
+}
+function coopSync() {
+  try { window._dhMpBroadcastFund && window._dhMpBroadcastFund(); } catch(_) {}
+  try { refreshFundHUD(); } catch(_) {}
+}
+
+// Which goods count as the farm's produce (vs. what you dug or caught yourself).
+function isFarmGoods(itemId) {
+  const t = (typeof ITEMS !== 'undefined' && ITEMS[itemId]) ? ITEMS[itemId].type : null;
+  return t === 'crop' || t === 'ranch';
+}
+
+/* ── INCOME ──────────────────────────────────────────────────────────────── */
+
+// Farm earnings. Solo: straight into your pocket, exactly as before.
+// Co-op: into the team purse, credited to you in the ledger.
+function addFarmIncome(amount) {
+  amount = Math.round(amount);
+  if (!(amount > 0)) return 0;
+  if (!coopActive()) { player.gold += amount; return amount; }
+  coopLedgerEntry(coopSelfId(), player.name).earned += amount;
+  coopSync();
+  return amount;
+}
+
+// Money you earned yourself, off the farm. Always yours, solo or co-op.
+function addPersonalIncome(amount) {
+  amount = Math.round(amount);
+  if (!(amount > 0)) return 0;
+  player.gold += amount;
+  return amount;
+}
+
+// Sale income routed by what was actually sold.
+function addSaleIncome(amount, itemId) {
+  return isFarmGoods(itemId) ? addFarmIncome(amount) : addPersonalIncome(amount);
+}
+
+/* ── SPENDING ────────────────────────────────────────────────────────────── */
+
+// Everything you could put toward a farm expense right now.
+function coopSpendable() { return coopActive() ? farmFundBalance() + player.gold : player.gold; }
+
+// Pay a farm expense (bills, upgrades, seed): the purse first, your pocket after.
+// Returns false and spends nothing if the total isn't there.
+function spendFarmCost(cost) {
+  cost = Math.round(cost);
+  if (!(cost > 0)) return true;
+  if (!coopActive()) {
+    if (player.gold < cost) return false;
+    player.gold -= cost;
+    return true;
+  }
+  const bal = farmFundBalance();
+  const fromFund   = Math.min(bal, cost);
+  const fromPocket = cost - fromFund;
+  if (player.gold < fromPocket) return false;   // check before spending anything
+  if (fromPocket > 0) player.gold -= fromPocket;
+  coopLedgerEntry(coopSelfId(), player.name).paid += fromFund;
+  coopSync();
+  return true;
+}
+
+/* ── CREW ROLES ──────────────────────────────────────────────────────────── */
+// Soft specialisation: no hard locks, swappable any time, and fully available
+// in single player. In co-op, a crew whose roles are all DIFFERENT earns a
+// synergy bonus — so splitting the work beats both of you doing the same job.
+
+const CREW_ROLES = {
+  none:       { name:'Unspecialised', icon:'—',  blurb:'No bonuses. Jack of all trades.' },
+  grower:     { name:'Grower',        icon:'🌱', blurb:'Crops grow faster and yield more.' },
+  hauler:     { name:'Hauler',        icon:'🐴', blurb:'Carry more, move faster, tire slower.' },
+  trader:     { name:'Trader',        icon:'💰', blurb:'Sell higher, buy seed cheaper.' },
+  prospector: { name:'Prospector',    icon:'⛏',  blurb:'Gather faster, richer ore and fish.' },
+};
+
+let crewRole      = 'none';   // your role
+let crewPeerRoles = {};       // pid -> role, for connected partners
+
+// True when every player in the crew has a role and no two share one.
+function crewIsComplementary() {
+  if (!coopActive()) return false;
+  const roles = [crewRole, ...Object.values(crewPeerRoles)];
+  if (roles.length < 2) return false;
+  if (roles.some(r => !r || r === 'none')) return false;
+  return new Set(roles).size === roles.length;
+}
+function crewSynergyMult() { return crewIsComplementary() ? 1.10 : 1; }
+
+function roleGrowMult()    { return crewRole === 'grower'     ? 1.18 : 1; }  // higher = faster
+function roleYieldChance() { return crewRole === 'grower'     ? 0.25 : 0; }  // chance of +1 crop
+function roleWeightMult()  { return crewRole === 'hauler'     ? 1.35 : 1; }
+function roleSpeedMult()   { return crewRole === 'hauler'     ? 1.10 : 1; }
+function roleStaminaMult() { return crewRole === 'hauler'     ? 0.80 : 1; }  // lower = cheaper
+function roleSellMult()    { return (crewRole === 'trader'    ? 1.12 : 1) * crewSynergyMult(); }
+function roleBuyMult()     { return crewRole === 'trader'     ? 0.90 : 1; }
+function roleGatherMult()  { return crewRole === 'prospector' ? 0.75 : 1; }  // lower = faster
+function roleLootChance()  { return crewRole === 'prospector' ? 0.30 : 0; }  // chance of +1 loot
+
+function setCrewRole(id) {
+  if (!CREW_ROLES[id]) return;
+  crewRole = id;
+  try { showMsg(`${CREW_ROLES[id].icon} Role: ${CREW_ROLES[id].name} — ${CREW_ROLES[id].blurb}`, 3200); } catch(_) {}
+  if (crewIsComplementary()) {
+    try { showMsg('🤝 Complementary crew! +10% farm income for everyone.', 3600); } catch(_) {}
+  }
+  try { window._dhMpBroadcastRole && window._dhMpBroadcastRole(); } catch(_) {}
+  try { refreshFundHUD(); } catch(_) {}
+  try { refreshStats(); } catch(_) {}
+}
+
+/* ── TEAMWORK ────────────────────────────────────────────────────────────── */
+// Heavy work goes faster with someone beside you. Solo timings are untouched —
+// this is a bonus for working together, never a penalty for playing alone.
+
+const TEAMWORK_RADIUS = 96;   // px, about three tiles
+
+function coopZoneName() {
+  if (typeof gameState === 'undefined') return 'overworld';
+  return gameState.inMine     ? 'mine'
+       : gameState.inBadlands ? 'badlands'
+       : gameState.inHoboCamp ? 'hobo'
+       : gameState.inOcean    ? 'ocean'
+       : gameState.inJungle   ? 'jungle'
+       : 'overworld';
+}
+
+// Is another player standing close enough to lend a hand, in the same zone?
+function partnerNearby(radius) {
+  if (!coopActive()) return false;
+  const r = radius || TEAMWORK_RADIUS;
+  const zone = coopZoneName();
+  try {
+    const self = window.dhMp.peerId;
+    for (const [pid, p] of Object.entries(window.dhMp.remotePlayers)) {
+      if (!p || pid === self) continue;
+      if ((p.zone || 'overworld') !== zone) continue;
+      const dx = p.x - player.x, dy = p.y - player.y;
+      if (dx*dx + dy*dy <= r*r) return true;
+    }
+  } catch(_) {}
+  return false;
+}
+
+// Work-speed multiplier for heavy jobs. 1 = normal (and always 1 solo).
+function teamworkMult() { return partnerNearby() ? 0.55 : 1; }
+
+let _teamworkAnnounced = 0;
+function noteTeamwork() {
+  if (!partnerNearby()) return false;
+  const now = Date.now();
+  if (now - _teamworkAnnounced > 12000) {
+    _teamworkAnnounced = now;
+    try { showMsg('🤝 Working together — heavy jobs go twice as fast.', 2400); } catch(_) {}
+  }
+  return true;
+}
+
+// Record who tended a plot, so a crop worked by more than one player pays a
+// team bonus when it is finally harvested.
+function noteTend(plot) {
+  if (!plot || !coopActive()) return;
+  const pid = coopSelfId();
+  if (!Array.isArray(plot.tendedBy)) plot.tendedBy = [];
+  if (!plot.tendedBy.includes(pid)) plot.tendedBy.push(pid);
+}
+// A crop is a "team crop" if someone other than the harvester worked on it.
+function isTeamCrop(plot) {
+  if (!plot || !coopActive() || !Array.isArray(plot.tendedBy)) return false;
+  return plot.tendedBy.some(pid => pid !== coopSelfId());
+}
+/* ── CO-OP UI ────────────────────────────────────────────────────────────── */
+
+function refreshFundHUD() {
+  const fd = document.getElementById('fundDisp');
+  const rd = document.getElementById('roleDisp');
+  if (fd) {
+    if (coopActive()) {
+      fd.style.display = '';
+      fd.textContent = '🌾 $' + farmFundBalance().toLocaleString();
+      fd.title = "The farm's shared purse ($" + farmFundBalance().toLocaleString() +
+                 "). Crops, contracts and the chest pay in; the weekly bill comes out. Click for who put in what.";
+    } else {
+      fd.style.display = 'none';
+    }
+  }
+  if (rd) {
+    // The role pill shows in co-op, and solo once you've actually picked one.
+    const show = coopActive() || crewRole !== 'none';
+    rd.style.display = show ? '' : 'none';
+    if (show) {
+      const r = CREW_ROLES[crewRole] || CREW_ROLES.none;
+      rd.textContent = r.icon + ' ' + r.name + (crewIsComplementary() ? ' 🤝' : '');
+      rd.title = r.blurb + (crewIsComplementary()
+        ? '\n🤝 Complementary crew: +10% farm income for everyone.'
+        : '\nClick to change role.');
+    }
+  }
+}
+
+// Who has put what into the purse — so nobody's work is invisible.
+function coopLedgerHTML() {
+  const rows = Object.entries(farmLedger)
+    .filter(([, e]) => e.earned > 0 || e.paid > 0)
+    .sort((a, b) => b[1].earned - a[1].earned);
+  if (!rows.length) return '<div style="opacity:.6;font-size:9px">Nothing paid in yet.</div>';
+  const self = coopSelfId();
+  return rows.map(([pid, e]) => `
+    <div style="display:flex;justify-content:space-between;gap:8px;font-size:10px;padding:2px 0;">
+      <span style="color:${pid === self ? '#d4b860' : '#a89878'}">${pid === self ? 'You' : (e.name || 'Partner')}</span>
+      <span style="color:#8ad0a0">+$${Math.round(e.earned).toLocaleString()}</span>
+      <span style="color:#c08070" title="Spent from the purse on the farm">-$${Math.round(e.paid).toLocaleString()}</span>
+    </div>`).join('');
+}
+
+function showFundBreakdown() {
+  if (!coopActive()) return;
+  const total = Object.values(farmLedger).reduce((s, e) => s + e.earned, 0);
+  const html = `<b>🌾 Farm purse: $${farmFundBalance().toLocaleString()}</b><br>
+    <span style="font-size:9px;opacity:.75">Paid in / spent, per player — total earned $${Math.round(total).toLocaleString()}</span>
+    <div style="margin-top:5px">${coopLedgerHTML()}</div>`;
+  try { if (typeof showModalMsg === 'function') showModalMsg(html); else showMsg('🌾 Farm purse: $' + farmFundBalance().toLocaleString() + ' — ' + Object.values(farmLedger).map(e => `${e.name}: +$${Math.round(e.earned)}`).join(', '), 4200); }
+  catch(_) { showMsg('🌾 Farm purse: $' + farmFundBalance().toLocaleString(), 3200); }
+}
+
+// Role picker — available in single player too.
+function openRolePicker() {
+  const ov = document.getElementById('rolePickerOverlay');
+  if (!ov) return;
+  const synergyNote = coopActive()
+    ? `<div style="font-size:9px;color:#8ad0a0;margin-bottom:8px">🤝 If every player picks a <b>different</b> role, the whole crew earns +10% farm income.</div>`
+    : `<div style="font-size:9px;color:#8a7a58;margin-bottom:8px">Pick the work you want to be best at. You can change it any time.</div>`;
+  const taken = new Set(Object.values(crewPeerRoles).filter(r => r && r !== 'none'));
+  ov.innerHTML = `
+    <div style="background:#100c08;border:2px solid rgba(170,120,38,.6);padding:14px;max-width:340px;margin:0 auto;">
+      <div style="font-size:12px;color:#d4b860;letter-spacing:.08em;margin-bottom:6px">CREW ROLE</div>
+      ${synergyNote}
+      ${Object.entries(CREW_ROLES).map(([id, r]) => {
+        const isMine = id === crewRole;
+        const isTaken = taken.has(id) && !isMine;
+        return `<button onclick="setCrewRole('${id}');closeRolePicker();"
+          style="display:block;width:100%;text-align:left;margin-bottom:4px;padding:6px 8px;cursor:pointer;
+                 font-family:'Special Elite',serif;font-size:10px;border-radius:0;
+                 background:${isMine ? 'rgba(120,90,30,.45)' : 'rgba(40,30,18,.6)'};
+                 border:1px solid ${isMine ? 'rgba(212,184,96,.7)' : 'rgba(120,90,40,.35)'};
+                 color:${isMine ? '#f0d890' : '#b8a480'};">
+          ${r.icon} <b>${r.name}</b>${isMine ? ' ✓' : ''}${isTaken ? ' <span style="color:#c08070">(partner has this)</span>' : ''}
+          <span style="display:block;font-size:9px;opacity:.7;margin-top:1px">${r.blurb}</span>
+        </button>`;
+      }).join('')}
+      <button onclick="closeRolePicker()" style="width:100%;margin-top:6px;padding:5px;cursor:pointer;
+        font-family:'Special Elite',serif;font-size:10px;background:rgba(60,40,20,.5);
+        border:1px solid rgba(120,90,40,.35);color:#907050;">CLOSE</button>
+    </div>`;
+  ov.style.display = 'flex';
+}
+function closeRolePicker() {
+  const ov = document.getElementById('rolePickerOverlay');
+  if (ov) ov.style.display = 'none';
+}
+
+
+
 const gameState = {
   day:1, timeOfDay:6*60, dayLength:24*60, daySpeed:2.5,
   _noonProductsDespawned:false, _wiltChecked:false,
@@ -6870,6 +7184,7 @@ function _handleFarmTool(tx, ty, wx, wy, key) {
           if (plots[tkey].tilled && !plots[tkey].crop) continue;
           if (plots[tkey].crop) continue;
           plots[tkey].tilled = true;
+          noteTend(plots[tkey]);
           setT(ttx, tty, TL.FARM_TILLED);
           tilled++;
         }
@@ -6902,6 +7217,7 @@ function _handleFarmTool(tx, ty, wx, wy, key) {
           const p2 = plots[tkey];
           if (!p2||!p2.tilled||p2.wateredToday) continue;
           p2.watered = p2.wateredToday = true; p2.wilted = false;
+          noteTend(p2);
           inventory.water--;
           setT(ttx, tty, TL.FARM_WATERED);
           watered++;
@@ -6934,6 +7250,7 @@ function _handleFarmTool(tx, ty, wx, wy, key) {
       return;
     }
     p.crop=player.selectedSeed; p.growthProgress=0; p.wilted=false; p.harvestReady=false;
+    noteTend(p);
     inventory.seeds[sk]--;
     stats.plantingsDone++;
     setT(tx,ty, p.watered?TL.FARM_WATERED:TL.FARM_TILLED);
@@ -6961,7 +7278,8 @@ function _handleFarmTool(tx, ty, wx, wy, key) {
       const _harvestHour = gameState.timeOfDay / 60;
       const _dawnBonus = cropNow === 'sunblossom' && _harvestHour >= 6 && _harvestHour < 9;
       const _scytheBonus = cropNow === 'dustwheat' && (player._harvestBonus || 0) > 0;
-      const qty = (p.wilted ? 1 : 2+Math.floor(Math.random()*2)) + getEffectiveHarvestBonus() + (_dawnBonus ? 2 : 0) + (_scytheBonus ? 1 : 0);
+      const _teamCrop = isTeamCrop(p);
+      const qty = (p.wilted ? 1 : 2+Math.floor(Math.random()*2)) + getEffectiveHarvestBonus() + (_dawnBonus ? 2 : 0) + (_scytheBonus ? 1 : 0) + (_teamCrop ? 2 : 0);
       const added = addItem(cropNow, qty);
       if (added<=0) { showMsg('⚠️ Bag full — open chest to store goods!'); return; }
       trackHarvest(cropNow, added);
@@ -6969,9 +7287,10 @@ function _handleFarmTool(tx, ty, wx, wy, key) {
       spawnParticles(wx,wy,'#f0d060',2,'+'+added);
       const _dawnNote = _dawnBonus ? ' 🌅 Dawn bonus!' : '';
       const _scytheNote = _scytheBonus ? ' ⚔️ Clean cut!' : '';
-      showMsg(added<qty ? `🌾 ${added}/${qty} ${CROPS[cropNow].name} — bag too heavy for rest!` : `🌾 Harvested ${added}× ${CROPS[cropNow].name}!${_dawnNote}${_scytheNote} [M] to sell.`);
+      const _teamNote = _teamCrop ? ' 🤝 Tended together — team bonus!' : '';
+      showMsg(added<qty ? `🌾 ${added}/${qty} ${CROPS[cropNow].name} — bag too heavy for rest!` : `🌾 Harvested ${added}× ${CROPS[cropNow].name}!${_dawnNote}${_scytheNote}${_teamNote} [M] to sell.`);
       p.crop=null; p.growthProgress=0; p.harvestReady=false; p.wateredToday=false;
-      p.tilled=false; p.watered=false;
+      p.tilled=false; p.watered=false; p.tendedBy=null;
       dSound('harvest');
       setT(tx,ty,TL.DIRT);
       player.actionCooldown=0.1;
@@ -7298,6 +7617,8 @@ window.addEventListener('keydown', e => {
     if (ocTalkOpen)   { closeOCTalk();   return; }
     if (typeof jgTalkOpen !== 'undefined' && jgTalkOpen) { closeJGTalk(); return; }
     if (typeof _tobiasPanelOpen !== 'undefined' && _tobiasPanelOpen) { closeTobiasPanel(); return; }
+    { const _rp = document.getElementById('rolePickerOverlay');
+      if (_rp && _rp.style.display === 'flex') { closeRolePicker(); return; } }
     // In-game pause
     const onTitle = document.getElementById('titleScreen').classList.contains('show') || document.getElementById('titleScreen').style.display === 'flex';
     const onIntro = document.getElementById('introScreen').classList.contains('show');
@@ -7314,6 +7635,10 @@ window.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
   if (e.code==='Tab')  { e.preventDefault(); toggleInventory(); }
+  if (e.code==='KeyC') {
+    const _rp = document.getElementById('rolePickerOverlay');
+    if (_rp && _rp.style.display === 'flex') closeRolePicker(); else openRolePicker();
+  }
   if (e.code==='KeyM') {
     if (gameState.inJungle) {
       // In jungle, [M] opens Tobias's dock panel if he's nearby, otherwise hints
@@ -7824,7 +8149,7 @@ function update(dt) {
   const stormPenalty = (gameState.stormActive && !isStormsheltered()) ? (1 - gameState._stormIntensity * 0.6) : 1;
   const _speedBoost = (player._speedMult || 1) * (player._speedBoostTimer > 0 ? 1.3 : 1) * (player._debugSpeed ? 3.0 : 1);
   const _dreadSlow = (gameState._mineDread >= 100) ? 0.65 : 1.0;
-  const spd = player.speed * _speedBoost * _dreadSlow * (player.sprinting?player.sprintMult:1) * (inventory.totalWeight>getEffectiveWeightCap()*0.8 ? 0.72 : 1) * stormPenalty;
+  const spd = player.speed * roleSpeedMult() * _speedBoost * _dreadSlow * (player.sprinting?player.sprintMult:1) * (inventory.totalWeight>getEffectiveWeightCap()*0.8 ? 0.72 : 1) * stormPenalty;
   if (player.sprinting) player.stamina=Math.max(0,player.stamina-18*(player._sprintCostMult||1)*dt);
   else if (!moving)     player.stamina=Math.min(player.maxStamina,player.stamina+player.staminaRegen*getHungerStaminaMult()*getHomeCarpetBonus()*dt);
   else                  player.stamina=Math.min(player.maxStamina,player.stamina+player.staminaRegen*.2*getHungerStaminaMult()*getHomeCarpetBonus()*dt);
@@ -8033,6 +8358,7 @@ function updateHUD() {
   document.getElementById('hpVal').textContent    = Math.floor(player.hp);
   document.getElementById('stVal').textContent    = Math.floor(player.stamina);
   document.getElementById('goldDisp').textContent = '💰 $'+player.gold.toLocaleString();
+  refreshFundHUD();
   refreshDebtHUD();
 
   // Water bar
@@ -10657,10 +10983,13 @@ function updateActionTimer(dt, isMoving) {
 // Effective gather duration for each resource type (base, reduced by upgrades)
 function getGatherDuration(type) {
   if (player._debugInstant) return 0.05;
-  if (type === 'stone') return Math.max(0.25, (player._gatherCd || 1.0) * 2.2);
-  if (type === 'wood')  return Math.max(0.25, (player._woodCd  || 1.0) * 2.2);
-  if (type === 'herb')  return 0.9;  // herbs are quick regardless
-  return 1.0;
+  // Stone and wood are the heavy jobs — a partner standing close halves them.
+  const heavy = (type === 'stone' || type === 'wood') ? teamworkMult() : 1;
+  const role  = roleGatherMult();
+  if (type === 'stone') return Math.max(0.25, (player._gatherCd || 1.0) * 2.2 * role * heavy);
+  if (type === 'wood')  return Math.max(0.25, (player._woodCd  || 1.0) * 2.2 * role * heavy);
+  if (type === 'herb')  return 0.9 * role;  // herbs are quick regardless
+  return 1.0 * role;
 }
 function getTillDuration()    { return Math.max(0.28, (player._tillCd    || 0.6) * 2.0); }
 function getWaterDuration()   { return Math.max(0.18, 0.5); } // watering is snappy but not instant
@@ -10829,7 +11158,7 @@ function chestSellAll() {
     chestSlots[i] = null;
   }
   if (count > 0) {
-    player.gold += total;
+    addFarmIncome(total);   // shared chest -> shared purse
     trackGoldEarned(total);
     gainRep('town', Math.min(5, Math.ceil(total / 100)));
     spawnParticles(player.x, player.y, '#f0d060', 8, '+$' + total);
@@ -11235,7 +11564,7 @@ function farmhandDoSell() {
   }
   const fee = Math.max(3, Math.round(totalEarned * 0.08));
   const net = totalEarned - fee;
-  player.gold += net;
+  addFarmIncome(net);   // farmhand sells the farm's crops
   trackGoldEarned(net); // farmhand sale should appear in stats
   buildHotbar();
   refreshStats();
@@ -12432,6 +12761,7 @@ function gatherNode(key) {
                   : node.def.loot === 'wood'  ? '🪓 Chopping ' + node.def.icon
                   : '🌿 Gathering ' + node.def.icon;
   const dur = getGatherDuration(node.def.loot);
+  if (node.def.loot === 'stone' || node.def.loot === 'wood') noteTeamwork();
   actionTimer._nodeKey = key;
 
   startAction(toolLabel, dur, () => {
@@ -12439,7 +12769,11 @@ function gatherNode(key) {
     if (!n2 || n2.depleted) return;
 
     const gathMult = getEffectiveMiningMult(n2.def.loot);
-    const baseQty  = n2.def.qty[0] + Math.floor(Math.random() * (n2.def.qty[1] - n2.def.qty[0] + 1));
+    let baseQty    = n2.def.qty[0] + Math.floor(Math.random() * (n2.def.qty[1] - n2.def.qty[0] + 1));
+    if (roleLootChance() > 0 && Math.random() < roleLootChance()) baseQty += 1;  // Prospector
+    const heavyJob = (n2.def.loot === 'stone' || n2.def.loot === 'wood');
+    const teamed   = heavyJob && partnerNearby();
+    if (teamed) baseQty += 1;   // worked together — bigger haul
     const wantQty  = Math.floor(baseQty * gathMult);
     const capNow   = getEffectiveWeightCap();
     const canFitByWeight = item && item.weight > 0
@@ -12453,7 +12787,7 @@ function gatherNode(key) {
     if (added <= 0) return;
     trackNode(n2.def.loot, added);
 
-    player.stamina = Math.max(0, player.stamina - n2.def.stamina);
+    player.stamina = Math.max(0, player.stamina - Math.round(n2.def.stamina * roleStaminaMult()));
     n2.depleted = true;
     actionTimer._nodeKey = null;
 
@@ -12469,7 +12803,7 @@ function gatherNode(key) {
     if (added < wantQty) {
       showMsg(`${n2.def.icon} Got ${added}/${wantQty} ${item && item.name} — bag too heavy for the rest!`);
     } else {
-      showMsg(`${n2.def.icon} Got ${added}× ${item && item.name}! (-${n2.def.stamina} stamina)`);
+      showMsg(`${n2.def.icon} Got ${added}× ${item && item.name}!${teamed ? ' 🤝 Team haul.' : ''} (-${Math.round(n2.def.stamina * roleStaminaMult())} stamina)`);
     }
     player.actionCooldown = 0.1;
   }, true);
@@ -14700,7 +15034,7 @@ function gatherBLMineNode(key) {
     trackOre(n2.def.loot, added);
     gainRep('badlands', added);
     gainRep('mine', added); // company mine ore feeds mine rep too
-    player.stamina = Math.max(0, player.stamina - n2.def.stamina);
+    player.stamina = Math.max(0, player.stamina - Math.round(n2.def.stamina * roleStaminaMult()));
     spawnParticles(n2.x*T+T/2, n2.y*T+T/2, '#80a0c0', 5, n2.def.icon);
     const ql = oreQualityLabel(quality);
     showMsg(`${n2.def.icon} ${added}× ${ITEMS[n2.def.loot]?.name||n2.def.loot}${ql?' '+ql:''} — company vein.`);
@@ -18359,7 +18693,7 @@ function showDaySummary(day) {
   const daysUntilBill = DEBT_WEEK_LENGTH - ((day-1) % DEBT_WEEK_LENGTH);
   const nextBillAmt  = getWeeklyBillAmount(currentWeek + 1);
   const totalDebt    = getTotalDebt();
-  const debtColor    = totalDebt <= 0 ? '#80d060' : player.gold >= nextBillAmt ? '#d4b060' : '#e06050';
+  const debtColor    = totalDebt <= 0 ? '#80d060' : coopSpendable() >= nextBillAmt ? '#d4b060' : '#e06050';
 
   // Gold sparkline SVG
   const hist = _goldHistory;
@@ -18395,7 +18729,7 @@ function showDaySummary(day) {
     ${hist.length >= 2 ? `<div class="ds-row"><span class="ds-lbl" style="font-size:7.5px;">7-day</span><span class="ds-val">${sparkline}</span></div>` : ''}
     ${divider('── DEBT')}
     <div class="ds-row"><span class="ds-lbl">Remaining</span><span class="ds-val" style="color:${debtColor}">${totalDebt<=0?'PAID OFF 🎉':'$'+Math.round(totalDebt).toLocaleString()}</span></div>
-    ${totalDebt>0 ? `<div class="ds-row"><span class="ds-lbl">Next bill</span><span class="ds-val" style="color:${player.gold>=nextBillAmt?'#80d060':'#e06050'}">$${nextBillAmt} in ${daysUntilBill}d</span></div>` : ''}
+    ${totalDebt>0 ? `<div class="ds-row"><span class="ds-lbl">Next bill</span><span class="ds-val" style="color:${coopSpendable()>=nextBillAmt?'#80d060':'#e06050'}">$${nextBillAmt} in ${daysUntilBill}d</span></div>` : ''}
     ${divider('── FARM')}
     ${row('Ready',''+cropsReady, cropsReady>0?'#80d060':'#c8b880')}
     ${row('Growing',''+cropsGrowing)}
@@ -23268,6 +23602,8 @@ function getSaveData() {
     boatX: gameState.boatX,
     boatY: gameState.boatY,
     pirateHeat: gameState.pirateHeat || 0,
+    farmLedger: farmLedger,
+    crewRole: crewRole,
     player: {
       x: savePX, y: savePY,
       hp: player.hp, stamina: player.stamina, hunger: player.hunger,
@@ -23630,6 +23966,13 @@ function loadGame() {
     if (activeQuests.length === 0) initQuests();
     debtPaidLog = d.debtPaidLog || [];
     weeklyBills = d.weeklyBills || [];
+    // The purse is a live co-op thing. Loading a save puts you back in single
+    // player, so anything left in it becomes your money.
+    farmLedger = d.farmLedger || {};
+    const _bal = farmFundBalance();
+    if (_bal > 0) player.gold += _bal;
+    farmLedger = {};
+    crewRole   = (d.crewRole && CREW_ROLES[d.crewRole]) ? d.crewRole : 'none';
 
     purchasedUpgrades.clear();
     for (const id of (d.purchasedUpgrades||[])) {
@@ -26001,7 +26344,7 @@ function jgSellItem(itemId, qty) {
   const price = _getJGExportPrice(itemId);
   const total = price * sellQty;
   removeItem(itemId, sellQty);
-  player.gold += total;
+  addSaleIncome(total, itemId);
   gainRep('jungle', Math.min(3, Math.ceil(total / 200)));
   spawnParticles(player.x, player.y, '#f0d060', 5, `+$${total}`);
   showMsg(`🌿 Sold ${sellQty}× ${ITEMS[itemId]?.name || itemId} for $${total.toLocaleString()} (eastern premium).`);
@@ -26011,16 +26354,21 @@ function jgSellItem(itemId, qty) {
 
 function jgSellAll() {
   let total = 0, count = 0;
+  let farmPart = 0, personalPart = 0;
   for (const id of SELL_ITEMS) {
     const qty = countItem(id);
     if (qty <= 0) continue;
     const price = _getJGExportPrice(id);
     removeItem(id, qty);
-    total += price * qty;
+    const line = price * qty;
+    total += line;
+    if (isFarmGoods(id)) farmPart += line; else personalPart += line;
     count += qty;
   }
   if (count > 0) {
-    player.gold += total;
+    // Farm produce pays the farm; anything you dug or found stays yours.
+    addFarmIncome(farmPart);
+    addPersonalIncome(personalPart);
     gainRep('jungle', Math.min(8, Math.ceil(total / 300)));
     spawnParticles(player.x, player.y, '#f0d060', 8, `+$${total.toLocaleString()}`);
     showMsg(`🌿 Sold ${count} items to Tobias for $${total.toLocaleString()}.`);
@@ -28237,7 +28585,7 @@ function gatherJGNode(key) {
     const qty = Math.floor(baseQty * gathMult);
     const added = addItem(n2.def.loot, qty);
 
-    player.stamina = Math.max(0, player.stamina - n2.def.stamina);
+    player.stamina = Math.max(0, player.stamina - Math.round(n2.def.stamina * roleStaminaMult()));
     n2.depleted = true;
     n2.respawnDay = gameState.day + 3 + Math.floor(Math.random() * 3);
 
@@ -31010,7 +31358,7 @@ function fulfillJGContract(idx) {
   removeItem(c.crop, c.qty);
   const onTime = gameState.day <= c.deadline;
   const earned = c.reward + (onTime ? c.bonus : 0);
-  player.gold += earned;
+  addFarmIncome(earned);   // shared contract -> shared purse
   trackGoldEarned(earned);
   gainRep('jungle', 4 + Math.floor(earned / 200));
   jgContractStreak++;
@@ -31372,7 +31720,7 @@ function _stepJGMarketEvents() {
   if (ev.salvageIncome) {
     const [min, max] = ev.salvageAmount;
     const income = min + Math.floor(Math.random() * (max - min + 1));
-    player.gold += income;
+    addFarmIncome(income);   // farm-level windfall -> shared purse
     spawnParticles(player.x, player.y, '#f0d060', 6, '+$' + income);
     showMsg(ev.onTrigger + '$' + income.toLocaleString() + '.');
   } else {
@@ -37239,7 +37587,7 @@ function broadcastWorldState() {
     plotsCompact[k] = {
       crop: p.crop, stage: p.stage, growTimer: p.growTimer,
       watered: p.watered, wilted: p.wilted, harvestReady: p.harvestReady,
-      tilled: p.tilled, wateredToday: p.wateredToday,
+      tilled: p.tilled, wateredToday: p.wateredToday, tendedBy: p.tendedBy || null,
     };
   }
   mp.broadcast({
@@ -37333,6 +37681,13 @@ function applyWorldState(msg) {
 
   try { if (typeof refreshMarketUI==='function' && window.marketOpen) refreshMarketUI(); } catch(_){}
   // Shared farm state (included in initial world_state on join)
+  if (msg.farmLedger) applyFundUpdate(msg);
+  if (msg.crewRoles) {
+    for (const [pid, r] of Object.entries(msg.crewRoles)) {
+      if (pid !== mp.peerId) crewPeerRoles[pid] = r;
+    }
+    try { refreshFundHUD(); } catch(_){}
+  }
   if (msg.chestSlots) applyChestUpdate({ slots: msg.chestSlots });
   if (msg.weeklyBills) applyDebtUpdate({ weeklyBills: msg.weeklyBills, playerDebt: msg.playerDebt });
   if (msg.upgrades) applyUpgradesUpdate({ upgrades: msg.upgrades });
@@ -37380,6 +37735,47 @@ function broadcastDebt() {
     weeklyBills: JSON.parse(JSON.stringify(weeklyBills)),
     playerDebt: player.debt,
   });
+}
+
+/* The team purse and the contribution ledger are shared state, exactly like
+   the chest. Whoever changes them says so immediately; the ledger is merged
+   rather than overwritten, so a slow peer can never erase someone's credit. */
+function broadcastFund() {
+  if (!mp.isActive()) return;
+  mp.broadcast({ type:'fund_update', farmLedger: farmLedger });
+}
+window._dhMpBroadcastFund = broadcastFund;
+
+function applyFundUpdate(msg) {
+  if (msg.farmLedger) {
+    for (const [pid, e] of Object.entries(msg.farmLedger)) {
+      const mine = farmLedger[pid];
+      // Take the higher of each running total — these only ever go up, so this
+      // survives out-of-order packets without double-counting.
+      if (!mine) farmLedger[pid] = { name:e.name, earned:e.earned||0, paid:e.paid||0 };
+      else {
+        mine.name   = e.name || mine.name;
+        mine.earned = Math.max(mine.earned||0, e.earned||0);
+        mine.paid   = Math.max(mine.paid  ||0, e.paid  ||0);
+      }
+    }
+  }
+  try { refreshFundHUD(); } catch(_){}
+  try { if (typeof refreshMarketUI==='function' && window.marketOpen) refreshMarketUI(); } catch(_){}
+}
+
+function broadcastRole() {
+  if (!mp.isActive()) return;
+  mp.broadcast({ type:'role_update', _pid: mp.peerId, role: crewRole, name: player.name || 'Partner' });
+}
+window._dhMpBroadcastRole = broadcastRole;
+
+function applyRoleUpdate(msg) {
+  if (!msg._pid) return;
+  crewPeerRoles[msg._pid] = msg.role || 'none';
+  try { refreshFundHUD(); } catch(_){}
+  const r = CREW_ROLES[msg.role];
+  if (r && msg.role !== 'none') showMsg(`${r.icon} ${msg.name||'Partner'} is now the ${r.name}.`, 3000);
 }
 
 function broadcastUpgrades() {
@@ -37551,6 +37947,7 @@ function setupGuestConn(conn) {
   conn.on('open', () => {
     mp.partnerReady = true;
     startTimers();
+    setTimeout(() => { try { broadcastRole(); refreshFundHUD(); } catch(_){} }, 300);
     // Send current world immediately
     setTimeout(() => {
       const ws = buildWorldState();
@@ -37601,7 +37998,10 @@ function setupGuestConn(conn) {
     if (msg.type === 'chest_update')   { applyChestUpdate(msg);   }
     if (msg.type === 'debt_update')    { applyDebtUpdate(msg);    }
     if (msg.type === 'upgrades_update'){ applyUpgradesUpdate(msg); }
-    if (msg.type === 'chest_update' || msg.type === 'debt_update' || msg.type === 'upgrades_update') {
+    if (msg.type === 'fund_update')    { applyFundUpdate(msg);    }
+    if (msg.type === 'role_update')    { applyRoleUpdate(msg);    }
+    if (msg.type === 'chest_update' || msg.type === 'debt_update' || msg.type === 'upgrades_update'
+        || msg.type === 'fund_update' || msg.type === 'role_update') {
       for (const [ogid, g] of Object.entries(mp.guests)) {
         if (ogid !== gid && g.conn?.open) try { g.conn.send(msg); } catch(_){}
       }
@@ -37619,8 +38019,10 @@ function setupGuestConn(conn) {
     delete mp.guests[gid];
     delete mp.remotePlayers[gid];
     delete _remoteRenderPos[gid];
+    delete crewPeerRoles[gid];
     mp.partnerReady = mp.guestCount() > 0;
-    if (!mp.partnerReady) stopTimers();
+    if (!mp.partnerReady) { stopTimers(); settleFarmFund(); }
+    try { refreshFundHUD(); } catch(_){}
     mp.broadcast({ type:'player_left', id:gid, name });
     showMsg(`🌐 ${name} left.`);
     updateBadge(); renderPanel();
@@ -37635,7 +38037,7 @@ function buildWorldState() {
     plotsCompact[k] = {
       crop:p.crop, stage:p.stage, growTimer:p.growTimer,
       watered:p.watered, wilted:p.wilted, harvestReady:p.harvestReady,
-      tilled:p.tilled, wateredToday:p.wateredToday,
+      tilled:p.tilled, wateredToday:p.wateredToday, tendedBy:p.tendedBy || null,
     };
   }
   return {
@@ -37663,6 +38065,8 @@ function buildWorldState() {
     claimableQuests:    [...claimableQuests],
     contractStreak:     contractStreak,
     reputation:         {...REPUTATION},
+    farmLedger: farmLedger,
+    crewRoles:  Object.assign({}, crewPeerRoles, mp.peerId ? { [mp.peerId]: crewRole } : {}),
     sharedStats: {
       totalCropsHarvested: stats.totalCropsHarvested || 0,
       contractsCompleted:  stats.contractsCompleted  || 0,
@@ -37702,6 +38106,7 @@ function doJoin(rawCode, guestName) {
     conn.on('open', () => {
       mp.partnerReady = true;
       startTimers();
+      setTimeout(() => { try { broadcastRole(); refreshFundHUD(); } catch(_){} }, 400);
       showMsg('🌐 Connected! Loading world…');
       updateBadge(); renderPanel();
       hideTitleScreen_mp();
@@ -37717,6 +38122,8 @@ function doJoin(rawCode, guestName) {
       if (msg.type === 'player_left') {
         delete mp.remotePlayers[msg.id];
         delete _remoteRenderPos[msg.id];
+        delete crewPeerRoles[msg.id];
+        try { refreshFundHUD(); } catch(_){}
         showMsg(`🌐 ${msg.name||'A player'} left.`); return;
       }
       if (msg.type === 'chat') {
@@ -37726,6 +38133,8 @@ function doJoin(rawCode, guestName) {
       if (msg.type === 'chest_update')    { applyChestUpdate(msg);    return; }
       if (msg.type === 'debt_update')     { applyDebtUpdate(msg);     return; }
       if (msg.type === 'upgrades_update') { applyUpgradesUpdate(msg); return; }
+      if (msg.type === 'fund_update')     { applyFundUpdate(msg);     return; }
+      if (msg.type === 'role_update')     { applyRoleUpdate(msg);     return; }
       if (msg.type === 'sync_request')    { return; } // host-only
     });
 
@@ -37912,6 +38321,9 @@ function renderPanel(){
       <div class="dhmp-label">Room code — click to copy:</div>
       <div class="dhmp-code" onclick="window._dhMpCopyCode()">${displayCode(mp.peerId)}</div>
       <div class="dhmp-players"><span style="color:${PLAYER_COLORS[0]}">⚑ You</span> ${slots} ${empty}</div>
+      <div class="dhmp-status" style="margin-bottom:4px">Press <b>[T]</b> to chat · <b>[C]</b> for your crew role.<br>
+        <span style="font-size:8px;opacity:.7">The farm and its purse are shared. What you mine, catch and forage is yours.</span></div>
+      ${coopPanelBlock()}
       <button class="dhmp-btn" onclick="window._dhMpToggle()">← CLOSE</button>
       <button class="dhmp-btn danger" onclick="window._dhMpDoDisconnect()">✕ STOP HOSTING</button>`;
     return;
@@ -37921,9 +38333,30 @@ function renderPanel(){
   mpPanel.innerHTML=`
     <div class="dhmp-section">🌐 CO-OP ACTIVE</div>
     <div class="dhmp-players">${others||'<em style="opacity:.5">syncing…</em>'}</div>
-    <div class="dhmp-status">Press <b>[T]</b> to chat.<br><span style="font-size:8px;opacity:.7">Everyone shares the farm. Your gold &amp; items are your own.</span></div>
+    <div class="dhmp-status">Press <b>[T]</b> to chat · <b>[C]</b> for your crew role.<br>
+      <span style="font-size:8px;opacity:.7">The farm and its purse are shared. What you mine, catch and forage is yours.</span></div>
+    ${coopPanelBlock()}
     <button class="dhmp-btn" onclick="window._dhMpToggle()">← CLOSE</button>
     <button class="dhmp-btn danger" onclick="window._dhMpDoDisconnect()">✕ DISCONNECT</button>`;
+}
+
+// Purse + crew summary, shown in both the host and guest panels.
+function coopPanelBlock(){
+  if (!mp.isActive()) return '';
+  const r = CREW_ROLES[crewRole] || CREW_ROLES.none;
+  const synergy = crewIsComplementary()
+    ? '<div style="font-size:8px;color:#8ad0a0">🤝 Complementary crew — +10% farm income.</div>'
+    : '<div style="font-size:8px;opacity:.55">Pick different roles for a crew bonus.</div>';
+  return `
+    <div style="border:1px solid rgba(90,170,110,.35);padding:5px 6px;margin-bottom:5px;background:rgba(20,34,24,.5)">
+      <div style="font-size:9px;color:#8ad0a0;letter-spacing:.06em">🌾 FARM PURSE — $${farmFundBalance().toLocaleString()}</div>
+      <div style="margin-top:3px">${coopLedgerHTML()}</div>
+    </div>
+    <div style="border:1px solid rgba(150,120,60,.3);padding:5px 6px;margin-bottom:5px;background:rgba(30,24,14,.5)">
+      <div style="font-size:9px;color:#c0a870;letter-spacing:.06em">${r.icon} YOUR ROLE — ${r.name.toUpperCase()}</div>
+      ${synergy}
+      <button class="dhmp-btn" style="margin-top:4px;font-size:9px;padding:4px" onclick="openRolePicker()">CHANGE ROLE [C]</button>
+    </div>`;
 }
 
 function updateBadge(){
@@ -37944,7 +38377,19 @@ function updateBadge(){
 /* ══════════════════════════════════════════════════════════════
    CLEANUP
    ══════════════════════════════════════════════════════════════ */
+function settleFarmFund(){
+  const bal = farmFundBalance();
+  if (bal > 0) {
+    player.gold += bal;
+    showMsg(`🌾 Co-op ended — the farm purse ($${bal.toLocaleString()}) went into your pocket.`, 4200);
+  }
+  farmLedger = {};
+  crewPeerRoles = {};
+  try { refreshFundHUD(); } catch(_){}
+}
+
 function cleanupAll(){
+  settleFarmFund();
   stopTimers();
   for(const g of Object.values(mp.guests)) try{g.conn.close();}catch(_){}
   mp.guests={};
@@ -38067,6 +38512,10 @@ window._dhMpCopyCode=function(){
 
 window._dhMpToggle=togglePanel;
 window.dhMp=mp;
+// Exposed for the co-op HUD and for debugging the shared purse from the console.
+window._dhMpApplyFund = applyFundUpdate;
+window._dhMpApplyRole = applyRoleUpdate;
+window._dhMpSettle    = settleFarmFund;
 
 // Hook hideTitleScreen to auto-activate hosting
 const _origHTS=window.hideTitleScreen;
