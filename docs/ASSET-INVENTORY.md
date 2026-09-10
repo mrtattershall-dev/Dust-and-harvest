@@ -29,12 +29,17 @@ Live in `assets/sprites/manifest.json`. Creature actors have
 | Citizens (32×32) | `citizen1`–`citizen5` — market square townspeople |
 | Townsfolk (32×48) | `folk_farmer` `folk_fisherman` `folk_blacksmith` `folk_merchant` `folk_alchemist` `folk_barmaid` `folk_bartender` `folk_kid1` `folk_kid2` |
 
-**Ranch coverage: 6 of 7 species.** `chicken`, `cow` and `pig` come from
+**Ranch coverage: 7 of 7 species.** `chicken`, `cow` and `pig` come from
 *Top-Down Farm with Animals*; `goat`, `horse` and `rabbit` from *Cute Farm
 Animals*, which also supplies `goatling`, `foal` and `rabbit_cub` for the
-game's `_baby` state. **There is no sheep sprite in any pack delivered so far**,
-so sheep keep their painted art — the fallback handles this with no special
-casing. A sheep pack would close the set.
+game's `_baby` state.
+
+**Sheep closes the set.** An earlier note here said no delivered pack had one.
+That was wrong: *Top-Down Farmlands* ships `!$Sheep.png` in its RPG Maker
+folder — a full four-direction walk cycle — and it was missed because the
+sprite survey only looked at the CraftPix sheet layouts, not the RPG Maker
+ones. Those sheets are the same art drawn at 3x, so it imports through the
+new `--downscale` flag.
 
 That is 33 hostile actors against roughly a dozen enemy types currently in the
 game, so this category is already oversupplied. More monster packs are not the

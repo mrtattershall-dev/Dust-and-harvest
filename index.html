@@ -16126,6 +16126,10 @@ function updateAnimals(dt) {
 const ANIMAL_SPRITES = {
   chicken: 'chicken', cow: 'cow', pig: 'pig',
   rabbit: 'rabbit',   goat: 'goat', horse: 'horse',
+  // Sheep closes the ranch. It is the one species no delivered pack had a
+  // sprite for; this one comes from the farmlands tileset's RPG Maker sheet,
+  // reduced 3x to the pack's own pixel scale on import.
+  sheep: 'sheep',
 };
 // Species with a dedicated child sprite. Everything else scales the adult down.
 const ANIMAL_BABY_SPRITES = {
@@ -34273,7 +34277,8 @@ const ART_CREDITS = [
         + 'tilesets.',
     prefixes: ['rat_', 'slime_', 'plant_', 'golem_', 'orc_', 'gnoll_', 'ent_',
                'ghost_', 'skeleton_', 'horse', 'foal', 'goat', 'goose',
-               'gosling', 'rabbit', 'chicken', 'cow', 'pig', 'citizen'],
+               'gosling', 'rabbit', 'chicken', 'cow', 'pig', 'sheep',
+               'citizen'],
     links: ['https://craftpix.net', 'https://craftpix.net/file-licenses/'],
   },
 ];

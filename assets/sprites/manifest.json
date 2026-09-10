@@ -1893,6 +1893,37 @@
       "group": "enemies",
       "path": "enemies/rat_grey"
     },
+    "sheep": {
+      "anchor": {
+        "h": 26,
+        "w": 22,
+        "x": 13,
+        "y": 3
+      },
+      "cellH": 32,
+      "cellW": 48,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 1,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 3,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/sheep"
+    },
     "skeleton_bones": {
       "anchor": {
         "h": 22,

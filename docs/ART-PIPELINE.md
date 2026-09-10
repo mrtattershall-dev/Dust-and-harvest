@@ -34,6 +34,27 @@ game falls back to the existing hand-drawn art everywhere. Nothing breaks.
 
 ## Adding a pack
 
+### RPG Maker sheets are 3x — reduce them
+
+Several packs ship a `RPG Maker MV and MZ/` folder alongside the CraftPix
+sheets. Those are the same art drawn at 3x for RPG Maker's 48px tiles: every
+pixel is a 3x3 block. Slicing one at face value gives a sprite whose pixels are
+three times the size of everything else on screen — right on its own, wrong
+beside anything.
+
+`prep_assets.py --downscale 3` reduces each sheet before slicing,
+nearest-neighbour, so it is exact when the upscale was. A sheet that is not
+close to an N x upscale says so rather than being quietly resampled; a few
+percent is the artist's anti-aliasing (the sheep drops 3.3%) and is fine.
+
+The reduced image is what gets written, not a copy of the source. That is worth
+stating because the first version copied: the manifest's cell size and anchor
+were measured from the reduced image while the sheet on disk stayed at 3x, so
+the sprite sampled a 48x32 corner of a 144x96 frame and the sheep rendered as a
+three-pixel dot.
+
+
+
 1. Unzip it somewhere outside the repo.
 2. Work out which layout it uses:
    - **`dir4`** — one PNG per animation, 4 rows = 4 facings.

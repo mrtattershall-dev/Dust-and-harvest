@@ -48,6 +48,57 @@ try:
 except ImportError:
     sys.exit("This tool needs Pillow:  pip install pillow")
 
+DOWNSCALE = 1   # set from --downscale; see open_sheet()
+
+
+def emit_sheet(im, png, dest):
+    """Write the sheet that the manifest's measurements describe.
+
+    A plain copy is right when the source was used as-is, but wrong the moment
+    --downscale is in play: open_sheet() shrank the image the cell size and
+    anchor were measured from, so copying the source puts a sheet on disk that
+    disagrees with its own manifest entry. The sprite then samples a corner of
+    each frame — which is exactly what happened to the first sheep.
+    """
+    if DOWNSCALE > 1:
+        im.save(dest)
+    else:
+        shutil.copyfile(png, dest)
+
+
+def open_sheet(png):
+    """Load a sheet, reducing it to native pixel scale if --downscale was given.
+
+    The RPG Maker sheets in these packs are the same art as the tileset drawn at
+    3x — every pixel is a 3x3 block. Slicing one at face value gives sprites
+    whose pixels are three times the size of everything else in the game, which
+    looks right on its own and wrong beside anything. Reducing is
+    nearest-neighbour, so it is exact when the upscale was exact.
+
+    A sheet that is not close to an N x upscale says so rather than being
+    quietly resampled: a few percent is the artist's anti-aliasing and is fine,
+    a lot means the factor is wrong.
+    """
+    im = Image.open(png).convert("RGBA")
+    if DOWNSCALE <= 1:
+        return im
+    w, h = im.size
+    if w % DOWNSCALE or h % DOWNSCALE:
+        sys.exit(f"{png.name}: {w}x{h} does not divide by {DOWNSCALE}")
+    small = im.resize((w // DOWNSCALE, h // DOWNSCALE), Image.NEAREST)
+    back = small.resize((w, h), Image.NEAREST)
+    ia, ib = im.load(), back.load()
+    diff = sum(1 for y in range(h) for x in range(w) if ia[x, y] != ib[x, y])
+    pct = 100.0 * diff / (w * h)
+    if pct > 8.0:
+        log(f"  !! {png.name}: {pct:.1f}% of pixels lost reducing by "
+            f"{DOWNSCALE}x — is that the right factor?")
+    elif pct > 0.5:
+        log(f"  ~~ {png.name}: reduced {DOWNSCALE}x ({pct:.1f}% edge pixels "
+            f"dropped, the artist's anti-aliasing)")
+    return small
+
+
 REPO = Path(__file__).resolve().parent.parent
 SPRITES = REPO / "assets" / "sprites"
 MANIFEST = SPRITES / "manifest.json"
@@ -207,7 +258,7 @@ def collect_dir4(pack: Path, name_map, rows, group, fps, dry, clip_alias=None):
             # varies between packs.
             clip = re.sub(r"[^a-z0-9]+", "_", clip.strip().lower()).strip("_")
             clip = clip_alias.get(clip, clip)
-            im = Image.open(png).convert("RGBA")
+            im = open_sheet(png)
             w, h = im.size
             if h % 4:
                 log(f"  !! {png.name}: height {h} not divisible by 4, skipping")
@@ -235,7 +286,7 @@ def collect_dir4(pack: Path, name_map, rows, group, fps, dry, clip_alias=None):
             if not dry:
                 out_dir = SPRITES / group / actor_id
                 out_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(png, out_dir / f"{clip}.png")
+                emit_sheet(im, png, out_dir / f"{clip}.png")
 
         if not clips:
             log(f"  skip {src_name}: no usable sheets")
@@ -270,7 +321,7 @@ def collect_dir4x2(pack: Path, name_map, rows, group, fps, dry):
             log(f"  skip {src_name} (not in --map)")
             continue
 
-        im = Image.open(png).convert("RGBA")
+        im = open_sheet(png)
         w, h = im.size
         if h % 8:
             log(f"  !! {png.name}: height {h} not divisible by 8, skipping")
@@ -303,7 +354,7 @@ def collect_dir4x2(pack: Path, name_map, rows, group, fps, dry):
         if not dry:
             out_dir = SPRITES / group / actor_id
             out_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(png, out_dir / "sheet.png")
+            emit_sheet(im, png, out_dir / "sheet.png")
 
         actors[actor_id] = {
             "group": group,
@@ -353,7 +404,7 @@ def collect_grid(pack: Path, name_map, rows, group, fps, dry,
         clips, anchor = {}, None
         for clip, png in sorted(entries):
             clip = clip_alias.get(clip, clip)
-            im = Image.open(png).convert("RGBA")
+            im = open_sheet(png)
             w, h = im.size
             if w % cell_w or h % cell_h:
                 log(f"  !! {png.name}: {w}x{h} is not a multiple of "
@@ -377,7 +428,7 @@ def collect_grid(pack: Path, name_map, rows, group, fps, dry,
             if not dry:
                 out_dir = SPRITES / group / actor_id
                 out_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(png, out_dir / f"{clip}.png")
+                emit_sheet(im, png, out_dir / f"{clip}.png")
 
         if not clips:
             log(f"  skip {src_name}: no usable sheets")
@@ -420,7 +471,7 @@ def collect_coldir(pack: Path, name_map, rows, group, fps, dry, cell, src_dir,
         if name_map and src_name not in name_map:
             continue
 
-        im = Image.open(png).convert("RGBA")
+        im = open_sheet(png)
         w, h = im.size
         if w % cell or h % cell:
             log(f"  !! {png.name}: {w}x{h} not a multiple of {cell}, skipping")
@@ -524,9 +575,16 @@ def main():
     ap.add_argument("--src-dir", default="",
                     help="grid layout only: subfolder inside the pack holding "
                          "the sheets, e.g. 2x")
+    ap.add_argument("--downscale", type=int, default=1,
+                    help="reduce every sheet by this factor before slicing. "
+                         "RPG Maker sheets in these packs are 3x the pack's "
+                         "own art; slicing one at face value gives sprites "
+                         "with pixels three times too big.")
     ap.add_argument("--fps", type=float, default=DEFAULT_FPS)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
+    global DOWNSCALE
+    DOWNSCALE = max(1, args.downscale)
 
     workdir = REPO / ".asset-tmp"
     workdir.mkdir(exist_ok=True)
