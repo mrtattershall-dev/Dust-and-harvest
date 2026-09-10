@@ -25794,7 +25794,7 @@ function updateJungleMovement(dx, dy, dt, spd) {
 }
 
 // ── Renderer ─────────────────────────────────────────────────────────────────
-function drawJGTile(t, sx, sy) {
+function drawJGTile(t, sx, sy, tx, ty) {
   const ctx = window.ctx || document.getElementById('gameCanvas').getContext('2d');
   switch (t) {
     case JG.WATER_DEEP: ctx.fillStyle = '#0e2c1c'; break;
@@ -25852,7 +25852,7 @@ function renderJungleZone() {
       if (!fog) continue;
       const t = getJGT(tx, ty);
       const sx = tx * JG_T - cx, sy = ty * JG_T - cy;
-      drawJGTile(t, sx, sy);
+      drawJGTile(t, sx, sy, tx, ty);
       if (fog === 1) {
         // Semi-transparent fog-of-war on just-explored tiles (optional)
       }
@@ -32456,7 +32456,7 @@ function renderRuinsZone() {
       const t = getRUT(tx, ty);
       const sx = tx*RU_T - cx, sy = ty*RU_T - cy;
       // Reuse the rich drawJGTile renderer — tiles share the same enum
-      drawJGTile(t, sx, sy);
+      drawJGTile(t, sx, sy, tx, ty);
       // ASCEND tile highlight
       if (t === JG.ASCEND) {
         const p = 0.5+0.5*Math.sin(now*0.002);
@@ -34074,6 +34074,13 @@ if (typeof _tryCourtEmissaryEncounter === 'undefined') {
    a tree rooted just off-screen still has canopy inside it.                    */
 const JG_OVERLAY_BLEED = 4;
 
+// Applied identically to every jungle ground tile — see note above.
+const JG_GROUND_TINT = 'rgba(30,96,30,0.42)';
+function _jgTintGround(ctx, sx, sy, T) {
+  ctx.fillStyle = JG_GROUND_TINT;
+  ctx.fillRect(sx, sy, T, T);
+}
+
 const JG_OVERLAY_GROUP = {};   // tile -> atlas group, built after JG exists
 function _jgBuildOverlayGroups() {
   JG_OVERLAY_GROUP[JG.TREE]       = 'treeMed';
@@ -34108,7 +34115,7 @@ function drawJungleOverlay(ctx, cx, cy, W, H) {
 }
 
 // ── Replace drawJGTile with rich per-tile renderer ───────────────────────────
-window.drawJGTile = function drawJGTile(t, sx, sy) {
+window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
   const ctx = window.ctx || document.getElementById('gameCanvas').getContext('2d');
   const T = JG_T;
   const now = Date.now();
@@ -34141,6 +34148,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
 
     // ── Ground tiles ───────────────────────────────────────────────────────
     case JG.SAND: {
+      if (tx !== undefined && window.DHGround && DHGround.draw(ctx, 'sand', sx, sy, tx, ty)) break;
       ctx.fillStyle = '#b09870'; ctx.fillRect(sx, sy, T, T);
       // Grain scatter
       ctx.fillStyle = 'rgba(160,130,90,0.4)';
@@ -34152,6 +34160,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       break;
     }
     case JG.GRASS: {
+      if (tx !== undefined && window.DHGround && DHGround.draw(ctx, 'grass', sx, sy, tx, ty)) { _jgTintGround(ctx, sx, sy, T); break; }
       const base = ((sx * 1301 + sy * 503) & 3);
       const greens = ['#2a5020','#285218','#306028','#243818'];
       ctx.fillStyle = greens[base]; ctx.fillRect(sx, sy, T, T);
@@ -34165,7 +34174,11 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       break;
     }
     case JG.JUNGLE_FLOOR: {
-      ctx.fillStyle = '#1e3c18'; ctx.fillRect(sx, sy, T, T);
+      if (tx !== undefined && window.DHGround && DHGround.draw(ctx, 'grass', sx, sy, tx, ty)) {
+        _jgTintGround(ctx, sx, sy, T);
+      } else {
+        ctx.fillStyle = '#1e3c18'; ctx.fillRect(sx, sy, T, T);
+      }
       // Leaf litter — scattered dark spots
       ctx.fillStyle = 'rgba(10,24,8,0.5)';
       for (let i = 0; i < 5; i++) {
@@ -34176,6 +34189,10 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       break;
     }
     case JG.MUD: {
+      if (tx !== undefined && window.DHGround && DHGround.draw(ctx, 'dirt', sx, sy, tx, ty)) {
+        _jgTintGround(ctx, sx, sy, T);
+        break;
+      }
       ctx.fillStyle = '#3c2c1a'; ctx.fillRect(sx, sy, T, T);
       // Mud cracks
       ctx.fillStyle = 'rgba(20,14,8,0.4)';
@@ -34185,6 +34202,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       break;
     }
     case JG.DIRT: {
+      if (tx !== undefined && window.DHGround && DHGround.draw(ctx, 'dirt', sx, sy, tx, ty)) { _jgTintGround(ctx, sx, sy, T); break; }
       ctx.fillStyle = '#4a3420'; ctx.fillRect(sx, sy, T, T);
       ctx.fillStyle = 'rgba(30,20,10,0.3)';
       ctx.fillRect(sx + 4, sy + 4, T - 8, 1);
@@ -34196,7 +34214,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
     case JG.TREE: {
       // Real art available: lay the forest floor and let drawJungleOverlay put
       // the tree on top, so the canopy can overhang the tiles behind it.
-      if (window.DHJungle && DHJungle.ready('treeMed')) { drawJGTile(JG.JUNGLE_FLOOR, sx, sy); break; }
+      if (window.DHJungle && DHJungle.ready('treeMed')) { drawJGTile(JG.JUNGLE_FLOOR, sx, sy, tx, ty); break; }
       // Ground shadow
       ctx.fillStyle = '#0e2208'; ctx.fillRect(sx, sy, T, T);
       // Trunk
@@ -34215,7 +34233,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       break;
     }
     case JG.DENSE_TREE: {
-      if (window.DHJungle && DHJungle.ready('treeLarge')) { drawJGTile(JG.JUNGLE_FLOOR, sx, sy); break; }
+      if (window.DHJungle && DHJungle.ready('treeLarge')) { drawJGTile(JG.JUNGLE_FLOOR, sx, sy, tx, ty); break; }
       ctx.fillStyle = '#060e04'; ctx.fillRect(sx, sy, T, T);
       // Impenetrable canopy — overlapping layers
       ctx.fillStyle = '#081408';
@@ -34232,7 +34250,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       break;
     }
     case JG.BUSH: {
-      if (window.DHJungle && DHJungle.ready('bush')) { drawJGTile(JG.JUNGLE_FLOOR, sx, sy); break; }
+      if (window.DHJungle && DHJungle.ready('bush')) { drawJGTile(JG.JUNGLE_FLOOR, sx, sy, tx, ty); break; }
       ctx.fillStyle = '#162a10'; ctx.fillRect(sx, sy, T, T);
       ctx.fillStyle = '#1e4018';
       ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T*0.55, 12, 9, 0, 0, Math.PI*2); ctx.fill();
@@ -34245,7 +34263,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
 
     // ── Structure tiles ────────────────────────────────────────────────────
     case JG.ROCK: {
-      if (window.DHJungle && DHJungle.ready('rock')) { drawJGTile(JG.JUNGLE_FLOOR, sx, sy); break; }
+      if (window.DHJungle && DHJungle.ready('rock')) { drawJGTile(JG.JUNGLE_FLOOR, sx, sy, tx, ty); break; }
       ctx.fillStyle = '#2e2c28'; ctx.fillRect(sx, sy, T, T);
       // Rock face — irregular polygon suggestion
       ctx.fillStyle = '#3c3830';
