@@ -276,6 +276,36 @@ is a class while `#invOverlay` is an id, so the id's own `background` and
 `border` must be **deleted**, not just overridden; a class cannot outrank an
 id.
 
+### What is framed, and what deliberately is not
+
+`.ui-panel` is on the 18 centred modal panels. Three groups are left flat on
+purpose:
+
+* **The always-on HUD chips** — `stat-pill`, `timeDisp`, `goldDisp`,
+  `zoneDisp`, `seasonTag`, `msgBanner`, `farmPanel`, `invTooltip`. A 24px
+  plank frame on a stat pill is absurd, and these already read correctly.
+* **The full-screen scrims** — `saveSlotModal`, `difficultyModal`,
+  `charCustomModal`, `confirmModal` are `inset:0` backdrops, not panels.
+* **Buttons whose colour carries meaning** — `.btn-sell` is green and
+  `.btn-buy` is blue, and that difference is the fastest thing to read in the
+  market. `.tbtn` keeps its `border-left` accent because that marks the
+  selected tool. Only `.panel-close`, which is neutral and appears in every
+  header, became a `.ui-btn`. Art that erases a functional signal is a
+  downgrade however good it looks.
+
+The hotbar's selected slot was a rust border plus an ember top edge;
+`border-image` replaces both, so selection moved to the pack's amber slot,
+which is what that piece is for and reads far better at 57px than a 1px edge.
+
+### Size the panels off `.ui-panel`, not off a list
+
+The mobile guard that keeps a panel inside the screen used to be a
+hand-maintained list of ids. It went stale exactly as you would expect:
+`daySummary` was never added and overflowed an 844x390 landscape screen the
+moment the frame made it taller. The guard now leads with `.ui-panel`, so
+every framed panel is covered and so is the next one somebody adds. The id
+list is kept behind it as a backstop for the unframed few.
+
 ## Credits
 
 Importing a pack means adding its author to **both** `CREDITS.md` and the

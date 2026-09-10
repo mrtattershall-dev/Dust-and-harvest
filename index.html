@@ -123,12 +123,12 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 .sicon{font-size:15px;}.sname{font-size:11px;font-weight:bold;}.smeta{font-size:10px;color:rgba(155,115,52,.7);}
 .divhr{border:none;border-top:1px solid rgba(95,75,36,.2);margin:5px 0;}
 /* MARKET */
-#marketOverlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(635px,96vw);max-height:min(88vh,700px);background:var(--panel-bg);border:1px solid var(--panel-border-strong);border-top:3px solid var(--tallow);border-radius:0;pointer-events:all;display:none;z-index:30;flex-direction:column;overflow:hidden;}
+#marketOverlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(635px,96vw);max-height:min(88vh,700px);pointer-events:all;display:none;z-index:30;flex-direction:column;overflow:hidden;}
 #marketOverlay.open{display:flex;}
 #mktHeader{padding:12px 16px 0;border-bottom:1px solid rgba(110,85,40,.28);flex-shrink:0;}
 #mktHeader h2{font-size:var(--ui-font-size);color:var(--parchment);letter-spacing:.12em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
-.panel-close{background:none;border:1px solid rgba(110,85,40,.38);border-radius:0;color:var(--tallow);font-family:var(--font-main);font-size:var(--ui-font-sm);cursor:pointer;padding:3px 10px;letter-spacing:.06em;transition:all .1s;}
-.panel-close:hover{background:rgba(150,105,38,.15);color:var(--bone);}
+.panel-close{color:var(--tallow);font-family:var(--font-main);font-size:var(--ui-font-sm);cursor:pointer;padding:3px 10px;letter-spacing:.06em;transition:all .1s;}
+.panel-close:hover{color:#2a1c0c;}
 #mktTabs{display:flex;gap:0;flex-wrap:wrap;overflow:hidden;}
 .mktab{padding:7px 16px;font-size:var(--ui-font-sm);color:rgba(155,115,52,.55);cursor:pointer;border-bottom:2px solid transparent;letter-spacing:.06em;text-transform:uppercase;transition:all .1s;font-family:var(--font-main);}
 .mktab.act{color:var(--parchment);border-bottom-color:var(--rust);}
@@ -178,9 +178,9 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 #invTooltip .tt-val{color:#80b855;margin-top:5px;font-size:10px;}
 /* HOTBAR */
 #hotbar{position:absolute;bottom:50px;left:50%;transform:translateX(-50%);display:flex;gap:4px;pointer-events:all;z-index:15;min-height:60px;align-items:flex-end;}
-.hb-slot{width:57px;height:57px;background:rgba(12,9,5,.95);border:1px solid rgba(95,75,36,.33);border-radius:0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:all .12s;flex-shrink:0;}
-.hb-slot:hover{border-color:rgba(155,105,36,.68);background:rgba(155,105,36,.08);}
-.hb-slot.active{border-color:var(--rust);border-top:2px solid var(--ember);background:rgba(172,75,18,.1);box-shadow:none;}
+.hb-slot{width:57px;height:57px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:all .12s;flex-shrink:0;}
+.hb-slot:hover{filter:brightness(1.3);}
+.hb-slot.active{border-image-source:url(assets/ui/slot_sel.png);}
 .hb-slot .hb-key{position:absolute;top:2px;left:4px;font-size:7px;color:rgba(115,88,38,.65);}
 .hb-slot .hb-qty{position:absolute;bottom:2px;right:3px;font-size:8px;color:var(--parchment);font-weight:bold;}
 .hb-slot .hb-icon{font-size:20px;line-height:1.1;}
@@ -193,7 +193,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 .ctag{background:rgba(8,6,3,.7);border:1px solid rgba(75,58,28,.2);border-radius:0;padding:3px 7px;font-size:9px;color:rgba(115,88,38,.75);letter-spacing:.03em;}
 .ckey{color:var(--parchment);}
 /* ENCOUNTER */
-#encounterPanel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:335px;background:var(--panel-bg);border:1px solid var(--panel-border-strong);border-top:3px solid var(--rust);border-radius:0;padding:14px;pointer-events:all;display:none;z-index:35;}
+#encounterPanel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:335px;padding:14px;pointer-events:all;display:none;z-index:35;}
 #encounterPanel.show{display:block;}
 #encounterPanel h3{font-size:12px;color:var(--bone);letter-spacing:.08em;margin-bottom:6px;text-transform:uppercase;}
 #encounterPanel .enc-desc{font-size:10px;color:rgba(175,148,75,.83);line-height:1.6;margin-bottom:12px;}
@@ -231,7 +231,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 /* CREDITS */
 #creditsOverlay{position:absolute;inset:0;background:rgba(4,3,1,.94);z-index:90;display:none;align-items:center;justify-content:center;padding:18px 12px;}
 #creditsOverlay.show{display:flex;}
-#creditsBox{width:min(560px,96vw);max-height:min(86vh,720px);background:var(--panel-bg);border:1px solid var(--panel-border-strong);border-top:3px solid var(--tallow);display:flex;flex-direction:column;font-family:var(--font-main);}
+#creditsBox{width:min(560px,96vw);max-height:min(86vh,720px);display:flex;flex-direction:column;font-family:var(--font-main);}
 #creditsHead{display:flex;justify-content:space-between;align-items:center;padding:11px 15px;border-bottom:1px solid rgba(150,105,45,.22);color:var(--tallow);font-size:var(--ui-font-size);letter-spacing:.1em;flex-shrink:0;}
 #creditsBody{overflow-y:auto;padding:14px 18px 18px;color:var(--parchment);font-size:var(--ui-font-sm);line-height:1.75;}
 #creditsFoot{padding:8px 15px;border-top:1px solid rgba(150,105,45,.16);color:rgba(155,115,52,.5);font-size:var(--ui-font-xs);letter-spacing:.08em;text-align:center;flex-shrink:0;}
@@ -276,7 +276,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 /* CONTROLS OVERLAY */
 #controlsOverlay{position:absolute;inset:0;background:rgba(0,0,0,.83);z-index:90;display:none;align-items:center;justify-content:center;}
 #controlsOverlay.show{display:flex;}
-#controlsBox{background:var(--panel-bg);border:1px solid var(--panel-border-strong);border-top:3px solid var(--tallow);border-radius:0;padding:22px 25px;max-width:415px;width:90%;}
+#controlsBox{padding:22px 25px;max-width:415px;width:90%;}
 #controlsTitle{font-size:11px;color:var(--parchment);letter-spacing:.14em;text-transform:uppercase;font-family:var(--font-main);margin-bottom:15px;border-bottom:1px solid rgba(110,85,40,.23);padding-bottom:10px;}
 #controlsGrid{display:grid;grid-template-columns:1fr 1fr;gap:5px 13px;margin-bottom:12px;}
 .ctrl-row{display:flex;align-items:center;gap:8px;}
@@ -312,7 +312,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 #minimapLabel{position:absolute;bottom:3px;left:0;width:100%;text-align:center;font-size:6px;color:rgba(95,75,36,.55);letter-spacing:.07em;text-transform:uppercase;}
 #minimapToggleHint{position:absolute;top:-15px;right:0;font-size:6px;color:rgba(75,58,28,.45);letter-spacing:.04em;}
 /* DAY SUMMARY */
-#daySummary{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:308px;background:var(--panel-bg);border:1px solid var(--panel-border-strong);border-top:3px solid var(--tallow);border-radius:0;padding:15px 17px 12px;pointer-events:all;display:none;z-index:40;text-align:center;}
+#daySummary{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:308px;padding:15px 17px 12px;pointer-events:all;display:none;z-index:40;text-align:center;}
 #daySummary h3{font-size:var(--ui-font-size);color:var(--bone);letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px;font-family:var(--font-main);}
 #daySummaryBody{font-size:var(--ui-font-xs);color:var(--parchment);line-height:2;margin-bottom:12px;text-align:left;}
 #daySummaryBody .ds-row{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid rgba(95,75,36,.1);}
@@ -335,7 +335,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 #introSkip{position:absolute;bottom:25px;right:28px;font-family:var(--font-main);font-size:11px;color:var(--parchment);letter-spacing:.1em;cursor:pointer;border:1px solid rgba(135,96,36,.52);border-radius:0;padding:6px 15px;background:rgba(135,96,36,.1);text-transform:uppercase;}
 #introSkip:hover{background:rgba(135,96,36,.21);color:var(--bone);}
 /* SETTINGS */
-#settingsOverlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(482px,96vw);max-height:min(88vh,700px);background:var(--panel-bg);border:1px solid var(--panel-border-strong);border-top:3px solid var(--tallow);border-radius:0;pointer-events:all;display:none;z-index:80;flex-direction:column;overflow:hidden;}
+#settingsOverlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(482px,96vw);max-height:min(88vh,700px);pointer-events:all;display:none;z-index:80;flex-direction:column;overflow:hidden;}
 #settingsOverlay.open{display:flex;}
 #settingsOverlay .sh{padding:11px 14px 0;border-bottom:1px solid rgba(110,85,40,.23);flex-shrink:0;}
 #settingsOverlay .sh h2{font-size:var(--ui-font-size);color:var(--parchment);letter-spacing:.1em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
@@ -363,7 +363,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 #actionProgress .ap-bg{background:rgba(10,7,4,.9);border:1px solid rgba(95,75,36,.38);border-radius:0;height:7px;overflow:hidden;}
 #actionProgress .ap-fill{height:100%;background:linear-gradient(90deg,var(--rust),var(--ember));width:0%;transition:width .05s linear;}
 /* CHEST */
-#chestOverlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(680px,96vw);max-height:min(90vh,720px);background:var(--panel-bg);border:1px solid var(--panel-border-strong);border-top:3px solid var(--tallow);border-radius:0;padding:0;pointer-events:all;display:none;z-index:30;}
+#chestOverlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(680px,96vw);max-height:min(90vh,720px);padding:0;pointer-events:all;display:none;z-index:30;}
 #chestOverlay.open{display:flex;flex-direction:column;}
 #chestOverlay h2{font-size:var(--ui-font-size);color:var(--parchment);letter-spacing:.1em;text-transform:uppercase;margin-bottom:0;border-bottom:1px solid rgba(110,85,40,.22);padding:13px 13px 8px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
 #chestScrollBody{flex:1;overflow-y:auto;padding:8px 13px 4px;}
@@ -373,7 +373,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 #chestGrid{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;margin-bottom:9px;}
 #chestGrid .inv-cell{min-height:40px;}
 /* FARMHAND */
-#farmhandOverlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:340px;background:var(--panel-bg);border:1px solid rgba(72,112,48,.48);border-top:3px solid var(--sage);border-radius:0;padding:13px;pointer-events:all;display:none;z-index:30;}
+#farmhandOverlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:340px;padding:13px;pointer-events:all;display:none;z-index:30;}
 #farmhandOverlay h2{font-size:var(--ui-font-size);color:#88b850;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;border-bottom:1px solid rgba(72,112,48,.22);padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
 #farmhandOverlay .fh-tip{font-size:var(--ui-font-xs);color:rgba(95,122,62,.65);margin-bottom:9px;font-style:italic;letter-spacing:.03em;}
 #farmhandOverlay .fh-job{display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(55,92,28,.05);border:1px solid rgba(55,92,28,.18);border-left:2px solid rgba(72,122,36,.38);border-radius:0;margin-bottom:5px;}
@@ -386,7 +386,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 .fh-hire-btn:disabled{opacity:.28;cursor:not-allowed;}
 .fh-week-badge{display:inline-block;padding:2px 7px;font-size:var(--ui-font-xs);background:rgba(72,132,36,.25);border:1px solid rgba(72,132,36,.5);color:#88c850;letter-spacing:.04em;margin-left:6px;}
 /* NPC TALK OVERLAYS — Maya & Rex */
-#npcTalkOverlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(480px,92vw);background:var(--panel-bg);border:1px solid var(--panel-border-strong);border-top:3px solid var(--tallow);border-radius:0;padding:14px;pointer-events:all;display:none;z-index:30;}
+#npcTalkOverlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(480px,92vw);padding:14px;pointer-events:all;display:none;z-index:30;}
 #npcTalkOverlay h2{font-size:var(--ui-font-size);color:var(--parchment);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;border-bottom:1px solid rgba(110,85,40,.28);padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
 #npcTalkOverlay .npc-portrait{width:38px;height:38px;border:1px solid rgba(110,85,40,.4);border-radius:0;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;background:rgba(255,255,255,.03);}
 #npcTalkOverlay .npc-header{display:flex;gap:10px;align-items:center;margin-bottom:10px;}
@@ -446,10 +446,10 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 <!-- Credits — attribution for third-party art. Several packs are CC-BY, which
      requires this to be visible in the shipped game, so it is not optional. -->
 <div id="creditsOverlay">
-  <div id="creditsBox">
+  <div id="creditsBox" class="ui-panel">
     <div id="creditsHead">
       <span>⚖ CREDITS &amp; ATTRIBUTION</span>
-      <button class="panel-close" onclick="closeCredits()">✕ CLOSE</button>
+      <button class="panel-close ui-btn" onclick="closeCredits()">✕ CLOSE</button>
     </div>
     <div id="creditsBody"></div>
     <div id="creditsFoot">Press [ESC] to close</div>
@@ -639,7 +639,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
    keeps its designed size. !important because most of these are styled inline.
    No media query: the calc() only binds when the viewport is actually smaller,
    so this is inert on desktop. */
-#statsOverlay, #blVendorOverlay, #smeltOverlay, #confirmModal,
+.ui-panel, #statsOverlay, #blVendorOverlay, #smeltOverlay, #confirmModal,
 #blBountyOverlay, #farmhandOverlay, #encounterPanel, #chestOverlay,
 #npcTalkOverlay, #marketOverlay, #invOverlay, #settingsOverlay,
 #merchantShop, #trapperPost {
@@ -726,10 +726,10 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 </style>
 
 <!-- Settings Overlay -->
-<div id="settingsOverlay">
+<div id="settingsOverlay" class="ui-panel">
   <div class="sh">
     <h2>⚙ SETTINGS
-      <button class="panel-close" onclick="closeSettings()">CLOSE [ESC]</button>
+      <button class="panel-close ui-btn" onclick="closeSettings()">CLOSE [ESC]</button>
     </h2>
   </div>
   <div class="sb" id="settingsBody"></div>
@@ -854,10 +854,10 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 </div>
 
 <!-- Market Overlay -->
-<div id="marketOverlay">
+<div id="marketOverlay" class="ui-panel">
   <div id="mktHeader">
     <h2>📊 FRONTIER MARKET — Day <span id="mktDay">1</span>
-      <button class="panel-close" onclick="closeMarket()">CLOSE [M]</button>
+      <button class="panel-close ui-btn" onclick="closeMarket()">CLOSE [M]</button>
     </h2>
     <div id="eventBanner"></div>
     <div id="mktTabs">
@@ -878,7 +878,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 <!-- Inventory Overlay -->
 <div id="invOverlay" class="ui-panel">
   <h2>⬡ SADDLEBAG — INVENTORY
-    <button class="panel-close" onclick="toggleInventory()">CLOSE [TAB]</button>
+    <button class="panel-close ui-btn" onclick="toggleInventory()">CLOSE [TAB]</button>
   </h2>
   <div class="inv-section-title">📦 Carried Items (32 slots)</div>
   <div id="invGrid"></div>
@@ -907,9 +907,9 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 </div>
 
 <!-- Phase 5: Encounter Panel -->
-<div id="merchantShop" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;max-height:420px;overflow-y:auto;background:rgba(4,2,0,.97);border:1px solid rgba(180,140,60,.65);border-radius:7px;padding:14px;pointer-events:all;z-index:35;"></div>
-<div id="trapperPost" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;max-height:420px;overflow-y:auto;background:rgba(4,2,0,.97);border:1px solid rgba(150,110,50,.65);border-radius:7px;padding:14px;pointer-events:all;z-index:35;"></div>
-<div id="encounterPanel">
+<div id="merchantShop" class="ui-panel" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;max-height:420px;overflow-y:auto;padding:14px;pointer-events:all;z-index:35;"></div>
+<div id="trapperPost" class="ui-panel" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;max-height:420px;overflow-y:auto;padding:14px;pointer-events:all;z-index:35;"></div>
+<div id="encounterPanel" class="ui-panel">
   <h3 id="encTitle">🏕 ABANDONED CAMP</h3>
   <div class="enc-desc" id="encDesc">You found something out here...</div>
   <div class="enc-btns" id="encBtns"></div>
@@ -934,7 +934,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 
 <!-- CONTROLS OVERLAY (first time only) -->
 <div id="controlsOverlay">
-  <div id="controlsBox">
+  <div id="controlsBox" class="ui-panel">
     <div id="controlsTitle">⌨ CONTROLS</div>
     <div id="controlsGrid">
       <div class="ctrl-row"><span class="ctrl-key">WASD / ↑↓←→</span><span class="ctrl-desc">Move</span></div>
@@ -993,7 +993,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
     <button id="endingContinue">▸ KEEP FARMING</button>
   </div>
 </div>
-<div id="daySummary"><h3>☀ DAWN REPORT</h3><div id="daySummaryBody"></div><button id="daySummaryClose" onclick="closeDaySummary()">CONTINUE →</button></div>
+<div id="daySummary" class="ui-panel"><h3>☀ DAWN REPORT</h3><div id="daySummaryBody"></div><button id="daySummaryClose" onclick="closeDaySummary()">CONTINUE →</button></div>
 <div id="staminaFlash"></div>
 <div id="interactPrompt"></div>
 <script>
@@ -1083,9 +1083,9 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 </div>
 
 <!-- Farm Chest Overlay -->
-<div id="chestOverlay">
+<div id="chestOverlay" class="ui-panel">
   <h2>📦 FARM CHEST — Storage
-    <button class="panel-close" onclick="closeChest()">CLOSE [E]</button>
+    <button class="panel-close ui-btn" onclick="closeChest()">CLOSE [E]</button>
   </h2>
   <div id="chestScrollBody">
     <div class="inv-section-title">Chest contents (<span id="chestSlotCount">32</span> slots)</div>
@@ -1099,10 +1099,10 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
   </div>
 </div>
 
-<div id="farmhandOverlay">
+<div id="farmhandOverlay" class="ui-panel">
   <h2>🧑‍🌾 FARM HAND — Jed
     <span id="fhWeekBadge" class="fh-week-badge" style="display:none"></span>
-    <button class="panel-close" onclick="closeFarmhand()">CLOSE [E]</button>
+    <button class="panel-close ui-btn" onclick="closeFarmhand()">CLOSE [E]</button>
   </h2>
   <div class="fh-tip" id="farmhandTip">Howdy. I can lend a hand around the farm for a fair wage.</div>
   <div id="farmhandJobs"></div>
@@ -1113,9 +1113,9 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 </div>
 
 <!-- Town NPC Talk Overlay — Maya & Rex -->
-<div id="npcTalkOverlay">
+<div id="npcTalkOverlay" class="ui-panel">
   <h2 id="npcTalkTitle">NPC
-    <button class="panel-close" onclick="closeNpcTalk()">CLOSE [E]</button>
+    <button class="panel-close ui-btn" onclick="closeNpcTalk()">CLOSE [E]</button>
   </h2>
   <div id="npcTalkBody"></div>
 </div>
@@ -3669,7 +3669,7 @@ function buildHotbar() {
 
   slots.forEach((s, i) => {
     const d = document.createElement('div');
-    d.className = 'hb-slot' + (s.active ? ' active' : '');
+    d.className = 'hb-slot ui-slot' + (s.active ? ' active' : '');
     d.innerHTML = `<span class="hb-key">${i+1}</span><span class="hb-icon">${itemIcon(s.itemId, 20, s.icon)}</span><span class="hb-name">${s.name}</span>${s.qty!==null?`<span class="hb-qty">${s.qty}</span>`:''}`;
     d.onclick = s.action;
     bar.appendChild(d);
@@ -11660,7 +11660,7 @@ function _renderNpcTalk(npcId) {
     bodyHtml = infoRows + activeSection + openSection + catSection + openBtn;
   }
 
-  document.getElementById('npcTalkTitle').innerHTML = `${portrait} ${title} <button class="panel-close" onclick="closeNpcTalk()">CLOSE [E]</button>`;
+  document.getElementById('npcTalkTitle').innerHTML = `${portrait} ${title} <button class="panel-close ui-btn" onclick="closeNpcTalk()">CLOSE [E]</button>`;
   document.getElementById('npcTalkBody').innerHTML = `
     <div class="npc-header">
       <div class="npc-portrait">${portrait}</div>
@@ -36088,37 +36088,37 @@ requestAnimationFrame(ts => { lastTime=ts; gameLoop(ts); });
   </div>
 </div>
 <!-- Mine Smelt Forge Overlay -->
-<div id="smeltOverlay" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:420px;background:rgba(8,4,0,.98);border:1px solid rgba(200,100,30,.6);border-radius:8px;padding:16px;pointer-events:all;display:none;z-index:30;">
+<div id="smeltOverlay" class="ui-panel" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:420px;padding:16px;pointer-events:all;display:none;z-index:30;">
   <h2 style="font-size:11px;color:#e08030;letter-spacing:.1em;margin-bottom:8px;border-bottom:1px solid rgba(200,100,30,.2);padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
     🔥 MINE FORGE &mdash; Smelt Ore into Bars
-    <button class="panel-close" onclick="closeSmeltForge()" style="font-family:'Special Elite',serif;font-size:8px;cursor:pointer;background:none;border:1px solid rgba(200,80,30,.4);color:#906030;padding:2px 7px;border-radius:3px;">CLOSE [E]</button>
+    <button class="panel-close ui-btn" onclick="closeSmeltForge()" style="font-family:'Special Elite',serif;font-size:8px;cursor:pointer;background:none;border:1px solid rgba(200,80,30,.4);color:#906030;padding:2px 7px;border-radius:3px;">CLOSE [E]</button>
   </h2>
   <div style="font-size:8px;color:#706030;margin-bottom:10px;">Bars sell for ~80% more than raw ore. Costs 5 stamina per smelt.</div>
   <div id="smeltBody"></div>
 </div>
 <!-- Miner NPC Overlay -->
-<div id="minerOverlay" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(360px,92vw);max-height:min(88vh,600px);overflow-y:auto;background:rgba(4,2,0,.98);border:1px solid rgba(160,120,40,.6);border-top:2px solid rgba(180,140,50,.7);padding:14px;pointer-events:all;display:none;z-index:30;font-family:'Special Elite',serif;"></div>
-<div id="hcTalkOverlay" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(380px,92vw);max-height:min(88vh,640px);overflow-y:auto;background:rgba(4,4,2,.98);border:1px solid rgba(160,140,60,.5);border-top:2px solid rgba(180,150,60,.6);padding:14px;pointer-events:all;display:none;z-index:30;font-family:'Special Elite',serif;"></div>
+<div id="minerOverlay" class="ui-panel" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(360px,92vw);max-height:min(88vh,600px);overflow-y:auto;padding:14px;pointer-events:all;display:none;z-index:30;font-family:'Special Elite',serif;"></div>
+<div id="hcTalkOverlay" class="ui-panel" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(380px,92vw);max-height:min(88vh,640px);overflow-y:auto;padding:14px;pointer-events:all;display:none;z-index:30;font-family:'Special Elite',serif;"></div>
 <!-- Badlands Heat HUD -->
 <div id="blHeatHUD" style="position:absolute;top:52px;right:10px;background:rgba(6,2,0,.94);border:1px solid rgba(180,100,30,.4);border-radius:5px;padding:5px 10px;pointer-events:none;display:none;z-index:12;min-width:100px;font-family:'Special Elite',serif;"></div>
 <!-- Badlands Bounty Board Overlay -->
-<div id="blBountyOverlay" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:340px;max-height:80vh;overflow-y:auto;background:rgba(4,2,0,.98);border:1px solid rgba(220,120,30,.65);border-radius:8px;padding:14px;pointer-events:all;display:none;z-index:30;"></div>
+<div id="blBountyOverlay" class="ui-panel" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:340px;max-height:80vh;overflow-y:auto;padding:14px;pointer-events:all;display:none;z-index:30;"></div>
 <!-- Badlands Vendor Overlay -->
-<div id="blVendorOverlay" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(360px,92vw);max-height:min(88vh,600px);overflow-y:auto;background:rgba(4,2,0,.98);border:1px solid rgba(180,120,40,.6);border-top:2px solid rgba(200,140,50,.7);padding:14px;pointer-events:all;display:none;z-index:30;"></div>
+<div id="blVendorOverlay" class="ui-panel" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(360px,92vw);max-height:min(88vh,600px);overflow-y:auto;padding:14px;pointer-events:all;display:none;z-index:30;"></div>
 
 <!-- ═══════════════════════════════════════════════════════
      STATS OVERLAY
 ════════════════════════════════════════════════════════ -->
-<div id="statsOverlay" style="
+<div id="statsOverlay" class="ui-panel" style="
   position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  width:540px;max-height:88vh;background:rgba(5,2,0,.98);
-  border:1px solid rgba(180,140,60,.6);border-radius:8px;
+  width:540px;max-height:88vh;
+  
   pointer-events:all;display:none;z-index:85;flex-direction:column;
   font-family:'Special Elite',serif;
 ">
   <div style="padding:12px 16px 0;border-bottom:1px solid rgba(180,140,60,.15);flex-shrink:0;display:flex;justify-content:space-between;align-items:center;margin-bottom:0;">
     <div style="font-size:12px;color:#d4b870;letter-spacing:.08em;">📊 STATISTICS</div>
-    <button class="panel-close" onclick="closeStats()">✕ CLOSE</button>
+    <button class="panel-close ui-btn" onclick="closeStats()">✕ CLOSE</button>
   </div>
   <div style="display:flex;gap:0;border-bottom:1px solid rgba(180,140,60,.12);flex-shrink:0;">
     <button id="statsTabStats" onclick="setStatsTab('stats')"
