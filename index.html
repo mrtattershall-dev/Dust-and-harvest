@@ -5529,11 +5529,7 @@ function revealAround(px, py, radius, grid, gw, gh) {
       }
     }
   }
-  if (revealed) {
-    _minimapCacheDirty = true;
-    // The deep zone keeps its own baked minimap; fog is what makes it stale.
-    if (grid === exploredDeep) _djMinimapDirty = true;
-  }
+  if (revealed) _minimapCacheDirty = true;
 }
 
 function isExplored(tx, ty) {
@@ -34087,7 +34083,12 @@ function _revealDeepArea(tx, ty, radius) {
       if (dx*dx + dy*dy > radius*radius) continue;
       const nx = tx + dx, ny = ty + dy;
       if (nx >= 0 && nx < DJ_W && ny >= 0 && ny < DJ_H) {
-        exploredDeep[ny * DJ_W + nx] = 2;
+        // Only dirty the baked minimap when a cell actually changes — this runs
+        // every step, and the deep zone does not use revealAround.
+        if (exploredDeep[ny * DJ_W + nx] !== 2) {
+          exploredDeep[ny * DJ_W + nx] = 2;
+          _djMinimapDirty = true;
+        }
       }
     }
   }
@@ -34232,7 +34233,7 @@ setTimeout(function _patchLoadForDeepJungle() {
       const raw = localStorage.getItem('dustAndHarvest_save_' + s);
       if (!raw) return;
       const d = JSON.parse(raw);
-      if (d.exploredDeep) exploredDeep.set(new Uint8Array(d.exploredDeep).slice(0, exploredDeep.length));
+      if (d.exploredDeep) { exploredDeep.set(new Uint8Array(d.exploredDeep).slice(0, exploredDeep.length)); _djMinimapDirty = true; }
       if (d.deepMapBuilt) { buildDeepJungleMap(); }
       if (d.formationDiscovered !== undefined) gameState._formationDiscovered = d.formationDiscovered;
       if (d.courtZoneEntered    !== undefined) gameState._courtZoneEntered    = d.courtZoneEntered;
@@ -34247,6 +34248,7 @@ setTimeout(function _patchLoadForDeepJungle() {
     exploredDeep.fill(0);
     deepJungleMap.fill(0);
     _deepMapBuilt = false;
+    _djMinimapDirty = true;
     gameState.inDeepJungle          = false;
     gameState._nearDescend          = false;
     gameState._formationDiscovered  = false;
