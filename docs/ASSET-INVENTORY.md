@@ -87,10 +87,32 @@ has a full beard, which ruled it out for the female roles that were left.
 Sprites are reused across zones where needed; the characters are never on screen
 together, and a wrong-looking character reads worse than a repeated one.
 
-Silas, Maren and the hobo camp residents are deliberately still painted — their
-hand-drawn art has specific poses and colour schemes (Silas sits on a crate with
-a pickaxe; Maren wears a teal oilskin) that a generic standing townsperson would
-lose.
+### The painted NPCs are finished art, not a backlog
+
+An earlier version of this file listed the remaining painted characters as
+though they were waiting to be replaced. They are not. Every one of them was
+checked, and every one is deliberate character art with a pose and a story that
+a generic standing townsperson would destroy:
+
+| Character | Where | What the painted art does |
+|---|---|---|
+| Silas | the mine | sits on a crate, "barely bobs — old and still" |
+| Maren | the dock | dockmaster in a teal oilskin, rolled boot cuffs |
+| Briggs | badlands mine | seated against the wall, knees up, survey vest — "he's been here 3 years" |
+| Elsbeth | badlands mine | same seated treatment |
+| The traveling merchant | the road | trail-worn boots, pack |
+| Tobias, Kit, Malu, Ren, Pira | jungle village | per-character: battered wide-brim hat, stubble, a manifest belt |
+
+The jungle five are worth a note of their own: `_drawJGNPC` is defined twice.
+The first definition really is two coloured rectangles, and a later
+`window._drawJGNPC` replaces it with the per-character art. Reading only the
+first one — which is what a search for the function finds — gives exactly the
+wrong impression, and this file gave it. **The file is a monolith with
+monkey-patched overrides; a function's first definition is not necessarily the
+one that runs.**
+
+So the sprite packs have no NPC left to replace. Any further character sprite
+is new content, not a swap.
 
 **`Fantasy_RPG_character_pack`** (Franuka) — 9 NPCs, `walk` + `idle`:
 Farmer, Fisherman, Blacksmith, Merchant, Alchemist, Barmaid, Bartender,
