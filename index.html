@@ -24015,7 +24015,10 @@ function loadGame() {
     // The purse is a live co-op thing. Loading a save puts you back in single
     // player, so anything left in it becomes your money.
     farmLedger = d.farmLedger || {};
-    const _bal = farmFundBalance();
+    // d.farmFund is from an earlier build that stored the purse as its own
+    // number before it was derived from the ledger. Honour it so a save written
+    // then does not quietly lose whatever was in it.
+    const _bal = farmFundBalance() + (typeof d.farmFund === 'number' ? Math.max(0, Math.round(d.farmFund)) : 0);
     if (_bal > 0) player.gold += _bal;
     farmLedger = {};
     crewRole   = (d.crewRole && CREW_ROLES[d.crewRole]) ? d.crewRole : 'none';
@@ -25479,10 +25482,47 @@ function setJGT(x, y, t) {
     _minimapCacheDirty = true;
   }
 }
+/* Kit's Settlement was an empty clearing with the villagers standing in it.
+   The village has almost no structure tiles on the map — three WALL and seven
+   FLOOR in the whole jungle — so rather than rewrite the map, the huts are
+   placed here as structures and drawn in the same y-ordered overlay pass as the
+   trees, which is what lets a roof overhang the ground behind it.
+
+   Each hut's footprint is solid so you walk around it rather than through it,
+   minus a doorway tile on its south face so it reads as somewhere people live.
+   Positions sit behind their villager, clear of the paths between them —
+   _jgVillageReachable() checks every NPC is still walkable-to from the dock. */
+const JG_STRUCTURES = [
+  // group      anchor tx, ty   footprint w,h   doorway dx (from left of footprint)
+  { group:'hutRound', tx:40, ty:30, w:4, h:3, door:2 },   // Kit's lodge, behind her
+  { group:'hut',      tx:32, ty:34, w:3, h:2, door:1 },   // Malu
+  { group:'hut',      tx:46, ty:29, w:3, h:2, door:1 },   // Ren
+  { group:'hut',      tx:36, ty:39, w:3, h:2, door:1 },   // Pira — the stores
+];
+
+// tileKey -> structure, for the draw pass; and a solid-tile set for movement.
+const _jgStructAt = new Map();
+const _jgStructSolid = new Set();
+(function _jgIndexStructures() {
+  JG_STRUCTURES.forEach((st, i) => {
+    _jgStructAt.set(st.tx + ',' + st.ty, Object.assign({ variant: i }, st));
+    const x0 = st.tx - (st.w >> 1);
+    for (let dy = 0; dy < st.h; dy++) {
+      for (let dx = 0; dx < st.w; dx++) {
+        // Leave the doorway on the southern row open.
+        if (dy === st.h - 1 && dx === st.door) continue;
+        _jgStructSolid.add((x0 + dx) + ',' + (st.ty - (st.h - 1) + dy));
+      }
+    }
+  });
+})();
+
+function jgStructureSolid(tx, ty) { return _jgStructSolid.has(tx + ',' + ty); }
+
 function getJGSolid(x, y) {
-  // Village huts are placed rather than mapped (see JG_STRUCTURES), so their
-  // footprints have to block movement here instead of via a solid tile type.
-  if (typeof jgStructureSolid === 'function' && jgStructureSolid(x, y)) return true;
+  // Village huts are placed rather than mapped (see JG_STRUCTURES above), so
+  // their footprints block movement here instead of via a solid tile type.
+  if (jgStructureSolid(x, y)) return true;
   return JG_SOLID.has(getJGT(x, y));
 }
 
@@ -33372,6 +33412,19 @@ const exploredDeep  = new Uint8Array(DJ_W * DJ_H);
 let _deepMapBuilt    = false;
 let gameState_inDeep = false; // alias — set via gameState.inDeepJungle
 
+/* The deep minimap is baked to an offscreen canvas rather than redrawing all
+   4,800 tiles every frame — the overworld's has been cached behind
+   _minimapCacheDirty since it was written, and this one never got the same
+   treatment. It only goes stale when the map or the fog changes.
+
+   Declared here, next to setDJT, rather than down beside the renderer that
+   reads it: setDJT dirties it, buildDeepJungleMap calls setDJT thousands of
+   times, and a `let` declared later in the file would put that call in the
+   temporal dead zone if the map were ever built during script evaluation
+   instead of on entry. It is not today. This makes sure it cannot become so. */
+let _djMinimapCache = null;
+let _djMinimapDirty = true;
+
 function getDJT(x, y) { return deepJungleMap[y * DJ_W + x]; }
 function setDJT(x, y, t) { deepJungleMap[y * DJ_W + x] = t; _djMinimapDirty = true; }
 function getDJSolid(x, y) {
@@ -33944,14 +33997,7 @@ function renderDeepJungleZone() {
 }
 
 // ── Deep jungle minimap ───────────────────────────────────────────────────────
-/* The deep minimap redrew all 4,800 tiles every frame — a fillStyle assignment
-   and a fillRect each — while the overworld's has been cached behind
-   _minimapCacheDirty since it was written. It only changes when the fog does,
-   so it is baked to an offscreen canvas and blitted, with the player dot drawn
-   live on top. */
-let _djMinimapCache = null;
-let _djMinimapDirty = true;
-function _djInvalidateMinimap() { _djMinimapDirty = true; }
+/* Cache declared up with setDJT, which is the thing that dirties it. See there. */
 
 function _renderDeepMinimap() {
   const mm = document.getElementById('minimapCanvas');
@@ -34261,10 +34307,13 @@ function _jgOverlayRuns() {
 // Ground under an object tile, then either defer to the overlay or draw now.
 // The base has to match the room: laying forest floor under a rock inside the
 // ruins put bright green squares across a stone hall.
-function _jgObjectTile(ctx, group, sx, sy, tx, ty, T) {
+function _jgObjectTile(ctx, group, sx, sy, tx, ty, T, drawNow) {
   if (!(window.DHJungle && DHJungle.ready(group))) return false;
   drawJGTile(gameState.inRuins ? JG.FLOOR : JG.JUNGLE_FLOOR, sx, sy, tx, ty);
-  if (!_jgOverlayRuns()) DHJungle.draw(ctx, group, sx, sy, tx, ty, T);
+  if (!_jgOverlayRuns()) {
+    if (drawNow) drawNow();
+    else DHJungle.draw(ctx, group, sx, sy, tx, ty, T);
+  }
   return true;
 }
 
@@ -34275,42 +34324,9 @@ function _jgTintGround(ctx, sx, sy, T) {
   ctx.fillRect(sx, sy, T, T);
 }
 
-/* Kit's Settlement was an empty clearing with the villagers standing in it.
-   The village has almost no structure tiles on the map — three WALL and seven
-   FLOOR in the whole jungle — so rather than rewrite the map, the huts are
-   placed here as structures and drawn in the same y-ordered overlay pass as the
-   trees, which is what lets a roof overhang the ground behind it.
+/* Village structures are declared up beside getJGSolid, which needs them for
+   movement long before this point in the file. See there. */
 
-   Each hut's footprint is solid so you walk around it rather than through it,
-   minus a doorway tile on its south face so it reads as somewhere people live.
-   Positions sit behind their villager, clear of the paths between them —
-   _jgVillageReachable() checks every NPC is still walkable-to from the dock. */
-const JG_STRUCTURES = [
-  // group      anchor tx, ty   footprint w,h   doorway dx (from left of footprint)
-  { group:'hutRound', tx:40, ty:30, w:4, h:3, door:2 },   // Kit's lodge, behind her
-  { group:'hut',      tx:32, ty:34, w:3, h:2, door:1 },   // Malu
-  { group:'hut',      tx:46, ty:29, w:3, h:2, door:1 },   // Ren
-  { group:'hut',      tx:36, ty:39, w:3, h:2, door:1 },   // Pira — the stores
-];
-
-// tileKey -> structure, for the draw pass; and a solid-tile set for movement.
-const _jgStructAt = new Map();
-const _jgStructSolid = new Set();
-(function _jgIndexStructures() {
-  JG_STRUCTURES.forEach((st, i) => {
-    _jgStructAt.set(st.tx + ',' + st.ty, Object.assign({ variant: i }, st));
-    const x0 = st.tx - (st.w >> 1);
-    for (let dy = 0; dy < st.h; dy++) {
-      for (let dx = 0; dx < st.w; dx++) {
-        // Leave the doorway on the southern row open.
-        if (dy === st.h - 1 && dx === st.door) continue;
-        _jgStructSolid.add((x0 + dx) + ',' + (st.ty - (st.h - 1) + dy));
-      }
-    }
-  });
-})();
-
-function jgStructureSolid(tx, ty) { return _jgStructSolid.has(tx + ',' + ty); }
 
 const JG_OVERLAY_GROUP = {};   // tile -> atlas group, built after JG exists
 function _jgBuildOverlayGroups() {
@@ -34611,11 +34627,9 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       break;
     }
     case JG.CAMPFIRE: {
-      if (window.DHJungle && DHJungle.ready('campfire')) {
-        drawJGTile(JG.JUNGLE_FLOOR, sx, sy, tx, ty);
-        if (!_jgOverlayRuns()) DHJungle.drawFrame(ctx, 'campfire', (Date.now() / 140) | 0, sx, sy, T);
-        break;
-      }
+      // Frame from the clock, not the tile — a fire has to actually burn.
+      if (_jgObjectTile(ctx, 'campfire', sx, sy, tx, ty, T,
+            () => DHJungle.drawFrame(ctx, 'campfire', (Date.now() / 140) | 0, sx, sy, T))) break;
       ctx.fillStyle = '#2a2010'; ctx.fillRect(sx, sy, T, T);
       // Stone ring
       ctx.fillStyle = '#3c3428';

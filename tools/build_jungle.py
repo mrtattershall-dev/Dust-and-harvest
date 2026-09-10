@@ -21,6 +21,7 @@ Usage:
 """
 
 import argparse
+import hashlib
 import json
 import sys
 from collections import deque
@@ -165,32 +166,61 @@ def collect(args):
 
 
 def pack(groups):
-    """Shelf-pack the sprites, tallest first, into a power-of-two-wide atlas."""
+    """Shelf-pack the sprites, tallest first, into a power-of-two-wide atlas.
+
+    Identical images are packed once and shared, the way build_props does it —
+    two groups may legitimately want the same sprite. Duplicates are reported,
+    because within ONE group they are not a saving, they are a mistake: they
+    mean the map asked for variants that are the same picture, and the variety
+    the caller thinks it has does not exist. (The fishing pack ships its hut
+    twice; the map asked for both and the village had one design, silently.)
+    """
     items = [(g, i, im) for g, ims in groups.items() for i, im in enumerate(ims)]
     items.sort(key=lambda t: -t[2].height)
+
     width = 512
     x = y = shelf = 0
-    placed = []
+    rects = {}          # content hash -> rect
+    placed = []         # (hash, image, px, py) for the ones actually drawn
+    assigned = []       # (group, hash) in item order
+    same_group_dupes = []
+
     for g, i, im in items:
+        key = hashlib.sha1(im.tobytes()).hexdigest()
+        if key in rects:
+            if any(gg == g and kk == key for gg, kk in assigned):
+                same_group_dupes.append(g)
+            assigned.append((g, key))
+            continue
         w, h = im.width + PAD, im.height + PAD
         if x + w > width:
             x = 0
             y += shelf
             shelf = 0
-        placed.append((g, i, im, x, y))
-        x += w
-        shelf = max(shelf, h)
-    height = y + shelf
-
-    atlas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    out = {}
-    for g, i, im, px, py in placed:
-        atlas.paste(im, (px, py), im)
-        out.setdefault(g, []).append({
-            "x": px, "y": py, "w": im.width, "h": im.height,
+        rects[key] = {
+            "x": x, "y": y, "w": im.width, "h": im.height,
             # anchor: bottom centre — the sprite's footprint sits on the tile
             "ax": im.width // 2, "ay": im.height,
-        })
+        }
+        placed.append((key, im, x, y))
+        assigned.append((g, key))
+        x += w
+        shelf = max(shelf, h)
+
+    atlas = Image.new("RGBA", (width, y + shelf), (0, 0, 0, 0))
+    for _key, im, px, py in placed:
+        atlas.paste(im, (px, py), im)
+
+    out = {}
+    for g, key in assigned:
+        out.setdefault(g, []).append(rects[key])
+
+    for g in sorted(set(same_group_dupes)):
+        log(f"  !! {g}: asked for variants that are the same image — "
+            f"that group has less variety than the map claims")
+    shared = len(assigned) - len(placed) - len(same_group_dupes)
+    if shared > 0:
+        log(f"  {shared} sprite(s) shared between groups")
     return atlas, out
 
 

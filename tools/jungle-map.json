@@ -156,13 +156,10 @@
      [
       0,
       "103x100"
-     ],
-     [
-      1,
-      "103x100"
      ]
     ]
-   }
+   },
+   "_note": "One hut, not two. The pack draws its full house twice at (12,12) and (132,7) and the two crops are pixel-identical, so asking for both gave the village a second variant that did not exist. Its roof-only and wall-only pieces are distinct but are components, not standalone huts. The settlement reads as one design because that is what the pack has \u2014 same hands, same materials, which suits it."
   }
  },
  "files": {
