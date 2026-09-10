@@ -33774,6 +33774,52 @@ function _djBgGrad(ctx, W, H) {
   return grad;
 }
 
+/* Baked deep-zone tiles.
+
+   The static tiles here (moss, vine, root, the ancient court's wall and floor)
+   were emitting a dozen arcs and strokes each, every tile, every frame — and
+   seeding that detail from SCREEN coordinates, so it was reseeded whenever the
+   camera moved. Shifting the view four world pixels changed 48% of a moss
+   tile's pixels: the ground crawled as you walked.
+
+   Both problems have the same fix. Each type is rendered once into a strip of
+   variants and then blitted, with the variant chosen by tile coordinate — so a
+   given tile keeps its texture, and a frame costs one drawImage per tile
+   instead of a dozen path operations.
+
+   The variants come for free: the art seeds itself from the position it is
+   drawn at, so drawing variant i at x = i * DJ_T inside the strip gives each a
+   different seed without touching the art code. Animated types (formation,
+   biolum, canopy break, dark water, the stairs) are deliberately not baked. */
+const DJ_BAKED = [JG.VINE, JG.ROOT, JG.MOSS, JG.ANCIENT_WALL, JG.ANCIENT_FLOOR];
+const DJ_VARIANTS = 6;
+const _djTileStrips = {};
+
+function _djTileStrip(t) {
+  if (_djTileStrips[t]) return _djTileStrips[t];
+  const cv = document.createElement('canvas');
+  cv.width = DJ_VARIANTS * DJ_T;
+  cv.height = DJ_T;
+  const g = cv.getContext('2d');
+  for (let i = 0; i < DJ_VARIANTS; i++) {
+    // Drawn at i*DJ_T so the art's own position-seeded scatter differs per
+    // variant. timeMs is fixed: nothing baked here animates.
+    _drawDeepJGTile(t, i * DJ_T, 0, g, 0, i, 0);
+  }
+  _djTileStrips[t] = cv;
+  return cv;
+}
+
+function _djDrawBaked(ctx, t, sx, sy, tx, ty) {
+  const strip = _djTileStrip(t);
+  const v = ((((tx * 73856093) ^ (ty * 19349663)) >>> 0) % DJ_VARIANTS);
+  const prev = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(strip, v * DJ_T, 0, DJ_T, DJ_T,
+                Math.round(sx), Math.round(sy), DJ_T, DJ_T);
+  ctx.imageSmoothingEnabled = prev;
+}
+
 const _djGlowCache = {};
 function _djGlowSprite(kind, r) {
   const key = kind + r;
@@ -33819,7 +33865,8 @@ function renderDeepJungleZone() {
       if (!exploredDeep[ty * DJ_W + tx]) continue;
       const t = getDJT(tx, ty);
       const sx = tx * DJ_T - cx, sy = ty * DJ_T - cy;
-      _drawDeepJGTile(t, sx, sy, ctx, now, tx, ty);
+      if (DJ_BAKED.indexOf(t) !== -1) _djDrawBaked(ctx, t, sx, sy, tx, ty);
+      else _drawDeepJGTile(t, sx, sy, ctx, now, tx, ty);
     }
   }
 
@@ -34357,14 +34404,15 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
     }
     case JG.GRASS: {
       if (tx !== undefined && window.DHGround && DHGround.draw(ctx, 'grass', sx, sy, tx, ty)) { _jgTintGround(ctx, sx, sy, T); break; }
-      const base = ((sx * 1301 + sy * 503) & 3);
+      const gsx = (tx !== undefined ? tx : sx), gsy = (ty !== undefined ? ty : sy);
+      const base = ((gsx * 1301 + gsy * 503) & 3);
       const greens = ['#2a5020','#285218','#306028','#243818'];
       ctx.fillStyle = greens[base]; ctx.fillRect(sx, sy, T, T);
-      // Blade tufts
+      // Blade tufts — tile-seeded, as above.
       ctx.fillStyle = 'rgba(60,120,40,0.35)';
       for (let i = 0; i < 4; i++) {
-        const bx = sx + 2 + ((sx * 503 + i * 137) & 0xFF) % (T - 4);
-        const by = sy + T - 4 - ((sy * 1301 + i * 97) & 0xFF) % (T / 2);
+        const bx = sx + 2 + ((gsx * 503 + i * 137) & 0xFF) % (T - 4);
+        const by = sy + T - 4 - ((gsy * 1301 + i * 97) & 0xFF) % (T / 2);
         ctx.fillRect(bx, by, 1, 4);
       }
       break;
@@ -34375,12 +34423,16 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       } else {
         ctx.fillStyle = '#1e3c18'; ctx.fillRect(sx, sy, T, T);
       }
-      // Leaf litter — scattered dark spots
-      ctx.fillStyle = 'rgba(10,24,8,0.5)';
-      for (let i = 0; i < 5; i++) {
-        const lx = sx + 2 + ((sx * 1301 + sy * 503 + i * 61) & 0xFF) % (T - 4);
-        const ly = sy + 2 + ((sx * 503  + sy * 1301 + i * 79) & 0xFF) % (T - 4);
-        ctx.fillRect(lx, ly, 3, 2);
+      // Leaf litter — scattered dark spots, seeded from the tile so the
+      // scatter stays put as the camera moves.
+      {
+        const lsx = (tx !== undefined ? tx : sx), lsy = (ty !== undefined ? ty : sy);
+        ctx.fillStyle = 'rgba(10,24,8,0.5)';
+        for (let i = 0; i < 5; i++) {
+          const lx = sx + 2 + ((lsx * 1301 + lsy * 503 + i * 61) & 0xFF) % (T - 4);
+          const ly = sy + 2 + ((lsx * 503  + lsy * 1301 + i * 79) & 0xFF) % (T - 4);
+          ctx.fillRect(lx, ly, 3, 2);
+        }
       }
       break;
     }
