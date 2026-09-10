@@ -218,6 +218,20 @@
      ]
     ]
    }
+  },
+  "dungeon_ruin": {
+   "pack": "dungeon",
+   "file": "PNG/walls_floor.png",
+   "cell": 32,
+   "_note": "Masonry for the Altaverde ruins' walls. The pack's floors are autotiled panels with no clean fill, so ruin flooring reuses DHGround's 'street' instead.",
+   "groups": {
+    "ruinWall": [
+     [
+      56,
+      8
+     ]
+    ]
+   }
   }
  }
 }

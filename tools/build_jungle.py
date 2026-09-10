@@ -78,7 +78,8 @@ def collect(args):
     """Resolve the map into { group: [Image, ...] }, in map order."""
     raw = json.loads(MAP.read_text())
     packs = {"herbalist": args.herbalist, "rocky": args.rocky,
-             "fishing": args.fishing, "greenforest": args.greenforest}
+             "fishing": args.fishing, "greenforest": args.greenforest,
+             "dungeon": args.dungeon}
     groups, problems = {}, []
 
     for sheet_name, spec in raw.get("sheets", {}).items():
@@ -199,6 +200,7 @@ def main():
     ap.add_argument("--rocky", help="Rocky tileset pack root")
     ap.add_argument("--fishing", help="Fishing Village pack root")
     ap.add_argument("--greenforest", help="Green Forest tileset pack root")
+    ap.add_argument("--dungeon", help="Top Down Dungeon tileset pack root")
     args = ap.parse_args()
 
     groups, problems = collect(args)

@@ -87,6 +87,7 @@ became which group.
 | `liana` `hutRound` | Rocky Top Down Tileset Pixel Art for RPG | CraftPix |
 | `hut` `dock` | 2D Pixel Fishing Village Pack — Dock, Interior, Boats, NPCs | CraftPix |
 | `campfire` | Green Forest Top Down Pixel Art Tileset | CraftPix |
+| `ruinWall` | Top Down Dungeon Pixel Tileset for RPG and Roguelike Game | CraftPix |
 
 Jungle NPCs reuse actors already credited under Sprite art — no new sources.
 Kit is mapped to the same actor in the jungle as in the hobo camp on purpose:

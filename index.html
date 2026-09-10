@@ -34094,6 +34094,27 @@ if (typeof _tryCourtEmissaryEncounter === 'undefined') {
    a tree rooted just off-screen still has canopy inside it.                    */
 const JG_OVERLAY_BLEED = 4;
 
+/* The overlay pass belongs to renderJungleZone. The Altaverde ruins and the
+   deep jungle reuse drawJGTile through their own renderers, which return before
+   it ever runs — so an object tile there cannot defer its sprite to a second
+   pass or it renders as bare ground. (It did: rock tiles in the ruins came out
+   as bright green squares of forest floor.) Where the overlay will not run, the
+   sprite is drawn inline instead: it loses the overhang, which matters for a
+   tree and not for a rock. */
+function _jgOverlayRuns() {
+  return !!(gameState.inJungle && !gameState.inRuins && !gameState.inDeepJungle);
+}
+
+// Ground under an object tile, then either defer to the overlay or draw now.
+// The base has to match the room: laying forest floor under a rock inside the
+// ruins put bright green squares across a stone hall.
+function _jgObjectTile(ctx, group, sx, sy, tx, ty, T) {
+  if (!(window.DHJungle && DHJungle.ready(group))) return false;
+  drawJGTile(gameState.inRuins ? JG.FLOOR : JG.JUNGLE_FLOOR, sx, sy, tx, ty);
+  if (!_jgOverlayRuns()) DHJungle.draw(ctx, group, sx, sy, tx, ty, T);
+  return true;
+}
+
 // Applied identically to every jungle ground tile — see note above.
 const JG_GROUND_TINT = 'rgba(30,96,30,0.42)';
 function _jgTintGround(ctx, sx, sy, T) {
@@ -34283,7 +34304,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
     case JG.TREE: {
       // Real art available: lay the forest floor and let drawJungleOverlay put
       // the tree on top, so the canopy can overhang the tiles behind it.
-      if (window.DHJungle && DHJungle.ready('treeMed')) { drawJGTile(JG.JUNGLE_FLOOR, sx, sy, tx, ty); break; }
+      if (_jgObjectTile(ctx, 'treeMed', sx, sy, tx, ty, T)) break;
       // Ground shadow
       ctx.fillStyle = '#0e2208'; ctx.fillRect(sx, sy, T, T);
       // Trunk
@@ -34302,7 +34323,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       break;
     }
     case JG.DENSE_TREE: {
-      if (window.DHJungle && DHJungle.ready('treeLarge')) { drawJGTile(JG.JUNGLE_FLOOR, sx, sy, tx, ty); break; }
+      if (_jgObjectTile(ctx, 'treeLarge', sx, sy, tx, ty, T)) break;
       ctx.fillStyle = '#060e04'; ctx.fillRect(sx, sy, T, T);
       // Impenetrable canopy — overlapping layers
       ctx.fillStyle = '#081408';
@@ -34319,7 +34340,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       break;
     }
     case JG.BUSH: {
-      if (window.DHJungle && DHJungle.ready('bush')) { drawJGTile(JG.JUNGLE_FLOOR, sx, sy, tx, ty); break; }
+      if (_jgObjectTile(ctx, 'bush', sx, sy, tx, ty, T)) break;
       ctx.fillStyle = '#162a10'; ctx.fillRect(sx, sy, T, T);
       ctx.fillStyle = '#1e4018';
       ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T*0.55, 12, 9, 0, 0, Math.PI*2); ctx.fill();
@@ -34332,7 +34353,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
 
     // ── Structure tiles ────────────────────────────────────────────────────
     case JG.ROCK: {
-      if (window.DHJungle && DHJungle.ready('rock')) { drawJGTile(JG.JUNGLE_FLOOR, sx, sy, tx, ty); break; }
+      if (_jgObjectTile(ctx, 'rock', sx, sy, tx, ty, T)) break;
       ctx.fillStyle = '#2e2c28'; ctx.fillRect(sx, sy, T, T);
       // Rock face — irregular polygon suggestion
       ctx.fillStyle = '#3c3830';
@@ -34346,6 +34367,16 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       break;
     }
     case JG.WALL: {
+      if (tx !== undefined && window.DHJungle && DHJungle.drawTile(ctx, 'ruinWall', sx, sy, tx, ty)) {
+        // Altaverde built this and the jungle has been taking it back ever
+        // since, so the masonry keeps the moss the painted version had.
+        const mh0 = ((tx * 1301 + ty * 503) & 0xFF) / 255;
+        if (mh0 < 0.45) {
+          ctx.fillStyle = 'rgba(30,70,22,0.30)';
+          ctx.fillRect(sx + 2, sy + T - 7, T - 6, 5);
+        }
+        break;
+      }
       // Ruins stone — block grid + decay
       ctx.fillStyle = '#1e1c18'; ctx.fillRect(sx, sy, T, T);
       // Stone blocks — 2×3 grid
@@ -34364,6 +34395,14 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       break;
     }
     case JG.FLOOR: {
+      // The dungeon pack's floors are autotiled panels with no clean fill, so
+      // the ruin floor reuses the town's paving — already wrap-seamless, and
+      // stone is stone. Darkened, because these rooms have no roof left.
+      if (tx !== undefined && window.DHGround && DHGround.draw(ctx, 'road', sx, sy, tx, ty)) {
+        // Cool and dark: these rooms have no roof and the jungle keeps them wet.
+        ctx.fillStyle = 'rgba(14,20,20,0.62)'; ctx.fillRect(sx, sy, T, T);
+        break;
+      }
       ctx.fillStyle = '#2a2620'; ctx.fillRect(sx, sy, T, T);
       // Worn stone floor — subtle grid
       ctx.strokeStyle = 'rgba(50,45,35,0.5)'; ctx.lineWidth = 1;
@@ -34414,7 +34453,11 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       break;
     }
     case JG.CAMPFIRE: {
-      if (window.DHJungle && DHJungle.ready('campfire')) { drawJGTile(JG.JUNGLE_FLOOR, sx, sy, tx, ty); break; }
+      if (window.DHJungle && DHJungle.ready('campfire')) {
+        drawJGTile(JG.JUNGLE_FLOOR, sx, sy, tx, ty);
+        if (!_jgOverlayRuns()) DHJungle.drawFrame(ctx, 'campfire', (Date.now() / 140) | 0, sx, sy, T);
+        break;
+      }
       ctx.fillStyle = '#2a2010'; ctx.fillRect(sx, sy, T, T);
       // Stone ring
       ctx.fillStyle = '#3c3428';
