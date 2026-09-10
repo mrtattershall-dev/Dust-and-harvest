@@ -8,7 +8,9 @@ Source zips are **not** in this repo — only the normalized output under
 
 ---
 
-## Imported — 15 packs, 58 actors, 246 sheets
+## Imported — 61 actors, 260 sheets
+
+(Counted from `assets/sprites/manifest.json`, not by hand.)
 
 Live in `assets/sprites/manifest.json`. Creature actors have
 `idle walk run attack hurt death`; farm animals and townsfolk have
@@ -25,9 +27,10 @@ Live in `assets/sprites/manifest.json`. Creature actors have
 | Gnolls (64px) | `gnoll_scav` `gnoll_hunter` `gnoll_alpha` |
 | Ghosts (64px) | `ghost_wisp` `ghost_wraith` `ghost_revenant` |
 | Skeletons (64px) | `skeleton_bones` `skeleton_guard` `skeleton_lord` |
-| Farm (16–64px) | `horse` `foal` `goat` `goatling` `goose` `gosling` `rabbit` `rabbit_cub` `chicken` `cow` `pig` — `walk` + `idle` only |
+| Farm (16–64px) | `horse` `foal` `goat` `goatling` `goose` `gosling` `rabbit` `rabbit_cub` `chicken` `cow` `pig` `sheep` — `walk` + `idle` only |
 | Citizens (32×32) | `citizen1`–`citizen5` — market square townspeople |
 | Townsfolk (32×48) | `folk_farmer` `folk_fisherman` `folk_blacksmith` `folk_merchant` `folk_alchemist` `folk_barmaid` `folk_bartender` `folk_kid1` `folk_kid2` |
+| Hunter's Lodge | `hunter` (48×48) `dog` (32×32) — Amos the trapper and his dog |
 
 **Ranch coverage: 7 of 7 species.** `chicken`, `cow` and `pig` come from
 *Top-Down Farm with Animals*; `goat`, `horse` and `rabbit` from *Cute Farm
@@ -290,7 +293,7 @@ item designs, which is not a risk worth taking on a paid Steam release.
 |---|---|
 | `deserttileset…` | **Strongest match in the whole library — props and sand now imported.** Sand, rock, cacti, skulls, bones, ruins, pyramids, dead trees. It ships ~250 **individually named** object PNGs in `Objects_separately/`, which sidesteps the atlas-region problem that makes the other object packs expensive. 50 of those objects back `TL.ROCK`, `TL.BUSH`, `BL.SKULL_ROCK`, `BL.TUMBLEWEED` and `BL.BL_BONE` (`tools/prop-map.json` → `assets/props/`), and the sand surface backs `TL.SAND` and `BL.DUSTFLOOR` (`tools/build_ground.py` → `assets/ground/`). **Correction:** this pack is **16×16 native**, not 32×32 — its own `Tiled_files/*.tmx` set `tilewidth="16"`. The objects are 32×32 and larger because they span several tiles, not because the grid is 32. Density still matches the game at 1:1; nothing is scaled. **Still pending:** the 64×64 and 128×128 pieces (large trees, mesas, pyramids, ruins), which need multi-tile handling, and the cliff/ledge transition tiles, which need autotiling the game does not have. |
 | `freebase4direction{male,female}…` | **Naked mannequins — now the player base.** Bald, unclothed bodies, 13×22px of content in a 64px cell, with full `dir4` clip sets (idle/walk/run/attack/hurt/death, plus Sword variants). Unusable as characters on their own, which turned out to suit the customization system: `tools/build_player.py` splits each frame into skin / torso / legs / head / detail masks and `assets/js/player-sprite.js` tints and composites them per save, so hair, shirt, trousers and hat all still come from the creation screen. |
-| `fantasyrpghunterslodge…` | Lodge building interior/exterior plus a hunter NPC with several activity animations (tanning, leaving with knife) and a dog. Object-pipeline shaped. |
+| `fantasyrpghunterslodge…` | **Characters imported.** The hunter (48×48, `DLRU`, ragged idle rows `[12,12,12,6]`) and the dog (32×32, `DLRU`) are in the manifest as `hunter` and `dog`, and stand at Amos's camp at map (48,39). The lodge building itself and the activity animations (tanning, leaving with knife) are **still pending** — they are object-pipeline shaped and need multi-tile handling. |
 | `fishingandgatheringicons` | 14 sheets, `Fish1`–`Fish10` plus gathering icons, 32px tall strips. Maps directly onto the game's fish items. |
 | `armorandweaponsicons` | `Armor.png` `Weapons.png` `Furniture.png` `Icons.png` — uniform icon grids. |
 | `freebasicpixelartuiforrpg` | **Duplicate** of the copy delivered earlier. |

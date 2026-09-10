@@ -597,7 +597,8 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
    so this is inert on desktop. */
 #statsOverlay, #blVendorOverlay, #smeltOverlay, #confirmModal,
 #blBountyOverlay, #farmhandOverlay, #encounterPanel, #chestOverlay,
-#npcTalkOverlay, #marketOverlay, #invOverlay, #settingsOverlay {
+#npcTalkOverlay, #marketOverlay, #invOverlay, #settingsOverlay,
+#merchantShop, #trapperPost {
   max-width: calc(100vw - 16px) !important;
   max-height: calc(100vh - 24px) !important;
   overflow-y: auto !important;
@@ -863,6 +864,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 
 <!-- Phase 5: Encounter Panel -->
 <div id="merchantShop" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;max-height:420px;overflow-y:auto;background:rgba(4,2,0,.97);border:1px solid rgba(180,140,60,.65);border-radius:7px;padding:14px;pointer-events:all;z-index:35;"></div>
+<div id="trapperPost" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;max-height:420px;overflow-y:auto;background:rgba(4,2,0,.97);border:1px solid rgba(150,110,50,.65);border-radius:7px;padding:14px;pointer-events:all;z-index:35;"></div>
 <div id="encounterPanel">
   <h3 id="encTitle">🏕 ABANDONED CAMP</h3>
   <div class="enc-desc" id="encDesc">You found something out here...</div>
@@ -5755,6 +5757,11 @@ const WELL_TX = 13,       WELL_TY = 26;       // farm well (2 tiles: WELL_TX and
 const CAMPFIRE_TX = 27,   CAMPFIRE_TY = 23;   // cooking campfire — south of farm patches
 const FORGE_TX = 29,      FORGE_TY = 26;      // smelting forge
 const CHEST_TX = 16,      CHEST_TY = 26;
+// Trapper's camp. Declared here with the other landmarks because world-gen
+// clears his ground, and that runs long before the trapper module below.
+const TRAPPER_TX = 48, TRAPPER_TY = 39;
+const TRAPPER_X = TRAPPER_TX * T + T / 2;
+const TRAPPER_Y = TRAPPER_TY * T + T / 2;
 const WORKBENCH_TX = 26,  WORKBENCH_TY = 26;
 
 // Ranch structures
@@ -5898,6 +5905,13 @@ function buildMap() {
   setT(79,35,TL.OCEAN_PORTAL);
   setT(79,36,TL.OCEAN_PORTAL);
   setT(79,37,TL.OCEAN_PORTAL);
+
+  // Trapper's camp — a cleared patch in the wilderness just south of the
+  // central river crossing, so it is found on the way in rather than hunted
+  // for. Cleared LAST: the wilderness fill, the tree/rock scatter and the
+  // ranch-zone pass all rewrite ground, and an earlier clearing gets buried.
+  for(let y=TRAPPER_TY-1;y<=TRAPPER_TY+1;y++)
+    for(let x=TRAPPER_TX-1;x<=TRAPPER_TX+1;x++) setT(x,y,TL.DIRT);
 }
 buildMap();
 
@@ -7286,6 +7300,7 @@ window.addEventListener('keydown', e => {
     if (creditsOpen)  { closeCredits();  return; }
     if (ranchPlacementMode) { ranchPlacementMode = false; if(_rHoldTimer){clearTimeout(_rHoldTimer);_rHoldTimer=null;} showMsg('Ranch placement cancelled.'); return; }
     if (merchantShopOpen) { closeMerchantShop(); return; }
+    if (typeof trapperOpen !== 'undefined' && trapperOpen) { closeTrapperPost(); return; }
     if (daySummaryOpen) { closeDaySummary(); return; }
     if (settingsOpen) { closeSettings(); return; }
     if (pauseOpen)    { closePause();    return; }
@@ -7306,6 +7321,7 @@ window.addEventListener('keydown', e => {
   }
   if (settingsOpen || pauseOpen) return;
   if (merchantShopOpen && e.code !== 'Escape') return;
+  if (typeof trapperOpen !== 'undefined' && trapperOpen && e.code !== 'KeyE' && e.code !== 'Escape') return;
   if (npcTalkOpen && e.code !== 'KeyE' && e.code !== 'Escape') return;
   if (farmhandOpen && e.code !== 'KeyE' && e.code !== 'Escape') return;
   if (chestOpen && e.code !== 'KeyE' && e.code !== 'Escape') return;
@@ -7383,6 +7399,7 @@ window.addEventListener('keydown', e => {
     if (npcTalkOpen) { closeNpcTalk(); return; }
     if (farmhandOpen) { closeFarmhand(); return; }
     if (chestOpen) { closeChest(); return; }
+    if (trapperOpen) { closeTrapperPost(); return; }
     const offs = { down:[0,T*1.4], up:[0,-T*1.4], left:[-T*1.4,0], right:[T*1.4,0] };
     const [ox,oy] = offs[player.facing]||[0,T*1.4];
 
@@ -7398,6 +7415,7 @@ window.addEventListener('keydown', e => {
     const ptx = Math.floor(player.x/T), pty = Math.floor(player.y/T);
     if (Math.abs(ptx-MAYA_TX)<=2 && Math.abs(pty-MAYA_TY)<=2) { openNpcTalk('maya'); return; }
     if (Math.abs(ptx-REX_TX)<=2 && Math.abs(pty-REX_TY)<=2) { openNpcTalk('rex'); return; }
+    if (Math.abs(ptx-TRAPPER_TX)<=2 && Math.abs(pty-TRAPPER_TY)<=2) { openTrapperPost(); return; }
     if (Math.abs(ptx-FARMHAND_TX)<=1 && Math.abs(pty-FARMHAND_TY)<=1) { openFarmhand(); return; }
     if (Math.abs(ptx-CHEST_TX)<=1 && Math.abs(pty-CHEST_TY)<=1) { openChest(); return; }
     }
@@ -9795,6 +9813,142 @@ const ZONE_LABELS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// § THE TRAPPER — a standing buyer for hides, at the edge of the wilderness
+//
+// The game already had hides (wolf, coyote, rabbit, boar) and a market that
+// treats them like any other good, plus a TANNER GUILD event and "the tanner"
+// named as a buyer in contract flavour text. This gives that buyer a face and
+// somewhere to be: he pays over the market for raw skins, so the walk out to
+// him is worth it, and he is the reason to hunt rather than only farm.
+//
+// Unlike the caravan he is always here — no schedule, so nothing to save.
+// ─────────────────────────────────────────────────────────────────────────────
+const TRAPPER_NAME = 'Amos';
+// What he deals in, in the order he values it. Prices come from the live market
+// so his premium tracks events: a TANNER GUILD week pays through both.
+const TRAPPER_BUYS = ['wolfPelt', 'coyoteHide', 'boarHide', 'rabbitFur'];
+const TRAPPER_PREMIUM = 1.4;
+let trapperOpen = false;
+
+function trapperPrice(itemId) {
+  const base = economy.prices[itemId] || BASE_PRICES[itemId] ||
+               (typeof BL_BASE_PRICES !== 'undefined' && BL_BASE_PRICES[itemId]) || 1;
+  return Math.max(1, Math.round(base * TRAPPER_PREMIUM));
+}
+
+// Only the hides that exist in this save and that the player is carrying.
+function trapperStock() {
+  return TRAPPER_BUYS
+    .filter(id => ITEMS[id])
+    .map(id => ({ id, qty: countItem(id), price: trapperPrice(id) }));
+}
+
+function openTrapperPost() {
+  trapperOpen = true;
+  const el = document.getElementById('trapperPost');
+  if (!el) return;
+  const stock = trapperStock();
+  const carrying = stock.filter(r => r.qty > 0);
+  const total = carrying.reduce((n, r) => n + r.qty * r.price, 0);
+
+  let h = `<div style="font-size:11px;color:#d8b070;margin-bottom:4px;letter-spacing:.05em">\uD83E\uDDF6 ${TRAPPER_NAME.toUpperCase()} — TRAPPER</div>`;
+  h += `<div style="font-size:9px;color:#907050;margin-bottom:10px">Pays over market for raw skins. Sells nothing.</div>`;
+
+  if (!carrying.length) {
+    h += `<div style="font-size:9px;color:#8a7a5a;line-height:1.6;margin-bottom:10px">`
+       + `"Nothing on you worth weighing."<br>`
+       + `Bring hides — wolf, coyote, rabbit. He pays `
+       + `<span style="color:#d8b070">${Math.round((TRAPPER_PREMIUM - 1) * 100)}% over market</span>.</div>`;
+  } else {
+    for (const r of carrying) {
+      h += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:15px">${itemIcon(r.id, 18, ITEMS[r.id].icon)}</span>
+        <span style="flex:1;font-size:9px;color:#d4b870">${ITEMS[r.id].name} \u00d7${r.qty}</span>
+        <span style="font-size:9px;color:#80b0f0">$${r.price} ea</span>
+        <button onclick="trapperSell('${r.id}')"
+          style="font-size:8px;padding:2px 8px;font-family:'Special Elite',serif;cursor:pointer;background:rgba(180,140,40,.15);border:1px solid rgba(180,140,60,.5);color:#d4b870;border-radius:3px">SELL</button>
+      </div>`;
+    }
+    h += `<button onclick="trapperSellAll()" style="margin-top:4px;width:100%;font-size:9px;padding:5px;font-family:'Special Elite',serif;cursor:pointer;background:rgba(120,90,30,.25);border:1px solid rgba(180,140,60,.55);color:#e8c880;border-radius:3px">SELL EVERYTHING — $${total}</button>`;
+  }
+  h += `<button onclick="closeTrapperPost()" style="margin-top:6px;width:100%;font-size:9px;padding:4px;font-family:'Special Elite',serif;cursor:pointer;background:rgba(255,255,255,.04);border:1px solid rgba(140,110,60,.4);color:#a08850;border-radius:3px">CLOSE</button>`;
+  el.innerHTML = h;
+  el.style.display = 'block';
+}
+
+function trapperSell(itemId) {
+  const qty = countItem(itemId);
+  if (!qty) return;
+  const price = trapperPrice(itemId);
+  removeItem(itemId, qty);
+  player.gold += qty * price;
+  trackGoldEarned(qty * price);
+  showMsg(`\uD83E\uDDF6 ${TRAPPER_NAME} takes ${qty} \u00d7 ${ITEMS[itemId].name} — $${qty * price}`);
+  refreshInvUI(); buildHotbar();
+  openTrapperPost();
+}
+
+function trapperSellAll() {
+  const carrying = trapperStock().filter(r => r.qty > 0);
+  if (!carrying.length) return;
+  let total = 0;
+  for (const r of carrying) { removeItem(r.id, r.qty); total += r.qty * r.price; }
+  player.gold += total;
+  trackGoldEarned(total);
+  spawnParticles(player.x, player.y, '#f0d060', 8, '+$' + total);
+  showMsg(`\uD83E\uDDF6 ${TRAPPER_NAME} weighs the lot — $${total}`);
+  refreshInvUI(); buildHotbar();
+  openTrapperPost();
+}
+
+function closeTrapperPost() {
+  trapperOpen = false;
+  const el = document.getElementById('trapperPost');
+  if (el) el.style.display = 'none';
+}
+
+function drawTrapper(cx, cy) {
+  const sx = TRAPPER_X - cx, sy = TRAPPER_Y - cy;
+  if (sx < -T*3 || sx > canvas.width + T*3 || sy < -T*3 || sy > canvas.height + T*3) return;
+  if (!exploredWorld[TRAPPER_TY * MAP_W + TRAPPER_TX]) return;
+  const bob = Math.sin(Date.now() * 0.0016) * 1.4;
+
+  ctx.globalAlpha = .22; ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(sx, sy + 8, 8, 3, 0, 0, Math.PI*2); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  const face = npcSpriteFacing({ x: TRAPPER_X, y: TRAPPER_Y });
+  let drew = false;
+  if (DHArt.ready('hunter')) {
+    drawTrapper._ent = drawTrapper._ent || { id: 'trapper' };
+    DHArt.play(drawTrapper._ent, 'idle');
+    DHArt.face(drawTrapper._ent, face);
+    drew = DHArt.drawActor(ctx, 'hunter', drawTrapper._ent, sx, sy + bob,
+                           { scale: NPC_SPRITE_SCALE, footY: 9 });
+  }
+  if (!drew) {
+    // Painted stand-in, so a missing pack leaves someone to talk to.
+    ctx.fillStyle = '#2a2018'; ctx.fillRect(sx-5, sy-2+bob, 4, 7); ctx.fillRect(sx+1, sy-2+bob, 4, 7);
+    ctx.fillStyle = '#4a5a30'; ctx.fillRect(sx-6, sy-14+bob, 12, 13);
+    ctx.fillStyle = '#c09060'; ctx.fillRect(sx-4, sy-22+bob, 9, 9);
+    ctx.fillStyle = '#b08040'; ctx.fillRect(sx-8, sy-23+bob, 17, 3);
+  }
+  // His dog, sat to one side. It faces the same way he does; it does not move,
+  // because a companion that follows is a behaviour and this is a portrait.
+  if (drew && DHArt.ready('dog')) {
+    const dx = sx + (face === 'left' ? -14 : 14);
+    ctx.globalAlpha = .18; ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.ellipse(dx, sy + 6, 6, 2.5, 0, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+    drawTrapper._dog = drawTrapper._dog || { id: 'trapper_dog' };
+    DHArt.play(drawTrapper._dog, 'idle');
+    DHArt.face(drawTrapper._dog, face === 'left' ? 'left' : 'right');
+    DHArt.drawActor(ctx, 'dog', drawTrapper._dog, dx, sy + 3 + bob * 0.5,
+                    { scale: NPC_SPRITE_SCALE, footY: 5 });
+  }
+}
+
 // § TRAVELING MERCHANT — merchantPresent, spawn schedule, caravan UI
 let merchantPresent = false;
 let merchantNextDay = 3; // first visit day 3
@@ -18452,6 +18606,7 @@ const INTERACT_ZONES = [
   { label:'Your House — furnish with Jed nearby', icon:'🏠', check:(tx,ty)=> tx>=HOME_TX1-1 && tx<=HOME_TX2+1 && ty>=HOME_TY1-1 && ty<=HOME_TY2+1 },
   { label:'Talk to Maya — market tips', icon:'🛒', check:(tx,ty)=> Math.abs(tx-MAYA_TX)<=2 && Math.abs(ty-MAYA_TY)<=2 },
   { label:'Talk to Rex — contracts',    icon:'📋', check:(tx,ty)=> Math.abs(tx-REX_TX)<=2 && Math.abs(ty-REX_TY)<=2 },
+  { label:'Amos the trapper — sell pelts above market', icon:'🧶', check:(tx,ty)=> Math.abs(tx-TRAPPER_TX)<=2 && Math.abs(ty-TRAPPER_TY)<=2 },
   { label:'Pick up Sprinkler',   icon:'🚿', check:(tx,ty)=> getT(tx,ty)===TL.SPRINKLER },
   { label:'Enter The Badlands', icon:'🏜', check:(tx,ty)=> getT(tx,ty)===TL.BADLANDS_PORTAL },
   { label:'Hobo Camp — north road', icon:'🏕', check:(tx,ty)=> getT(tx,ty)===TL.HOBO_PORTAL },
@@ -18670,6 +18825,7 @@ function render() {
 
   for (const npc of npcs) drawNPC(npc);
   drawMerchant(cx, cy);
+  drawTrapper(cx, cy);
   drawMinerNPC(cx, cy);
   drawAnimals(cx, cy);  // Phase 8: ranch
   drawEnemies(cx, cy);
@@ -34274,11 +34430,12 @@ const ART_CREDITS = [
         + 'desert tileset: the rocks, bushes, skulls and bones scattered across '
         + 'the wilderness, and the sand of the dunes and the badlands floor. '
         + 'The grass and earth of the main map come from the farmlands and farm '
-        + 'tilesets.',
+        + 'tilesets. Amos the trapper and his dog come from the Hunter\'s Lodge '
+        + 'pack.',
     prefixes: ['rat_', 'slime_', 'plant_', 'golem_', 'orc_', 'gnoll_', 'ent_',
                'ghost_', 'skeleton_', 'horse', 'foal', 'goat', 'goose',
                'gosling', 'rabbit', 'chicken', 'cow', 'pig', 'sheep',
-               'citizen'],
+               'citizen', 'hunter', 'dog'],
     links: ['https://craftpix.net', 'https://craftpix.net/file-licenses/'],
   },
 ];
@@ -36699,6 +36856,7 @@ function _drawGuideCover() {
     'encounterPanel','confirmModal',
     'smeltOverlay','minerOverlay','hcTalkOverlay','blBountyOverlay',
     'blVendorOverlay','statsOverlay','guideOverlay',
+    'merchantShop','trapperPost',
   ];
   function isAnyOverlayOpen() {
     for (const id of OVERLAY_IDS) {

@@ -64,6 +64,10 @@ Tileset*) and the packed earth from *Top-Down Farm with Animals*. Both ship 16px
 cells that are mutually seamless, so they are laid as a mosaic rather than a
 tile set.
 
+Amos the trapper and the dog at his camp come from *Fantasy RPG Hunter's
+Lodge* — actor ids `hunter` and `dog`. The lodge building in that pack is not
+used.
+
 The town street, the wagon roads and the animal pens are the desert pack's sand
 again, retinted — a frontier town is walked-on dust, so the same grains serve
 under different light.

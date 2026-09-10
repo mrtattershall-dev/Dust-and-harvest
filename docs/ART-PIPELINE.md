@@ -174,14 +174,14 @@ and hold the last frame, and `finished()` goes true. Everything else loops.
 
 ## Current inventory
 
-58 actors, 246 sheets. See `docs/ASSET-INVENTORY.md` for the full list and for
+61 actors, 260 sheets. See `docs/ASSET-INVENTORY.md` for the full list and for
 the packs not yet imported.
 
 | Group | Actors |
 |---|---|
 | `enemies` | 33 creatures — rats, 9 slimes, plants, golems, orcs, gnolls, ents, ghosts, skeletons |
-| `farm` | 11 ranch animals |
-| `npcs` | 9 townsfolk (`folk_*`, 32×48) + 5 market citizens (`citizen1-5`, 32×32) |
+| `farm` | 12 ranch animals, plus `dog` (Amos's dog) |
+| `npcs` | 9 townsfolk (`folk_*`, 32×48), 5 market citizens (`citizen1-5`, 32×32), and `hunter` (48×48, Amos the trapper) |
 
 Creatures have all six clips; orcs also have `run_attack` / `walk_attack`. Farm
 animals, townsfolk and citizens have `walk` and `idle` only.
@@ -189,6 +189,54 @@ animals, townsfolk and citizens have `walk` and `idle` only.
 Actor ids matter for attribution: the credits screen groups by id prefix, so
 `folk_*` is Franuka and everything else is CraftPix. Do not reuse a prefix
 across authors.
+
+## Wiring a new character into the page
+
+`index.html` is one baked file with a 1.7MB script block, and the order things
+run in inside that block is not the order they are written in. Amos the trapper
+was added this pass; every one of these was found by the game misbehaving, not
+by reading the code.
+
+**Map landmarks must be declared before `buildMap()`, not beside their NPC.**
+The trapper's `const TRAPPER_TX/TY` originally sat with the rest of his module
+at line ~9800. `buildMap()` runs at line ~5850 and clears his ground, so it hit
+the temporal dead zone: *Cannot access 'TRAPPER_TY' before initialization*.
+Coordinates that world-gen reads live with `CHEST_TX` and friends, above
+`buildMap()`. Only the runtime pieces — the panel, the draw call — go in the
+character's own module.
+
+**Clear your ground last.** `buildMap()` makes several passes over the same
+tiles: a wilderness fill, a tree/rock scatter, then a ranch-zone pass that
+re-randomises the whole SW quadrant (`x<34`, `y36–70`). A clearing written
+before a later pass is simply overwritten, silently — the camp was buried and
+the only symptom was grass where dirt should be. Put landmark clearings at the
+very end of `buildMap()`, and check the 3x3 with `getT()` in a test rather than
+by eye.
+
+**`useTool()` is not the interaction path everywhere.** The traveling merchant
+hangs off `useTool()`, which is the obvious template — but that only works
+because he stands in town. In the Wilderness zone the `KeyE` handler tries
+gathering, then attacking, and only reaches `useTool()` if both miss, so a
+wilderness NPC wired that way never opens. Standing NPCs belong in the
+adjacency block beside Maya and Rex. The touch ACT button synthesises a `KeyE`
+keydown, so that one block covers both inputs and no separate touch path is
+needed.
+
+**Phones have no Escape key.** An overlay whose only keyboard exit is Escape is
+unclosable on mobile if its CLOSE button is ever missed. Let `KeyE` toggle it
+shut the way talk/chest/farmhand do, and allow `KeyE` through the
+key-swallowing guard.
+
+**A new overlay needs two registrations.** Add its id to `OVERLAY_IDS` (so
+`isAnyOverlayOpen()` hides the touch controls under it) and to the modal-sizing
+CSS selector list (so it cannot overflow a phone screen). Neither is automatic
+and neither fails loudly.
+
+**Confirm nothing overrides you.** Before believing a draw function runs, grep
+the whole file for its name: a later Slice can reassign `window.yourFn`, and a
+pixel-diff test will happily report success while the override draws something
+else. The check that actually catches it is a draw-call trace — wrap
+`DHArt.drawActor`, call your draw function, and assert on the ids it pushed.
 
 ## Credits
 

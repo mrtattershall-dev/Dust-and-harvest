@@ -247,6 +247,37 @@
       "group": "farm",
       "path": "farm/cow"
     },
+    "dog": {
+      "anchor": {
+        "h": 19,
+        "w": 14,
+        "x": 9,
+        "y": 8
+      },
+      "cellH": 32,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 6,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/dog"
+    },
     "ent_ancient": {
       "anchor": {
         "h": 71,
@@ -1317,6 +1348,43 @@
       "fps": 6.667,
       "group": "farm",
       "path": "farm/horse"
+    },
+    "hunter": {
+      "anchor": {
+        "h": 27,
+        "w": 20,
+        "x": 15,
+        "y": 7
+      },
+      "cellH": 48,
+      "cellW": 48,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 12,
+          "loop": true,
+          "rowFrames": [
+            12,
+            12,
+            12,
+            6
+          ]
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/hunter"
     },
     "orc_brute": {
       "anchor": {
