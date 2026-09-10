@@ -19355,6 +19355,19 @@ function buildHoboCamp() {
 }
 buildHoboCamp();
 
+/* KIT'S PRONOUNS ARE NOT A BUG — DO NOT "FIX" THEM.
+
+   Kit is a woman, and butch. The camp narration calls her they/them because at
+   that point you have not been told and it does not matter; the jungle calls her
+   she/her because by then you know her. The inconsistency IS the characterisation.
+
+   Making the two zones agree would flatten it in either direction: forcing
+   she/her early announces something the scene deliberately withholds, and
+   forcing they/them late misgenders her. Leave both as they are.
+
+   She is also one character in two places — same actor id in HC_NPC_SPRITES and
+   JG_NPC_SPRITES, deliberately, so she does not arrive east as a stranger. */
+
 // NPC positions within hobo camp (tile coords)
 const HC_NPCS = [
   { id:'hc_railroad', name:'Dale',     role:'Railroad Worker', tx:11, ty:10 },
@@ -23180,7 +23193,24 @@ const MINE_TILE_COLORS = {
   [TL.MINE_SHAFT_UP]:  ['#182838','#102030'],
 };
 
-function drawMineTile(t, sx, sy) {
+/* Floor 4 — The Unmapped — is the floor the survey division was dissolved over,
+   and it was drawn in exactly the same flat colours as the four ordinary floors
+   above it. Crystalline fungus grows on roughly one floor tile in nine down
+   there and nowhere else in the mine, so the deepest floor finally looks like
+   somewhere the company stopped publishing surveys about.
+
+   Overworld mine only: the badlands Company Mine shares this renderer and has
+   its own five floors, which this must not bleed into. */
+const MINE_UNMAPPED_FLOOR = 3;   // MINE_FLOOR_CFG index of 'Floor 4 — The Unmapped'
+
+function _mineFungusHere(tx, ty) {
+  if (tx === undefined || gameState.inBLMine) return false;
+  if (gameState.mineFloor !== MINE_UNMAPPED_FLOOR) return false;
+  if (!(window.DHJungle && DHJungle.ready('caveFungus'))) return false;
+  return ((((tx * 73856093) ^ (ty * 19349663)) >>> 0) % 9) === 0;
+}
+
+function drawMineTile(t, sx, sy, tx, ty) {
   const c = MINE_TILE_COLORS[t] || MINE_TILE_COLORS[TL.MINE_WALL];
   ctx.fillStyle = c[0]; ctx.fillRect(sx, sy, T, T);
 
@@ -23203,6 +23233,17 @@ function drawMineTile(t, sx, sy) {
     if(mh%17<1){
       const pu=0.3+0.15*Math.sin(Date.now()*.002+sx*.1);
       ctx.fillStyle=`rgba(20,40,60,${pu})`; ctx.beginPath(); ctx.ellipse(sx+(mh%16)+4,sy+(mh2%16)+4,5,3,0,0,Math.PI*2); ctx.fill();
+    }
+    // The Unmapped grows things. See MINE_UNMAPPED_FLOOR.
+    if (_mineFungusHere(tx, ty)) {
+      const gp = 0.34 + 0.16 * Math.sin(Date.now() * 0.0013 + tx + ty);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = gp;
+      ctx.fillStyle = 'rgba(20,150,140,1)';
+      ctx.beginPath(); ctx.ellipse(sx + T/2, sy + T/2, T*0.55, T*0.42, 0, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+      DHJungle.draw(ctx, 'caveFungus', sx, sy, tx, ty, T);
     }
   } else if (t === TL.MINE_WALL) {
     // Rough stone wall — layered rock face with depth
@@ -23377,7 +23418,7 @@ function renderMineMap() {
   for (let ty2=sty;ty2<=ety;ty2++) for (let tx2=stx;tx2<=etx;tx2++) {
     const sx=tx2*T-cx, sy=ty2*T-cy;
     const t = getMineT(floor, tx2, ty2);
-    drawMineTile(t, sx, sy);
+    drawMineTile(t, sx, sy, tx2, ty2);
   }
   ctx.restore();
 
@@ -34571,7 +34612,9 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
    different-looking stranger on arrival. */
 const JG_NPC_SPRITES = {
   jg_tobias: 'folk_merchant',    // Freight runner — you trade with him at the dock
-  jg_kit:    'folk_kid1',        // Kit — same actor as hc_young, same person
+  jg_kit:    'folk_kid1',        // Kit — same actor as hc_young, same person.
+                                 // On her pronouns differing between zones, see
+                                 // the note above HC_NPCS. It is deliberate.
   jg_malu:   'folk_alchemist',   // Malu, Elder — the oldest silhouette in the pack
   jg_ren:    'citizen3',         // Ren — settlement hand
   jg_pira:   'folk_barmaid',     // Pira — runs the stores

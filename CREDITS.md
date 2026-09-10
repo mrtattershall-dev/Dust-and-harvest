@@ -84,10 +84,13 @@ became which group.
 | Group | Source pack | Author |
 |---|---|---|
 | `treeLarge` `treeMed` `treeSmall` `bush` `rock` | Pixel Art Herbalist's Hut — Top Down Asset Pack | CraftPix |
-| `liana` `hutRound` `biolum` | Rocky Top Down Tileset Pixel Art for RPG | CraftPix |
+| `liana` `hutRound` `biolum` `caveFungus` | Rocky Top Down Tileset Pixel Art for RPG | CraftPix |
 | `hut` `dock` | 2D Pixel Fishing Village Pack — Dock, Interior, Boats, NPCs | CraftPix |
 | `campfire` | Green Forest Top Down Pixel Art Tileset | CraftPix |
 | `ruinWall` | Top Down Dungeon Pixel Tileset for RPG and Roguelike Game | CraftPix |
+
+`caveFungus` is used by Mine Floor 4, not the jungle; it shares this atlas
+because it comes from the same pack and the loader is already wired.
 
 Jungle NPCs reuse actors already credited under Sprite art — no new sources.
 Kit is mapped to the same actor in the jungle as in the hobo camp on purpose:
