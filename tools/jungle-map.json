@@ -17,7 +17,8 @@
   "TROPICAL CAVEAT: no pack delivered so far has palms, banana leaves or",
   "buttress roots. These are temperate-rainforest species standing in. Swapping",
   "in a tropical pack later is an edit to this file, not to the renderer.",
-  "Strips are animation frames cut at a fixed pitch: the campfire's five frames touch, so a connected-region cut returns them as one blob."
+  "Strips are animation frames cut at a fixed pitch: the campfire's five frames touch, so a connected-region cut returns them as one blob.",
+  "Tiles are fixed 32x32 crops used as ground fill, drawn at the tile's top-left with no anchor offset \u2014 unlike sheets/files/strips, which anchor bottom-centre and overhang upward."
  ],
  "sheets": {
   "herbalist": {
@@ -197,6 +198,26 @@
     4
    ],
    "group": "campfire"
+  }
+ },
+ "tiles": {
+  "fishing_dock": {
+   "pack": "fishing",
+   "file": "PNG/Exterior_tiles.png",
+   "cell": 32,
+   "_note": "Deck interior. Both crops measured seamless (seam cost 0.60) so the dock tiles without a visible grid.",
+   "groups": {
+    "dock": [
+     [
+      64,
+      16
+     ],
+     [
+      80,
+      16
+     ]
+    ]
+   }
   }
  }
 }

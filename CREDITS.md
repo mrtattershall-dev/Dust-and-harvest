@@ -85,7 +85,7 @@ became which group.
 |---|---|---|
 | `treeLarge` `treeMed` `treeSmall` `bush` `rock` | Pixel Art Herbalist's Hut — Top Down Asset Pack | CraftPix |
 | `liana` `hutRound` | Rocky Top Down Tileset Pixel Art for RPG | CraftPix |
-| `hut` | 2D Pixel Fishing Village Pack — Dock, Interior, Boats, NPCs | CraftPix |
+| `hut` `dock` | 2D Pixel Fishing Village Pack — Dock, Interior, Boats, NPCs | CraftPix |
 | `campfire` | Green Forest Top Down Pixel Art Tileset | CraftPix |
 
 Jungle NPCs reuse actors already credited under Sprite art — no new sources.

@@ -34395,6 +34395,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       break;
     }
     case JG.DOCK: {
+      if (tx !== undefined && window.DHJungle && DHJungle.drawTile(ctx, 'dock', sx, sy, tx, ty)) break;
       ctx.fillStyle = '#5a4028'; ctx.fillRect(sx, sy, T, T);
       // Plank lines
       ctx.fillStyle = 'rgba(30,18,8,0.4)';
@@ -34404,6 +34405,9 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       break;
     }
     case JG.PLANK: {
+      // Same decking as the dock, offset so a gangplank does not repeat the
+      // exact board pattern of the pier it joins.
+      if (tx !== undefined && window.DHJungle && DHJungle.drawTile(ctx, 'dock', sx, sy, tx + 5, ty + 3)) break;
       ctx.fillStyle = '#6a5030'; ctx.fillRect(sx, sy, T, T);
       ctx.fillStyle = 'rgba(30,18,8,0.35)';
       for (let i = 1; i < 3; i++) ctx.fillRect(sx, sy + i * T/3, T, 1);

@@ -55,6 +55,20 @@ window.DHJungle = (function () {
     return list[h % list.length];
   }
 
+  // Draw a ground tile: placed at the tile's top-left with no anchor offset,
+  // because a floor does not overhang anything. Variant from the tile
+  // coordinate, so the decking does not shimmer as the camera moves.
+  function drawTile(ctx, group, sx, sy, tx, ty) {
+    const s = pick(group, tx, ty);
+    if (!s) return false;
+    const prev = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(state.img, s.x, s.y, s.w, s.h,
+                  Math.round(sx), Math.round(sy), s.w, s.h);
+    ctx.imageSmoothingEnabled = prev;
+    return true;
+  }
+
   // Draw a specific sprite from `group` by index — for animations, where the
   // frame comes from the clock rather than from the tile coordinate.
   function drawFrame(ctx, group, index, sx, sy, tileSize) {
@@ -92,7 +106,7 @@ window.DHJungle = (function () {
     return Object.values(state.data.groups).reduce((n, g) => n + g.length, 0);
   }
 
-  return { init, ready, draw, drawFrame, pick, count, _state: state };
+  return { init, ready, draw, drawFrame, drawTile, pick, count, _state: state };
 })();
 
 DHJungle.init();

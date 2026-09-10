@@ -104,6 +104,26 @@ def collect(args):
                     continue
                 groups.setdefault(group, []).append(im.crop((x, y, x+w, y+h)))
 
+    # Ground fill: fixed crops, drawn at the tile's top-left rather than anchored.
+    for tile_name, spec in raw.get("tiles", {}).items():
+        root = packs.get(spec["pack"])
+        if not root:
+            problems.append(f"no --{spec['pack']} directory given")
+            continue
+        path = Path(root) / spec["file"]
+        if not path.is_file():
+            problems.append(f"missing tile sheet {path}")
+            continue
+        im = Image.open(path).convert("RGBA")
+        cell = spec.get("cell", 32)
+        for group, coords in spec["groups"].items():
+            for x, y in coords:
+                if x + cell > im.width or y + cell > im.height:
+                    problems.append(f"{group} crop at ({x},{y}) runs off {spec['file']}")
+                    continue
+                groups.setdefault(group, []).append(im.crop((x, y, x + cell, y + cell)))
+        log(f"{tile_name}: {sum(len(v) for v in spec['groups'].values())} tiles from {spec['file']}")
+
     # Animation frames are cut at a fixed pitch rather than by connected region:
     # the campfire's five frames touch, so a region cut returns them as one blob.
     for strip_name, spec in raw.get("strips", {}).items():
