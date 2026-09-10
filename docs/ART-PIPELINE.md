@@ -346,13 +346,34 @@ a box of the requested size so mixed rows still line up. Canvas callers use
 
 ### Coverage is deliberately partial
 
-114 of ~240 items have icons. The rest keep their emoji, because a wrong icon
+188 of 219 items have icons. The rest keep their emoji, because a wrong icon
 reads worse than an emoji — a "Cloth cap" standing in for cloth, say. Some
 entries are deliberate approximations that read correctly at 20px (pumpkin =
 orange, wool = yarn, hoe = shovel); these are listed in the map's comment block.
 
-Unmapped areas worth filling if a suitable pack turns up: badlands loot, jungle
-crops and produce, most cooked meals, and the mine's quality-tiered ores.
+The 31 still on emoji have no honest match anywhere in the delivered packs:
+mostly crafted hardware (`ironSpike`, `copperFitting`, `mineBrace`), a few
+jungle crops (`darkroot`, `ashgrain`, `crimsonBloom`, `caneReed`) and the
+deep-ocean treasures. **A new icon pack is not the answer** — the one
+delivered for this (*Armor and Weapons RPG Icons*) is helmets, swords and
+shields, and this game has neither.
+
+### Two rules the coverage pass earned
+
+**Share one icon across a kind rather than forcing near-matches.** All 19
+seeds already share one packet. Cooked dishes now share five vessels — pot,
+plate, glass, jar, loaf — because twenty near-identical bowls read worse than
+five clear ones, and every list view puts the name beside the icon. A jungle
+or ocean variant borrows the icon of the item it is a variant of: `jgWood`
+takes `wood`'s log, `canopyMelon` takes `watermelon`'s melon.
+
+**Render every candidate at size before mapping it.** Matching from a
+thumbnail contact sheet is how `caneReed` got a green slime, `jgWood` a bread
+roll, `canopyMelon` an apple with a skull on it, and `watermelonSlice` a cut
+of meat — all four looked plausible at 32px in a grid of 300 and were obviously
+wrong at 192px. The check that catches it is cheap: render the picks large,
+labelled, and look, then render them again *through the game's own*
+`itemIcon()` at the size a panel actually draws them.
 
 ## The player character
 

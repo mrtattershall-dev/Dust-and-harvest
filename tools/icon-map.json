@@ -35,7 +35,14 @@
     "watermelon": "base:313",
     "melon": "colour:50",
     "rosehip": "base:126",
-    "cactusFruit": "base:115"
+    "cactusFruit": "base:115",
+    "_note2": "Jungle crops. darkroot, ashgrain and crimsonBloom have no honest match in the pack and keep their emoji rather than borrow a wrong one.",
+    "pepper": "colour:65",
+    "healHerb": "base:316",
+    "jungleBanana": "base:310",
+    "firepod": "base:342",
+    "canopyMelon": "base:313",
+    "heartleaf": "base:139"
   },
   "seeds": {
     "_note": "All seeds share the seed-packet icon. Every list view shows the name beside it, and 19 near-identical crop icons read worse than one clear packet.",
@@ -57,7 +64,15 @@
     "onionSeed": "base:350",
     "watermelonSeed": "base:350",
     "rosehipSeed": "base:350",
-    "moonshroomSeed": "base:350"
+    "moonshroomSeed": "base:350",
+    "heartleafSeed": "base:350",
+    "crimsonBloomSeed": "base:350",
+    "caneReedSeed": "base:350",
+    "jungleBananaSeed": "base:350",
+    "darkrootSeed": "base:350",
+    "ashgrainSeed": "base:350",
+    "firepodSeed": "base:350",
+    "canopyMelonSeed": "base:350"
   },
   "tools": {
     "hoe": "base:7",
@@ -72,7 +87,13 @@
     "charredWood": "colour:59",
     "boneShard": "base:191",
     "obsidian": "colour:43",
-    "leatherStrip": "base:324"
+    "leatherStrip": "base:324",
+    "jgWood": "base:111",
+    "jgHerb": "base:316",
+    "driedHerb": "base:316",
+    "jgMushroom": "base:185",
+    "shipTimber": "base:318",
+    "stoneShard": "base:143"
   },
   "ore_and_bars": {
     "coal": "colour:61",
@@ -82,7 +103,8 @@
     "crystal": "base:100",
     "copperBar": "base:305",
     "ironBar": "base:306",
-    "goldBar": "base:307"
+    "goldBar": "base:307",
+    "silverOre": "base:143"
   },
   "ranch": {
     "egg": "base:118",
@@ -102,7 +124,35 @@
     "bigPotion": "base:83",
     "bread": "base:353",
     "goatCheese": "base:114",
-    "porkRoast": "base:354"
+    "porkRoast": "base:354",
+    "_note2": "Cooked dishes share a vessel by kind — pot, plate, glass, jar, loaf — the same reasoning as the seed packet above. Twenty near-identical bowls read worse than five clear ones, and the name is beside the icon in every list view.",
+    "pepperStew": "base:344",
+    "potatoMash": "base:344",
+    "mushroomSoup": "base:344",
+    "fishStew": "base:344",
+    "saltChowder": "base:344",
+    "crabBisque": "base:344",
+    "milkFishChowder": "base:344",
+    "muttonStew": "base:344",
+    "grilledGrouper": "colour:52",
+    "swordfishSteak": "colour:52",
+    "catfishTacos": "colour:52",
+    "tunaNicoise": "colour:52",
+    "oysterPlate": "colour:52",
+    "fishAndEggs": "colour:52",
+    "goatCheesePotato": "colour:52",
+    "junglePork": "colour:52",
+    "watermelonSlice": "base:313",
+    "dustloaf": "colour:60",
+    "garlicBread": "colour:60",
+    "lavenderTea": "colour:53",
+    "rosehipTonic": "colour:54",
+    "berryJam": "base:263",
+    "strawberryPreserves": "base:263",
+    "eggMeal": "base:120",
+    "tortoiseEgg": "base:120",
+    "craftedTorch": "base:145",
+    "copperTrough": "base:332"
   },
   "fish": {
     "_note": "The pack has 6 fish families with 8-9 colour variants each. Game species are assigned by body shape, then spread across variants so no two look alike.",
@@ -134,17 +184,38 @@
     "seaUrchin": "fish:52",
     "crabCluster": "fish:53",
     "swordfish": "fish:55",
-    "bluefinTuna": "fish:56"
+    "bluefinTuna": "fish:56",
+    "snapperTurtle": "fish:45",
+    "leatherbackTurtle": "fish:45"
   },
   "junk": {
     "junkBoot": "fish:17",
-    "netScraps": "fish:8"
+    "netScraps": "fish:8",
+    "oldFlask": "base:87",
+    "corrodedFlask": "base:87",
+    "barnacledBottle": "base:84"
   },
   "loot": {
     "wolfPelt": "base:326",
     "snakeFang": "base:198",
     "scorpionStinger": "base:199",
-    "rattlerFang": "base:200"
+    "rattlerFang": "base:200",
+    "coyoteHide": "base:164",
+    "boarHide": "base:164",
+    "jaguarPelt": "base:164",
+    "banditScarf": "base:181",
+    "vultureFeather": "base:262",
+    "eagleFeather": "base:262",
+    "jungleFeather": "base:262",
+    "boarTusk": "base:192",
+    "fossil": "base:192",
+    "raiderBadge": "base:267",
+    "outlawBadge": "base:265",
+    "guardBadge": "base:301",
+    "guardPapers": "base:247",
+    "altaverdeDocument": "base:250",
+    "serpentVenom": "base:89",
+    "dustDevilEye": "base:165"
   },
   "treasure": {
     "ancientCoin": "base:271",
@@ -154,6 +225,11 @@
     "shipsLog": "base:102",
     "outlawCrown": "base:270",
     "deedFragment": "base:246",
-    "wantedPoster": "base:248"
+    "wantedPoster": "base:248",
+    "singingStone": "base:96",
+    "legendShard": "colour:42",
+    "surveyorCompass": "base:275",
+    "navalChart": "base:249",
+    "hollowedLandPromise": "base:108"
   }
 }
