@@ -101,12 +101,22 @@ TERRAINS = {
                         ("farmland", 0, 2), ("farmland", 0, 3),
                         ("forest", 0, 8)],    # one variant only greenforest has
               "clump": 0.72},
-    # Dirt: packed earth with small clumps. (14,10) and (21,7) are the same
-    # cell in the sheet, so it is listed once.
-    "dirt":  {"kind": "mosaic",
-              "cells": [("farmyard", 14, 9), ("farmyard", 14, 10),
-                        ("farmyard", 15, 9), ("farmyard", 15, 10)],
-              "clump": 0.65},
+    # Dirt is a scatter, not a mosaic, and that was a correction.
+    #
+    # It was four cells out of the farm pack's dirt block. Every cell in that
+    # block carries the same three-pronged mark and they differ only in their
+    # edge cuts — it is an autotile set, meant for blending a dirt patch
+    # against grass, not for filling a field. Laid as a mosaic it produced a
+    # dense uniform stipple on the 16px lattice: 1744 tiles of the main map
+    # reading as patterned wallpaper rather than earth. There is no variety in
+    # that sheet to fix it with.
+    #
+    # Scatter gives what a field needs — a flat base with sparse clustered
+    # mottling — and it is what sand, dust, road and street already use. Lower
+    # `loose` and higher `spread` than the road, because ploughed earth clumps
+    # more coarsely than a wagon track.
+    "dirt":  {"kind": "scatter", "base": "#8f4f35",
+              "clusters": 30, "per": 15, "spread": 30, "loose": 115},
 }
 
 

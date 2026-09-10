@@ -676,6 +676,26 @@ So the mean colours of a set are checked separately and must sit within 18 of
 each other. That cell measures 28.5 from its neighbours and is now rejected by
 name. The current sets: grass 11.5, dirt 1.4.
 
+### A mosaic is only right when the cells actually differ
+
+Dirt shipped as a mosaic of four cells from the farm pack's dirt block and it
+was wrong. Every cell in that block carries the same three-pronged mark and
+they differ only in their **edge cuts** — it is an autotile set, drawn for
+blending a dirt patch against grass, not for filling a field. Laid as a
+mosaic it produced a dense uniform stipple on the 16px lattice: 1744 tiles,
+the largest single tile type on the main map, reading as patterned wallpaper
+rather than earth. No amount of clumping or transform expansion fixes that,
+because there is no variety in the sheet to find.
+
+Dirt is a scatter now, like sand, dust, road and street. Grass stays a mosaic
+because its cells genuinely differ — plain, tufted, dark — which is what makes
+its field breathe.
+
+**Check a baked texture by looking at it, at 1:1 and then in the game.** The
+seam and tone tests both passed on that dirt: every cell joined every other
+cleanly and their tones were within spread. They measure whether cells fit
+together, not whether the result looks like ground.
+
 ### Terrains
 
 The scatter terrains are all the same sand under different light. A terrain
