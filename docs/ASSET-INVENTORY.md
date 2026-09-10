@@ -249,8 +249,8 @@ which would close the ranch's one missing species noted above.
 | `Free__Raven_Fantasy_Icons` | 6,580 icons, one sheet at 16/32/64px | Uniform grid — easiest icon win |
 | `Fantasy_RPG_icon_pack_by_Franuka` | 4,580 icons, base set + expansions | CC-BY |
 | `rpgultimate` | 579 item sprites in 12800×128 strips (100 frames of 128px) | Weapons, loot, props, GUI |
-| `RPG_UI_pack_by_Franuka` | Panels, frames, buttons, animated spellbook | **89.7 MB** — 1x/2x/3x plus animation frames; ship one scale only |
-| `hpmanastamina…` | `Bars.png` 368×976, plus icons | Drop-in for the HP/stamina/hunger bars |
+| `RPG_UI_pack_by_Franuka` | **Frames, slots, buttons and dividers imported.** 11 pieces in `assets/ui/`, baked by `tools/build_ui.py` and colorized onto the game's palette; 2.4 KB total. The "ship one scale only" note is now measured, not assumed: the 2x/3x files are exact nearest-neighbour upscales of the 1x, so CSS scales the 1x instead. **Still unused:** the animated spellbook, resource orbs, checkboxes, cursors, title banners, the gamepad/keyboard input glyphs, and the three .ttf fonts. |
+| `hpmanastamina…` | `Bars.png` 368×976, plus icons | **Assessed and rejected — the earlier "drop-in" note here was written from the file listing, not from looking at the art.** The sheet is ~20 bar frames and almost all are high fantasy: feathered wings, gemstones, scrollwork, a serpent. Two plain wood-and-brass frames could be retinted, which is not worth a pipeline when the HUD's existing bars already read correctly. |
 | `rpguielements` | **PSD only, zero PNGs** | Unusable as delivered — needs export from Photoshop/GIMP first |
 
 The icon packs mattered because the game used to render **every inventory item
@@ -283,7 +283,7 @@ item designs, which is not a risk worth taking on a paid Steam release.
 | `pixelartmarketsquare…` | **Citizens imported** (5 actors). Its stall traders, lute player and flutist are single-row strips — one facing only, so they need a `strip` layout. `Objects.png` is market decor for the object pipeline. |
 | `topdownvillagefarmanimals…` | **Not imported.** Buffalo, Buffalo_cub, Cat, Colt, Dog, Donkey, Drake, Duck, Duckling. **No sheep.** None map to an existing ranch species, so using these means *adding new livestock or pets* — a game-design change, not an art swap. |
 | `freepixelartplantsforfarm` | **Assessed and rejected.** `Plants.png` is a crop growth-stage sheet: 4 stages per crop, ~10 crops, at native 32px, each crop drawn twice (tilled soil and grass). The pack grows grapes, beans, chili, cauliflower, squash, pumpkin, pineapple, wheat and sunflower; the game grows 19 crops, and only **pumpkin, pepper and dustwheat** match cleanly. Six sprite crops beside thirteen painted ones would look worse than thirteen painted ones, so `drawCrop` stays as it is until a pack covers the roster. |
-| `freebasicpixelartuiforrpg` | **Not imported.** Buttons, panels, inventory frames, icons, numbers. Small and directly usable for the HUD. |
+| `freebasicpixelartuiforrpg` | **Assessed and rejected.** Its buttons carry baked English labels (RESUME, SETTINGS, BUY) in a green that is nowhere in this game, and the game's own labels (ACT, TILL, SELL EVERYTHING) do not match the set. Its `Main_tiles.png` nine-slice panels in wood-and-parchment are genuinely usable, but Franuka's pack covers the same ground with separate files and no baked text, so there is nothing here worth a second pipeline. |
 
 ---
 

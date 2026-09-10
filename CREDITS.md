@@ -37,6 +37,23 @@ The pack's **Minecraft expansion is deliberately unused**: those icons are
 recreations of Minecraft's items and carry trademark risk in a paid release.
 Do not add them to `tools/icon-map.json`.
 
+### Franuka — *RPG UI pack* (v1.7)
+**Licence: pack's own terms** — commercial use permitted; a link back is
+requested but not mandatory; **the pack may be edited but not redistributed
+as-is or resold**.
+
+- <https://franuka.itch.io>
+
+Used for the HUD's frames, item slots, buttons and dividers. The pieces in
+`assets/ui/` are edited, not raw: `tools/build_ui.py` takes the 1x files and
+colorizes each one onto the game's own brown-and-amber palette, so what ships
+is a derivative used inside the game rather than the pack as delivered. This
+is the same line the sprite and ground art already sit on — the source zips
+are not in this repo.
+
+The pack's three .ttf pixel fonts are **unused**: the game sets its type in
+Special Elite and Rye, and mixing a fourth face would cost more than it buys.
+
 ### CraftPix.net — creature and animal packs
 **Licence: CraftPix file licence** — commercial use permitted; redistribution of
 the raw assets is not.

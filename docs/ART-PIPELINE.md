@@ -238,6 +238,44 @@ pixel-diff test will happily report success while the override draws something
 else. The check that actually catches it is a draw-call trace — wrap
 `DHArt.drawActor`, call your draw function, and assert on the ids it pushed.
 
+## HUD frames
+
+The overlays are DOM, not canvas, so their art is applied with CSS
+`border-image` rather than drawn. `tools/build_ui.py` bakes the pieces from
+Franuka's RPG UI pack into `assets/ui/` — 11 files, 2.4 KB total.
+
+```
+./tools/build_ui.py <path-to-RPG_UI_pack_by_Franuka>
+```
+
+**1x only.** The pack ships 1x/2x/3x and the larger two are exact
+nearest-neighbour upscales (measured by `assert_native`, same check the ground
+tool makes). CSS scales the 1x art with `image-rendering: pixelated`, so a 3x
+file would be nine times the bytes for pixel-identical output — and unlike a
+baked file, a CSS factor can respond to screen size. `--ui-art` is that factor:
+2 on desktop, 1 under 560px, whole numbers only.
+
+**Colorized, not hue-shifted.** The pack is pastel and spans six unrelated
+hues; the game is brown and amber on near-black. `retint()` assigns the target
+hue outright, shifts lightness so the mean matches, and scales saturation by
+ratio. It does **not** average hue — hue is an angle, and a mean across the
+0/1 wrap is meaningless: a frame whose pixels sit at 0.02 and 0.97, both red,
+averages to 0.5, which is cyan. The first version of the tool did that and
+produced purple panels and green buttons.
+
+**Slice values are read off the art, not guessed.** `panel_wood` is sliced at
+12 because its corner nails reach x=8..11 and a smaller inset cuts one in half;
+`btn` at 4; `slot` at 2, because that piece is a flat field with a one-pixel
+lip and a wider slice would scale the flat middle and lose the lip. Dump a
+piece as ASCII before picking a number.
+
+**Two things every framed element needs.** A `border-image` with `fill` paints
+the pack's centre slice, which is semi-transparent — so the element keeps an
+opaque `background` of its own or the world shows through it. And `.ui-panel`
+is a class while `#invOverlay` is an id, so the id's own `background` and
+`border` must be **deleted**, not just overridden; a class cannot outrank an
+id.
+
 ## Credits
 
 Importing a pack means adding its author to **both** `CREDITS.md` and the

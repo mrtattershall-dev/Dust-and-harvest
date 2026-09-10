@@ -25,7 +25,52 @@
   --ui-font-sm:   calc(var(--ui-font-size) * 0.77);  /* ~10px at normal */
   --ui-font-xs:   calc(var(--ui-font-size) * 0.69);  /* ~9px at normal  */
   --ui-font-lg:   calc(var(--ui-font-size) * 1.08);  /* ~14px at normal */
+
+  /* Pixel-art HUD frames (assets/ui/, baked by tools/build_ui.py from
+     Franuka's RPG UI pack and retinted onto the palette above). The art is
+     1x — the pack's 2x/3x files are exact nearest-neighbour upscales, so
+     scaling the 1x here is pixel-identical at a ninth the bytes, and unlike
+     a baked 3x file this factor can respond to screen size. */
+  --ui-art: 2;                       /* whole numbers only, or pixels smear */
 }
+
+/* Nine-slice frames. `fill` paints the centre, so these elements need no
+   background of their own; `repeat` tiles the edge slices at native size
+   instead of stretching them, which is what keeps the pixels square. */
+.ui-panel, .ui-slot, .ui-btn {
+  border-style: solid;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  border-radius: 0;
+}
+/* The pack's centre slice is semi-transparent, so each frame keeps an opaque
+   backing of its own or the world shows through the panel. */
+.ui-panel { background: var(--panel-bg); }
+.ui-slot  { background: rgba(0,0,0,.35); }
+.ui-panel {
+  /* Slice 12, not 16: the frame is ~10px of plank and the corner nails
+     reach x=8..11, so 12 is the smallest inset that keeps a nail whole. */
+  border-width: calc(12px * var(--ui-art));
+  border-image: url(assets/ui/panel_wood.png) 12 fill repeat;
+}
+.ui-slot {
+  /* Slice 2: this piece is a flat field with a one-pixel lip, so a wider
+     slice would just scale the flat middle and lose the lip. */
+  border-width: calc(2px * var(--ui-art));
+  border-image: url(assets/ui/slot.png) 2 fill repeat;
+}
+.ui-slot:hover   { border-image-source: url(assets/ui/slot_sel.png); }
+.ui-btn {
+  border-width: calc(4px * var(--ui-art));
+  border-image: url(assets/ui/btn.png) 4 fill repeat;
+  color: var(--parchment);
+}
+.ui-btn:hover  { border-image-source: url(assets/ui/btn_hover.png); color:#2a1c0c; }
+.ui-btn:active { border-image-source: url(assets/ui/btn_active.png); }
+
+/* Phones get a thinner frame: at --ui-art:2 a 32px border eats a third of a
+   390px screen before any content fits inside it. */
+@media (max-width: 560px) { :root { --ui-art: 1; } }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select:none;color:var(--parchment);overscroll-behavior:none;-webkit-tap-highlight-color:transparent;}/* overscroll-behavior stops the pull-to-refresh / rubber-band bounce that
    fires when a drag starts on the game and the page decides it owns it. */
@@ -117,13 +162,12 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 .btn-deliver:hover:not(:disabled){background:rgba(110,85,45,.24);}
 .btn-deliver:disabled{opacity:.28;cursor:not-allowed;}
 /* INVENTORY */
-#invOverlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(575px,96vw);max-height:min(88vh,700px);background:var(--panel-bg);border:1px solid var(--panel-border-strong);border-top:3px solid var(--tallow);border-radius:0;padding:14px;pointer-events:all;display:none;z-index:30;overflow-y:auto;}
+#invOverlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(575px,96vw);max-height:min(88vh,700px);padding:2px 6px;pointer-events:all;display:none;z-index:30;overflow-y:auto;}
 #invOverlay h2{font-size:var(--ui-font-size);color:var(--parchment);letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px;border-bottom:1px solid rgba(110,85,40,.23);padding-bottom:7px;display:flex;justify-content:space-between;align-items:center;}
 .inv-section-title{font-size:9px;color:rgba(155,115,52,.65);letter-spacing:.08em;margin:8px 0 5px;text-transform:uppercase;}
-#invGrid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin-bottom:10px;}
-.inv-cell{width:100%;aspect-ratio:1;background:rgba(255,255,255,.03);border:1px solid rgba(95,75,36,.2);border-radius:0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;min-height:50px;transition:all .1s;}
-.inv-cell:hover{background:rgba(155,105,36,.1);border-color:rgba(155,105,36,.48);}
-.inv-cell.filled{border-color:rgba(135,96,36,.38);}
+#invGrid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px;margin-bottom:10px;}
+.inv-cell{width:100%;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;min-height:50px;transition:all .1s;}
+.inv-cell:hover{filter:brightness(1.35);}
 .inv-cell .ci{font-size:calc(var(--ui-font-size) * 1.6);line-height:1;}
 .inv-cell .cq{position:absolute;bottom:2px;right:3px;font-size:var(--ui-font-xs);color:var(--parchment);font-weight:bold;}
 .inv-cell .cn{font-size:var(--ui-font-xs);color:rgba(155,115,52,.68);margin-top:1px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;padding:0 2px;}
@@ -832,14 +876,14 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 </div>
 
 <!-- Inventory Overlay -->
-<div id="invOverlay">
+<div id="invOverlay" class="ui-panel">
   <h2>⬡ SADDLEBAG — INVENTORY
     <button class="panel-close" onclick="toggleInventory()">CLOSE [TAB]</button>
   </h2>
   <div class="inv-section-title">📦 Carried Items (32 slots)</div>
   <div id="invGrid"></div>
   <div class="inv-section-title">🌱 Seed Pouch</div>
-  <div id="seedGrid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:4px;"></div>
+  <div id="seedGrid" style="display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px;"></div>
   <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(180,140,60,.15);display:flex;gap:16px;font-size:9px;color:#705830;">
     <span>Weight: <span id="invWeightLabel" style="color:#d4b870">0/50</span> kg</span>
     <span>Gold: <span id="invGoldLabel" style="color:#f0d060">$30</span></span>
@@ -5419,7 +5463,7 @@ function refreshInvUI() {
   for (let i = 0; i < effSlots; i++) {
     const cell = grid.children[i];
     const slot = inventory.slots[i];
-    cell.className = 'inv-cell' + (slot ? ' filled' : '');
+    cell.className = 'inv-cell ui-slot' + (slot ? ' filled' : '');
     if (slot) {
       const qualBadge = (slot.quality && slot.quality !== 'standard')
         ? `<span class="cqual ${slot.quality}">${slot.quality === 'pure' ? '★' : '▲'}</span>` : '';
@@ -5442,7 +5486,7 @@ function refreshInvUI() {
   for (const [sid, ic, nm] of seedDisplay) {
     const qty = inventory.seeds[sid] || 0;
     const cell = document.createElement('div');
-    cell.className = 'inv-cell' + (qty>0?' filled':'');
+    cell.className = 'inv-cell ui-slot' + (qty>0?' filled':'');
     cell.innerHTML = `<span class="ci">${itemIcon(sid, 22, ic)}</span><span class="cn">${nm}</span><span class="cq">${qty}</span>`;
     sg.appendChild(cell);
   }
@@ -10890,7 +10934,7 @@ function refreshChestUI() {
   for (let i = 0; i < cs; i++) {
     const slot = chestSlots[i];
     const cell = document.createElement('div');
-    cell.className = 'inv-cell' + (slot ? ' filled' : '');
+    cell.className = 'inv-cell ui-slot' + (slot ? ' filled' : '');
     if (slot) {
       const it = ITEMS[slot.itemId];
       cell.innerHTML = `<span class="ci">${itemIcon(slot.itemId, 22, it ? it.icon : '?')}</span><span class="cn">${it ? it.name.split(' ')[0] : ''}</span><span class="cq">${slot.qty}</span>`;
@@ -34420,6 +34464,15 @@ const ART_CREDITS = [
     countFn: () => (typeof DHIcons !== 'undefined' ? DHIcons.count() : 0),
     countNoun: 'item icon',
     links: ['https://franuka.itch.io', 'https://creativecommons.org/licenses/by/4.0/'],
+  },
+  {
+    who: 'Franuka',
+    licence: "Franuka's RPG UI pack licence",
+    what: 'RPG UI pack — the frames, item slots, buttons and dividers of the '
+        + "HUD, recoloured onto the game's own palette.",
+    countFn: () => 11,          // pieces in assets/ui/, baked by tools/build_ui.py
+    countNoun: 'UI piece',
+    links: ['https://franuka.itch.io'],
   },
   {
     who: 'CraftPix.net',
