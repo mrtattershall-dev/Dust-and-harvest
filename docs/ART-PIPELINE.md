@@ -238,6 +238,38 @@ pixel-diff test will happily report success while the override draws something
 else. The check that actually catches it is a draw-call trace — wrap
 `DHArt.drawActor`, call your draw function, and assert on the ids it pushed.
 
+## Camp decorations
+
+`tools/build_camp.py` cuts seven pieces out of the Hunter's Lodge pack into
+`assets/camp/` — one small atlas of named rects, 5 KB, blitted by
+`drawTrapper()` at fixed offsets.
+
+```
+./tools/build_camp.py <path-to-fantasyrpghunterslodge-pack>
+```
+
+A third atlas rather than reusing one of the two that exist, because it is
+neither: `assets/props/` is a 32px grid keyed by tile coordinate and scatters
+a variant across every tile of a type, and `assets/sprites/` is cell grids,
+clips and facings. A 51×58 tanning rack that belongs at one specific place is
+neither of those.
+
+**Find rects by component scan, identify them by looking.** The scan gives
+honest bounding boxes, but its indices are ordered by position, which is not
+the order anything reads in. Picking by index put a coil of rope where the
+campfire should be and a pile of kindling where the crate should be. Crop each
+candidate, render it at 4×, label it with its coordinates, and look — the same
+rule the icon pass earned.
+
+**Split the layout by depth.** Props with a positive y offset stand in front
+of the character and must be drawn after him, or he floats over his own
+campfire. Two lists, `CAMP_BEHIND` and `CAMP_FRONT`, drawn either side of the
+actor.
+
+**Give the props room.** Six pieces plus a man and a dog do not fit in a 3×3
+clearing — 48px at 16px tiles, against ~20px of character. Amos's clearing is
+5×5.
+
 ## HUD frames
 
 The overlays are DOM, not canvas, so their art is applied with CSS

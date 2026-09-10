@@ -5954,8 +5954,8 @@ function buildMap() {
   // central river crossing, so it is found on the way in rather than hunted
   // for. Cleared LAST: the wilderness fill, the tree/rock scatter and the
   // ranch-zone pass all rewrite ground, and an earlier clearing gets buried.
-  for(let y=TRAPPER_TY-1;y<=TRAPPER_TY+1;y++)
-    for(let x=TRAPPER_TX-1;x<=TRAPPER_TX+1;x++) setT(x,y,TL.DIRT);
+  for(let y=TRAPPER_TY-2;y<=TRAPPER_TY+2;y++)
+    for(let x=TRAPPER_TX-2;x<=TRAPPER_TX+2;x++) setT(x,y,TL.DIRT);
 }
 buildMap();
 
@@ -9952,11 +9952,55 @@ function closeTrapperPost() {
   if (el) el.style.display = 'none';
 }
 
+// Amos's camp decorations — one small atlas of named rects (assets/camp/,
+// baked by tools/build_camp.py). Loaded here rather than through DHProps or
+// DHArt because it is neither: the pieces are not 32px tile scatter and they
+// are not animated actors. If it fails to load, nothing draws and Amos still
+// works — the camp is decoration, not gameplay.
+const _campArt = { img: new Image(), rects: null, ok: false };
+(function _loadCampArt() {
+  fetch('assets/camp/camp.json', { cache: 'no-cache' })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(d => {
+      _campArt.rects = d.rects;
+      _campArt.img.onload  = () => { _campArt.ok = true; };
+      _campArt.img.onerror = () => console.warn('[camp] atlas failed to load');
+      _campArt.img.src = 'assets/camp/camp.png';
+    })
+    .catch(e => console.warn('[camp] no camp atlas (' + e.message + ')'));
+})();
+
+// Blit one named piece, standing on (sx, sy) and centred on it.
+function drawCampPiece(name, sx, sy) {
+  if (!_campArt.ok) return false;
+  const r = _campArt.rects[name];
+  if (!r) return false;
+  ctx.drawImage(_campArt.img, r[0], r[1], r[2], r[3],
+                Math.round(sx - r[2] / 2), Math.round(sy - r[3]), r[2], r[3]);
+  return true;
+}
+
+// Where each piece sits relative to Amos, in world pixels. Drawn before him
+// so he stands in front of his own camp; the rack is behind and to the left,
+// which is also the side his dog does not take.
+const CAMP_BEHIND = [
+  ['rack',      -38, -10],
+  ['hidecrate',  40, -12],
+  ['crate',      20, -16],
+];
+const CAMP_FRONT = [
+  ['fire',      -30,  20],
+  ['firewood',  -16,  24],
+  ['trap',       34,  26],
+];
+
 function drawTrapper(cx, cy) {
   const sx = TRAPPER_X - cx, sy = TRAPPER_Y - cy;
   if (sx < -T*3 || sx > canvas.width + T*3 || sy < -T*3 || sy > canvas.height + T*3) return;
   if (!exploredWorld[TRAPPER_TY * MAP_W + TRAPPER_TX]) return;
   const bob = Math.sin(Date.now() * 0.0016) * 1.4;
+
+  for (const [name, ox, oy] of CAMP_BEHIND) drawCampPiece(name, sx + ox, sy + oy);
 
   ctx.globalAlpha = .22; ctx.fillStyle = '#000';
   ctx.beginPath(); ctx.ellipse(sx, sy + 8, 8, 3, 0, 0, Math.PI*2); ctx.fill();
@@ -9991,6 +10035,10 @@ function drawTrapper(cx, cy) {
     DHArt.drawActor(ctx, 'dog', drawTrapper._dog, dx, sy + 3 + bob * 0.5,
                     { scale: NPC_SPRITE_SCALE, footY: 5 });
   }
+
+  // Anything standing in front of him goes on top, or he floats over his own
+  // campfire — the same depth rule the rest of the world draws by.
+  for (const [name, ox, oy] of CAMP_FRONT) drawCampPiece(name, sx + ox, sy + oy);
 }
 
 // § TRAVELING MERCHANT — merchantPresent, spawn schedule, caravan UI
