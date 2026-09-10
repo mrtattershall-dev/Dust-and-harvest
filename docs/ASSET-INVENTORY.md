@@ -140,14 +140,26 @@ structure to slice. Their grass and dirt are small 16px cells that are mutually
 seamless, so `tools/build_ground.py` lays them as a random mosaic on one
 wrap-seamless texture, the same surface the sand uses. See `docs/ART-PIPELINE.md`.
 
-**Not yet: `TL.STONE` (9.4%), `TL.TOWN_FLOOR` (14.3%), `TL.ROAD`, `TL.WATER`.**
-Art exists for all four — the farm pack ships cobble and water,
-`freepathandroad` ships five road styles, and a `Walls_street` sheet with the
-same cobbled surface appears in seven town packs (tavern, chapel, guild hall,
-mage tower, blacksmith, nobles manor, training arena), which makes it the
-obvious `TL.TOWN_FLOOR`. The terrain-*edge* sets stay unusable until the game
-has an autotiling concept; it currently has none, only a 4px colour blend on
-grass.
+**Also done: `TL.TOWN_FLOOR` (14.3%), `TL.ROAD` and `TL.PEN_FLOOR` (5.9%)** —
+packed dust, a wagon track and churned earth. That pass deleted the art it
+replaced rather than layering over it, including 40KB of inline RGB arrays that
+baked a cobblestone texture into the page: 41KB off the file, 2.1% of it.
+
+**Not yet: `TL.STONE` (9.4%) and `TL.WATER` (2.4%).** `TL.STONE` is an overlay
+tile rather than ground — dark rounded blobs standing on whatever is beneath —
+so it belongs in the prop pipeline with the rocks. `TL.WATER` needs frame
+handling for the desert pack's animated water sheets.
+
+**The `Walls_street` sheet is rejected, not pending.** It appears in seven town
+packs (tavern, chapel, guild hall, mage tower, blacksmith, nobles manor,
+training arena) and an earlier note here called it the obvious `TL.TOWN_FLOOR`.
+Looking at it, it is medieval castle wall and laid tan brick — a European town
+square. A frontier street is packed dust and wagon ruts, so the town floor was
+built from the desert pack's sand instead, retinted. Same reason the cobblestone
+that `TL.ROAD` used to bake into the page went out.
+
+The terrain-*edge* sets across these packs stay unusable until the game has an
+autotiling concept; it currently has none, only a 4px colour blend on grass.
 
 ### Ground survey — all 56 packs
 

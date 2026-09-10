@@ -475,48 +475,64 @@ name. The current sets: grass 11.5, dirt 1.4.
 
 ### Terrains
 
-Sand and dust are the same sand. The badlands is the same grains under a redder sun, so
-it is a **hue rotation** of the pack's colour rather than a second palette —
-base and mottling rotate together, which keeps the contrast the artist drew
-instead of flattening it.
+The scatter terrains are all the same sand under different light. A terrain
+names the **colour it should end up** and the tool works out the HLS move from
+the pack's own sand, applying it to the mottling as well as the flat ground —
+so contrast survives instead of flattening. Naming the target beats naming a
+hue rotation once there is more than one of them to keep in tune.
 
-| Name | Kind | Tile | Tone | Base |
-|---|---|---|---|---|
-| `grass` | mosaic | `TL.GRASS`, `TL.FLOWERS` | — | `#598166` — farmlands turf, plus one greenforest variant |
-| `dirt` | mosaic | `TL.DIRT` | — | `#8f4f35` — farmyard packed earth |
-| `sand` | scatter | `TL.SAND` | — | `#d2b268` — the desert pack's sand |
-| `dust` | scatter | `BL.DUSTFLOOR` | −13° hue, ×1.12 sat | `#d89b62` — orange-shifted |
+| Name | Kind | Tile | Base |
+|---|---|---|---|
+| `grass` | mosaic | `TL.GRASS`, `TL.FLOWERS` | `#598166` — farmlands turf, plus one greenforest variant |
+| `dirt` | mosaic | `TL.DIRT` | `#8f4f35` — farmyard packed earth |
+| `sand` | scatter | `TL.SAND` | `#d2b268` — the desert pack's sand |
+| `dust` | scatter | `BL.DUSTFLOOR` | `#d89b62` — badlands, orange-shifted |
+| `street` | scatter | `TL.TOWN_FLOOR` | `#a38762` — walked-on town dust |
+| `road` | scatter | `TL.ROAD` | `#8f7c66` — wagon track, greyer |
+| `pen` | scatter | `TL.PEN_FLOOR` | `#8a6840` — churned earth |
 
-Every terrain takes `hue`/`sat`, so any of them can be retuned in one line and
-rebuilt. `grass` and `dirt` ship at the packs' own colours.
+Retuning any of them is one hex value and a rebuild.
 
-`TL.FLOWERS` draws the grass texture as its base before its flowers. Without
-that it keeps its own darker green and reads as squares punched out of the lawn.
+**Hue and lightness move by addition; saturation moves by ratio.** Subtracting
+saturation drains the mottling to grey long before the flat ground gets there,
+because the blobs start less saturated than the base and the same subtraction
+takes them further. The first bake of the street did exactly that: grey pebbles
+on warm tan, which is the one thing a western palette cannot be.
 
-−13° was picked against the badlands' own red rock, not in isolation. −6° is
-not distinguishable from tan; from −20° the sand turns salmon and starts
-competing with `BL.REDROCK` and `BL.MESA` instead of sitting under them. To
-retune, change `hue`/`sat` in `TERRAINS` and rebuild — nothing else needs to
-move.
+Each terrain's baked base colour is written into `ground.json`, so the value the
+game needs is recorded rather than inferred from the tool source.
 
-Each terrain's baked base colour is written into `ground.json`, so the value
-the game needs is never guessed from the tool source.
+The game's own colour tables were moved to match: `TC[TL.SAND]`, `TC[TL.ROAD]`,
+`TC[TL.PEN_FLOOR]`, `BL_TC[BL.DUSTFLOOR]`, both minimap tables and the
+`_blBase()` depth fallback. Overlay tiles sample those for the ground they sit
+on, so a missed one shows as a tile whose edge does not match its neighbour.
 
-The game's own colour tables were moved to match the baked textures, so the
-painted fallback, the minimap and the texture all agree: `TC[TL.SAND]`, and for
-the badlands `BL_TC[BL.DUSTFLOOR]`, the minimap entry, the minimap RGB triple
-and the `_blBase()` depth fallback.
+### What the ground replaced
 
-Both call sites keep their painted branch, so a missing texture changes nothing.
-`DHGround.init` also refuses a texture baked for a different tile size rather
-than resampling the pixel art.
+These are not additions layered over the painted tiles — the painted art they
+stand in for is deleted, leaving a one-line flat fill as the fail-soft branch.
+
+| Tile | Was | Removed |
+|---|---|---|
+| `TL.ROAD` | four inline RGB arrays baking a cobblestone texture pixel-by-pixel | **40,467 chars** — 48% of all tile-drawing code |
+| `TL.TOWN_FLOOR` | a hard `(tx+ty)%2` checkerboard of two flat tans, across all 915 town tiles | 630 chars |
+| `TL.PEN_FLOOR` | `%5` and `%4` tests that produced a checkerboard despite a comment saying otherwise | 837 chars |
+| — | a second `TL.ROAD` branch, unreachable in the same if-else chain | 270 chars |
+
+41KB off the page, 2.1% of the file.
+
+The cobble was good art in the wrong genre: a frontier town has dust streets and
+wagon ruts, not medieval paving. The `Walls_street` sheet shared by seven town
+packs was rejected for the same reason — it is laid brick and castle wall.
 
 ### Not done, and why
 
-- **`TL.STONE`, `TL.ROAD`, `TL.WATER`, `TL.TOWN_FLOOR`** — art exists for all of
-  them (the farm pack ships cobble and water; `freepathandroad` ships five road
-  styles). They are the obvious next terrains; this pass stopped at the two that
-  are 53% of the map between them.
+- **`TL.STONE` (598 tiles)** — draws as identical dark rounded blobs. It is an
+  overlay tile rather than ground, so it belongs in the prop pipeline with the
+  rocks, not here.
+- **`TL.WATER` (152 tiles)** — still stripes per tile the way the old ground
+  did. The desert pack ships animated water sheets, which need frame handling
+  the ground pipeline does not have.
 - **The road and terrain-edge sets** — `freepathandroad` and the packs'
   `Ground_grass` sheets are mostly *transition* pieces for terrain meeting
   terrain. The game has no terrain-edge concept, so they need autotiling first.

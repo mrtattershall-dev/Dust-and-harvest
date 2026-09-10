@@ -72,10 +72,23 @@ PACK_SAND = (210, 178, 104)   # the desert pack's own flat ground colour
 # list; `--check` re-measures that and refuses to build if it stops holding.
 TERRAINS = {
     # -- scatter: flat base + mottling ------------------------------------
-    "sand": {"kind": "scatter", "hue":   0, "sat": 1.00,
-             "clusters": 26, "per": 14, "spread": 34, "loose": 90},
-    "dust": {"kind": "scatter", "hue": -13, "sat": 1.12,
-             "clusters": 22, "per": 13, "spread": 38, "loose": 78},
+    # `base` is the colour the surface should end up; the tool works out the
+    # HLS move from the pack's own sand and applies it to the mottling too, so
+    # the artist's contrast survives. Naming the target beats naming a hue
+    # rotation once there is more than one of these to keep in tune.
+    "sand":   {"kind": "scatter", "base": "#d2b268",
+               "clusters": 26, "per": 14, "spread": 34, "loose": 90},
+    "dust":   {"kind": "scatter", "base": "#d89b62",   # badlands, orange-shifted
+               "clusters": 22, "per": 13, "spread": 38, "loose": 78},
+    # The town is walked-on earth, not paving: a frontier street is dust.
+    "street": {"kind": "scatter", "base": "#a38762",
+               "clusters": 30, "per": 15, "spread": 30, "loose": 110},
+    # A wagon track — the same dirt as the street, greyer and more trodden.
+    "road":   {"kind": "scatter", "base": "#8f7c66",
+               "clusters": 34, "per": 16, "spread": 26, "loose": 130},
+    # Animal pen: churned earth, darker and browner.
+    "pen":    {"kind": "scatter", "base": "#8a6840",
+               "clusters": 30, "per": 15, "spread": 28, "loose": 120},
 
     # -- mosaic: interchangeable textured cells ---------------------------
     # Grass. Every pack delivered was surveyed for ground; the whole library
@@ -87,13 +100,13 @@ TERRAINS = {
               "cells": [("farmland", 0, 0), ("farmland", 0, 1),
                         ("farmland", 0, 2), ("farmland", 0, 3),
                         ("forest", 0, 8)],    # one variant only greenforest has
-              "clump": 0.72, "hue": 0, "sat": 1.00},
+              "clump": 0.72},
     # Dirt: packed earth with small clumps. (14,10) and (21,7) are the same
     # cell in the sheet, so it is listed once.
     "dirt":  {"kind": "mosaic",
               "cells": [("farmyard", 14, 9), ("farmyard", 14, 10),
                         ("farmyard", 15, 9), ("farmyard", 15, 10)],
-              "clump": 0.65, "hue": 0, "sat": 1.00},
+              "clump": 0.65},
 }
 
 
@@ -268,16 +281,39 @@ def build_variants(name, tiles, cells, strict):
 
 # ── colour ───────────────────────────────────────────────────────────────────
 
-def shift(rgb, hue, sat):
-    """Rotate a colour's hue and scale its saturation, leaving brightness alone."""
+def hex_rgb(h):
+    h = h.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def delta_to(base):
+    """The HLS move from the pack's own sand to `base`.
+
+    Applied to every mottling blob as well as the flat ground, so a terrain is
+    the same grains under different light rather than a different palette —
+    which is what keeps the contrast the artist drew instead of flattening it.
+    """
+    h0, l0, s0 = colorsys.rgb_to_hls(*(c / 255 for c in PACK_SAND))
+    h1, l1, s1 = colorsys.rgb_to_hls(*(c / 255 for c in hex_rgb(base)))
+    # Hue and lightness move by addition, saturation by ratio. Subtracting
+    # saturation instead drains the mottling to grey long before the flat
+    # ground gets there — the blobs start less saturated than the base, so the
+    # same subtraction takes them further. Grey pebbles on warm tan read cold,
+    # which is the one thing a western palette cannot be.
+    return (h1 - h0, l1 - l0, (s1 / s0) if s0 > 1e-6 else 1.0)
+
+
+def shift(rgb, d):
+    dh, dl, sr = d
     h, l, s = colorsys.rgb_to_hls(*(c / 255 for c in rgb))
-    h = (h + hue / 360.0) % 1.0
-    s = max(0.0, min(1.0, s * sat))
+    h = (h + dh) % 1.0
+    l = max(0.0, min(1.0, l + dl))
+    s = max(0.0, min(1.0, s * sr))
     return tuple(round(c * 255) for c in colorsys.hls_to_rgb(h, l, s))
 
 
-def retint(blob, hue, sat):
-    if hue == 0 and sat == 1.0:
+def retint(blob, d):
+    if d == (0.0, 0.0, 1.0):
         return blob
     out = blob.copy()
     px = out.load()
@@ -289,7 +325,7 @@ def retint(blob, hue, sat):
                 continue
             key = (r, g, b)
             if key not in cache:
-                cache[key] = shift(key, hue, sat)
+                cache[key] = shift(key, d)
             px[x, y] = cache[key] + (a,)
     return out
 
@@ -365,15 +401,15 @@ def stamp_wrapped(canvas, blob, x, y):
 
 
 def bake_scatter(name, cfg, pools, rng):
-    hue, sat = cfg["hue"], cfg["sat"]
-    base = shift(PACK_SAND, hue, sat)
+    d = delta_to(cfg["base"])
+    base = hex_rgb(cfg["base"])
     canvas = Image.new("RGBA", (PERIOD, PERIOD), base + (255,))
 
     def drop(tone, x, y):
         pool = pools[tone]
         if not pool:
             return 0
-        blob = retint(rng.choice(pool), hue, sat)
+        blob = retint(rng.choice(pool), d)
         if rng.random() < 0.5:
             blob = blob.transpose(Image.FLIP_LEFT_RIGHT)
         if rng.random() < 0.5:
@@ -393,8 +429,8 @@ def bake_scatter(name, cfg, pools, rng):
         placed += drop("dark" if rng.random() < 0.25 else "soft",
                        rng.randrange(PERIOD), rng.randrange(PERIOD))
 
-    log(f"  {name:6s} scatter  hue{hue:+4d} sat x{sat:.2f} "
-        f"-> #{base[0]:02x}{base[1]:02x}{base[2]:02x}  {placed} blobs")
+    log(f"  {name:6s} scatter  base #{base[0]:02x}{base[1]:02x}{base[2]:02x}"
+        f"  {placed} blobs")
     return canvas, base
 
 
@@ -402,9 +438,10 @@ def bake_scatter(name, cfg, pools, rng):
 
 def bake_mosaic(name, cfg, tiles, rng):
     """Lay the cells at random, but clumped, so variants form patches."""
-    hue, sat = cfg.get("hue", 0), cfg.get("sat", 1.0)
-    if hue or sat != 1.0:
-        tiles = [retint(t.convert("RGBA"), hue, sat).convert("RGB") for t in tiles]
+    tone = cfg.get("base")
+    if tone:
+        d = delta_to(tone)
+        tiles = [retint(t.convert("RGBA"), d).convert("RGB") for t in tiles]
     n = PERIOD // CELL
     canvas = Image.new("RGBA", (PERIOD, PERIOD))
     # A coarse field of preferred variants, at a quarter of the cell resolution.
@@ -422,8 +459,7 @@ def bake_mosaic(name, cfg, tiles, rng):
             counts[i] += 1
             canvas.paste(tiles[i], (c * CELL, r * CELL))
     base = mean_rgb(canvas)
-    tone = f"hue{hue:+4d} sat x{sat:.2f}  " if (hue or sat != 1.0) else ""
-    log(f"  {name:6s} mosaic   {tone}{len(tiles)} variants over {n}x{n} cells"
+    log(f"  {name:6s} mosaic   {len(tiles)} variants over {n}x{n} cells"
         f"  -> #{base[0]:02x}{base[1]:02x}{base[2]:02x}")
     return canvas, base
 
