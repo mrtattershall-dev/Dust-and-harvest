@@ -238,15 +238,28 @@ pixel-diff test will happily report success while the override draws something
 else. The check that actually catches it is a draw-call trace — wrap
 `DHArt.drawActor`, call your draw function, and assert on the ids it pushed.
 
-## Camp decorations
+## Fixed decorations
 
-`tools/build_camp.py` cuts seven pieces out of the Hunter's Lodge pack into
-`assets/camp/` — one small atlas of named rects, 5 KB, blitted by
-`drawTrapper()` at fixed offsets.
+`tools/build_fixtures.py` cuts nine pieces out of two packs into
+`assets/fixtures/` — one small atlas of named rects, 6 KB, blitted at fixed
+offsets by `drawTrapper()` (the camp) and `drawMarketStalls()` (the town).
 
 ```
-./tools/build_camp.py <path-to-fantasyrpghunterslodge-pack>
+./tools/build_fixtures.py <hunters-lodge-pack> <armor-and-weapons-pack>
 ```
+
+**A pack can be worth importing for the part you were not looking at.** The
+Armor and Weapons pack was assessed on its icons — helmets, swords, shields —
+and rejected outright, because this game has none of those. Its
+`Furniture.png` ships the shelf and the trestle table **bare** as well as
+loaded with weapons, and those two pieces furnish the market square with this
+game's own item icons laid out on them. Judge each sheet, not the pack.
+
+**Fixtures can read live game state.** The produce table restocks from
+`SEASONS[].priceBonus`, which already names the crops each season pays a bonus
+on, so the square changes through the year with no second source of truth.
+Filter it to `type === 'crop'` — the same list carries loot, and Dry Summer
+pays a bonus on `snakeFang`, which laid out on a produce table reads as a bug.
 
 A third atlas rather than reusing one of the two that exist, because it is
 neither: `assets/props/` is a 32px grid keyed by tile coordinate and scatters

@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
-"""Cut the trapper's camp decorations out of the Hunter's Lodge pack.
+"""Cut the world's fixed decorations out of two packs into one atlas.
 
-Run:  ./tools/build_camp.py <path-to-fantasyrpghunterslodge-pack>
+Run:  ./tools/build_fixtures.py <hunters-lodge-pack> <armor-and-weapons-pack>
 
-Emits assets/camp/camp.png + camp.json — one small atlas of named pieces, each
-at its native size, drawn at fixed offsets around Amos by drawTrapper().
+Emits assets/fixtures/fixtures.png + fixtures.json — one small atlas of named
+pieces, each at its native size, blitted at fixed offsets by the draw code.
+
+Two sources. The Hunter's Lodge pack supplies Amos's camp. The Armor and
+Weapons pack supplies the market square's stall furniture: its `Furniture.png`
+ships the shelf and the table **bare** as well as loaded with swords and
+helmets, and the bare ones take this game's own item icons instead — which is
+why that pack is credited here even though none of its icons are usable.
 
 Why a third atlas rather than reusing one of the two that exist:
 
@@ -31,7 +37,7 @@ from pathlib import Path
 from PIL import Image
 
 REPO = Path(__file__).resolve().parent.parent
-OUT = REPO / "assets" / "camp"
+OUT = REPO / "assets" / "fixtures"
 
 # Source rects, found by a connected-component scan of Exterior_objects.png
 # and then identified by cropping each candidate and looking at it at 4x.
@@ -40,6 +46,7 @@ OUT = REPO / "assets" / "camp"
 # indices are ordered by position, which is not the order anything reads in.
 # Left, top, width, height.
 PIECES = {
+    # ── Amos's camp (Hunter's Lodge pack) ────────────────────────────────
     "rack":      ("Exterior_objects.png",   5, 369, 51, 58),  # hide on an A-frame
     "rack2":     ("Exterior_objects.png",  69, 369, 51, 58),  # the other angle
     "hidecrate": ("Exterior_objects.png", 217, 337, 34, 47),  # folded hide on a crate
@@ -49,18 +56,29 @@ PIECES = {
     "trap":      ("Trap.png",               0,   0, 32, 32),  # set, first frame
 }
 
+# ── Market square (Armor and Weapons pack) ──────────────────────────────
+# Both bare: the pack ships each fixture empty as well as loaded.
+PIECES2 = {
+    "shelf": ("Furniture.png",  1,  5, 46, 52),   # three empty shelves
+    "table": ("Furniture.png", 53, 10, 39, 22),   # empty trestle table
+}
+
 PAD = 1   # a transparent gutter, so no piece bleeds into its neighbour
 
 
 def main():
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 3:
         raise SystemExit(__doc__)
-    src = Path(sys.argv[1]) / "PNG"
-    if not src.is_dir():
-        raise SystemExit(f"no PNG/ directory under {sys.argv[1]}")
+    srcs = []
+    for a in sys.argv[1:]:
+        d = Path(a) / "PNG"
+        if not d.is_dir():
+            raise SystemExit(f"no PNG/ directory under {a}")
+        srcs.append(d)
 
     cut = {}
-    for name, (fn, x, y, w, h) in PIECES.items():
+    for name, (fn, x, y, w, h) in list(PIECES.items()) + list(PIECES2.items()):
+        src = srcs[0] if name in PIECES else srcs[1]
         sheet = Image.open(src / fn).convert("RGBA")
         im = sheet.crop((x, y, x + w, y + h))
         bb = im.getbbox()
@@ -80,12 +98,12 @@ def main():
         x += im.width + PAD
 
     OUT.mkdir(parents=True, exist_ok=True)
-    atlas.save(OUT / "camp.png")
-    (OUT / "camp.json").write_text(json.dumps({"rects": rects}, indent=1) + "\n")
+    atlas.save(OUT / "fixtures.png")
+    (OUT / "fixtures.json").write_text(json.dumps({"rects": rects}, indent=1) + "\n")
 
     for n, r in rects.items():
         print(f"{n:11s} {r[2]:3d}x{r[3]:<3d} at {r[0]},{r[1]}")
-    size = (OUT / "camp.png").stat().st_size
+    size = (OUT / "fixtures.png").stat().st_size
     print(f"\n{len(rects)} pieces, {atlas.size[0]}x{atlas.size[1]}, {size/1024:.1f} KB")
 
 

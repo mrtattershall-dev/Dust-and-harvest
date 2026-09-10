@@ -82,8 +82,15 @@ cells that are mutually seamless, so they are laid as a mosaic rather than a
 tile set.
 
 Amos the trapper and the dog at his camp come from *Fantasy RPG Hunter's
-Lodge* — actor ids `hunter` and `dog`. The lodge building in that pack is not
-used.
+Lodge* — actor ids `hunter` and `dog` — along with the camp's tanning rack,
+hide crate, campfire, firewood and trap. The lodge building in that pack is
+not used.
+
+The market square's stall furniture — the trestle tables and the shelf — comes
+from *Armor and Weapons Pixel RPG Icons*, whose `Furniture.png` ships each
+fixture bare as well as loaded. The goods laid out on them are this game's own
+item icons. None of that pack's actual icons are used: they are helmets,
+swords and shields, and this game has neither.
 
 The town street, the wagon roads and the animal pens are the desert pack's sand
 again, retinted — a frontier town is walked-on dust, so the same grains serve
