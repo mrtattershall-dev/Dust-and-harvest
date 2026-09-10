@@ -27086,13 +27086,35 @@ Object.assign(CROPS, {
   darkroot:     { icon:'🟤', name:'Darkroot',       growDays:14, color:'#604030', jgOnly:true, trait:'Glows at night, reveals jungle fog.' },
   ashgrain:     { icon:'🌾', name:'Ashgrain',       growDays:5,  color:'#c0b080', jgOnly:true, trait:'Restores soil tier on harvest.' },
   firepod:      { icon:'🌶', name:'Firepod',        growDays:4,  color:'#e03020', jgOnly:true, trait:'Eating grants 30s speed boost.' },
-  canopyMelon:  { icon:'🍈', name:'Canopy Melon',   growDays:7,  color:'#50b030', jgOnly:true, trait:'Must be planted adjacent to a tree tile. Shade-loving crop.' },
+  canopyMelon:  { icon:'🍈', name:'Canopy Melon',   growDays:7,  color:'#50b030', jgOnly:true, trait:'Must be planted within two tiles of jungle cover. Shade-loving crop.' },
 });
 
 // ── Jungle seed registration ───────────────────────────────────────────────────
 // Add seeds to ITEMS so addItem/countItem/removeItem work.
 // Added to SELL_ITEMS so Tobias's sell panel can handle them.
 const JG_CROP_IDS = ['heartleaf','crimsonBloom','caneReed','jungleBanana','darkroot','ashgrain','firepod','canopyMelon'];
+
+/* Shade for the Canopy Melon.
+
+   The melon wants tree cover, but it is farmed in the Cleared Zone — the ground
+   Altaverde stripped — so demanding a tree orthogonally next to the plot left
+   only 22 of 775 workable tiles (2.8%) legal and the crop was one you could buy
+   but not plant. Planting trees in the clearing would contradict what the zone
+   is, so the shade comes from the jungle wall standing around it instead: two
+   tiles, eight directions, trees or heavy brush. That is 102 tiles (13.2%) —
+   still a constraint worth planning a melon patch around, and it puts the patch
+   at the clearing's edge where the canopy actually is. */
+const JG_SHADE_REACH = 2;
+const JG_SHADE_TILES = [JG.TREE, JG.DENSE_TREE, JG.BUSH];
+
+function jgHasShade(tx, ty) {
+  for (let d = 1; d <= JG_SHADE_REACH; d++) {
+    for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0],[1,1],[1,-1],[-1,1],[-1,-1]]) {
+      if (JG_SHADE_TILES.includes(getJGT(tx + dx * d, ty + dy * d))) return true;
+    }
+  }
+  return false;
+}
 const JG_BASE_PRICES = {
   heartleaf: 45, crimsonBloom: 280, caneReed: 55, jungleBanana: 30,
   darkroot: 320, ashgrain: 60, firepod: 85, canopyMelon: 110,
@@ -27298,14 +27320,9 @@ function _jgPlant(tx, ty, key, wx, wy) {
     return true;
   }
   if (cropId === 'canopyMelon') {
-    // Shade check at plant time — needs at least one adjacent tree or dense-tree tile
-    let hasShade = false;
-    for (const [ddx, ddy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
-      const t = getJGT(tx + ddx, ty + ddy);
-      if (t === JG.TREE || t === JG.DENSE_TREE) { hasShade = true; break; }
-    }
-    if (!hasShade) {
-      showMsg('🍈 Canopy Melon needs shade — plant adjacent to a jungle tree tile.');
+    // Shade check at plant time — see JG_SHADE_REACH.
+    if (!jgHasShade(tx, ty)) {
+      showMsg('🍈 Canopy Melon needs shade — plant within two tiles of the jungle edge.');
       return true;
     }
   }
@@ -28205,13 +28222,13 @@ setTimeout(function _patchEscapeForFarmPanel() {
 Object.assign(ITEMS.darkroot    || {}, { desc: 'Deep mystery root. Recovering/restored soil only. Glows at night and reveals jungle fog.' });
 Object.assign(ITEMS.ashgrain    || {}, { desc: 'Reclamation grain. Stripped/recovering soil only. Restores soil tier when harvested.' });
 Object.assign(ITEMS.firepod     || {}, { desc: 'Volatile jungle pod. Eating grants 30s speed boost. Handles like pepper, burns hotter.' });
-Object.assign(ITEMS.canopyMelon || {}, { desc: 'Shade-loving melon. Needs an adjacent tree tile to grow. High value, slow grower.' });
+Object.assign(ITEMS.canopyMelon || {}, { desc: 'Shade-loving melon. Grows only near the jungle edge — within two tiles of trees or brush. High value, slow grower.' });
 
 const _s5Seeds = {
   darkroot:    'Very slow, deep-soil crop. Glows at night.',
   ashgrain:    'Medium crop, stripped/recovering soil only. Heals the land.',
   firepod:     'Medium crop. Eating grants 30s speed boost.',
-  canopyMelon: 'Slow crop. Needs adjacent tree tile for shade.',
+  canopyMelon: 'Slow crop. Needs jungle cover within two tiles for shade.',
 };
 for (const [id, desc] of Object.entries(_s5Seeds)) {
   const seedId = id + 'Seed';
@@ -34382,6 +34399,19 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
   }
 };
 
+/* Jungle NPC sprites — the table every other populated zone already had.
+   Kit is deliberately the same actor as hc_young: the settlement leader out
+   east IS the person from the frontier camp whose passage the player funded
+   ("the same way she said you funded the ticket"), so she must not turn into a
+   different-looking stranger on arrival. */
+const JG_NPC_SPRITES = {
+  jg_tobias: 'folk_merchant',    // Freight runner — you trade with him at the dock
+  jg_kit:    'folk_kid1',        // Kit — same actor as hc_young, same person
+  jg_malu:   'folk_alchemist',   // Malu, Elder — the oldest silhouette in the pack
+  jg_ren:    'citizen3',         // Ren — settlement hand
+  jg_pira:   'folk_barmaid',     // Pira — runs the stores
+};
+
 // ── Replace _drawJGNPC with per-character pixel art ──────────────────────────
 window._drawJGNPC = function _drawJGNPC(npc, sx, sy, ctx) {
   const now = Date.now();
@@ -34391,6 +34421,19 @@ window._drawJGNPC = function _drawJGNPC(npc, sx, sy, ctx) {
   // Shadow
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
   ctx.beginPath(); ctx.ellipse(sx, sy + 2 + bob, 8, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Real sprite where one exists; the painted characters below stay as the
+  // fallback, exactly as the hobo camp does it.
+  const _jgSprite = JG_NPC_SPRITES[npc.id];
+  if (_jgSprite && window.DHArt && DHArt.ready(_jgSprite)) {
+    DHArt.play(npc, 'idle');
+    DHArt.face(npc, npcSpriteFacing({ x: npc.tx * JG_T, y: npc.ty * JG_T }));
+    if (DHArt.drawActor(ctx, _jgSprite, npc, sx, sy + bob,
+                        { scale: NPC_SPRITE_SCALE, footY: 9 })) {
+      _drawJGNameTag(npc, sx, sy, bob, ctx);
+      return;
+    }
+  }
 
   switch (npc.id) {
 
@@ -34540,28 +34583,31 @@ window._drawJGNPC = function _drawJGNPC(npc, sx, sy, ctx) {
     }
   }
 
-  // Name/role tag on proximity — cleaner design
+  _drawJGNameTag(npc, sx, sy, bob, ctx);
+};
+
+// Proximity name tag — shared by the sprite path and the painted fallback.
+function _drawJGNameTag(npc, sx, sy, bob, ctx) {
   const dist = Math.hypot(
     player.x - (npc.tx * JG_T + JG_T / 2),
     player.y - (npc.ty * JG_T + JG_T / 2)
   );
-  if (dist < 110) {
-    const alpha = Math.min(1, (110 - dist) / 40);
-    ctx.globalAlpha = alpha;
-    const labelW = 52;
-    ctx.fillStyle = 'rgba(4,12,4,0.82)';
-    ctx.fillRect(sx - labelW/2, sy - 36 + bob, labelW, 12);
-    ctx.strokeStyle = 'rgba(80,180,80,0.35)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(sx - labelW/2, sy - 36 + bob, labelW, 12);
-    ctx.fillStyle = '#90d890';
-    ctx.font = '7px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(npc.name, sx, sy - 27 + bob);
-    ctx.globalAlpha = 1;
-    ctx.lineWidth = 1;
-  }
-};
+  if (dist >= 110) return;
+  const alpha = Math.min(1, (110 - dist) / 40);
+  ctx.globalAlpha = alpha;
+  const labelW = 52;
+  ctx.fillStyle = 'rgba(4,12,4,0.82)';
+  ctx.fillRect(sx - labelW/2, sy - 36 + bob, labelW, 12);
+  ctx.strokeStyle = 'rgba(80,180,80,0.35)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(sx - labelW/2, sy - 36 + bob, labelW, 12);
+  ctx.fillStyle = '#90d890';
+  ctx.font = '7px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(npc.name, sx, sy - 27 + bob);
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = 1;
+}
 
 // ── Replace flat night overlay with radial torch vignette ────────────────────
 // Patch renderJungleZone's night section only — wrap the whole render
