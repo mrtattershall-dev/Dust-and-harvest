@@ -74,6 +74,24 @@ across two authors.
 
 ---
 
+## Jungle art
+
+The jungle zone was drawn entirely with canvas primitives until now. Its trees,
+bushes, rocks and lianas are packed into `assets/jungle/` by
+`tools/build_jungle.py`; `tools/jungle-map.json` records which source sprite
+became which group.
+
+| Group | Source pack | Author |
+|---|---|---|
+| `treeLarge` `treeMed` `treeSmall` `bush` `rock` | Pixel Art Herbalist's Hut — Top Down Asset Pack | CraftPix |
+| `liana` | Rocky Top Down Tileset Pixel Art for RPG | CraftPix |
+
+These are temperate-rainforest species standing in for tropical ones — no pack
+on hand has palms, banana leaves or buttress roots. Swapping in a tropical pack
+is an edit to `jungle-map.json`, not to the renderer.
+
+---
+
 ## Fonts
 
 **Special Elite** and **Rye**, via Google Fonts, under the SIL Open Font License.

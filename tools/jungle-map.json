@@ -1,0 +1,51 @@
+{
+  "_comment": [
+    "Jungle art sources. The jungle was the only zone in the game drawn entirely",
+    "with fillRect primitives — 168 of them, and zero drawImage calls. This maps",
+    "the packs onto the JG tile enum so drawJGTile can draw real art.",
+    "",
+    "Sheets are cut by connected opaque region, then sorted largest-area first.",
+    "Each entry is [index, \"WxH\"]: the index selects the sprite, the size is",
+    "checked against it so a pack revision that reorders sprites fails the build",
+    "loudly instead of silently mapping a rock onto a tree.",
+    "",
+    "Separate-file packs (the Rocky pack ships PNG/Objects_separately/ exactly",
+    "like the desert pack) are listed by filename instead.",
+    "",
+    "Run tools/build_jungle.py after editing.",
+    "",
+    "TROPICAL CAVEAT: no pack delivered so far has palms, banana leaves or",
+    "buttress roots. These are temperate-rainforest species standing in. Swapping",
+    "in a tropical pack later is an edit to this file, not to the renderer."
+  ],
+
+  "sheets": {
+    "herbalist": {
+      "pack": "herbalist",
+      "file": "Tiled_files/Trees_rocks.png",
+      "minPx": 80,
+      "groups": {
+        "treeLarge": [[1, "63x78"], [2, "62x79"], [3, "58x70"]],
+        "treeMed":   [[4, "53x64"], [5, "52x56"], [6, "48x59"]],
+        "treeSmall": [[7, "41x45"], [8, "29x48"], [9, "36x38"]],
+        "bush":      [[12, "31x31"], [13, "30x32"], [14, "29x29"], [16, "27x23"],
+                      [17, "23x25"], [18, "32x15"], [22, "16x15"], [24, "17x14"],
+                      [25, "16x14"]],
+        "rock":      [[10, "31x36"], [11, "32x31"], [15, "29x26"], [19, "30x15"],
+                      [20, "22x18"], [21, "20x19"], [23, "16x15"], [26, "12x12"],
+                      [27, "13x9"]]
+      }
+    }
+  },
+
+  "files": {
+    "rocky": {
+      "pack": "rocky",
+      "dir": "PNG/Objects_separately",
+      "groups": {
+        "liana": ["Lianas1.png", "Lianas2.png", "Lianas3.png", "Lianas10.png",
+                  "Lianas11.png", "Lianas12.png"]
+      }
+    }
+  }
+}
