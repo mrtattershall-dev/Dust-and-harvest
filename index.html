@@ -8237,7 +8237,7 @@ const TC = {
   [TL.GRASS]:     ['#598166','#426848'],  // the farmland tileset's turf
   [TL.DIRT]:      ['#8f4f35','#6a3a26'],  // the farm tileset's packed earth
   [TL.STONE]:     ['#5b4b41','#897762'],
-  [TL.WATER]:     ['#246fa6','#384e86'],
+  [TL.WATER]:     ['#3c6b70','#2b4f56'],
   [TL.SAND]:      ['#d2b268','#bb9c5a'],  // the desert pack's own sand, so the
                                           // painted fallback and minimap match
                                           // the baked texture
@@ -8559,11 +8559,15 @@ function drawTile(tx,ty,sx,sy) {
     ctx.beginPath(); ctx.ellipse(sx+T/2-4,sy+T/2-10,3,2,0,0,Math.PI*2); ctx.fill();
   }
   else if(t===TL.WATER){
-    // Mana Seed water — exact pixel frames from summer water sparkles B sheet
-    // Base: #246fa6, sparse pixel overlay cycles through 4 frames
-    // Colors: 1=#246fa6(dark) 2=#49a3cb(mid) 3=#92d2f0(bright)
-    const WC=['','#246fa6','#49a3cb','#92d2f0'];
-    const BASE='#246fa6', DEEP='#384e86', FOAM='rgba(223,252,253,.25)';
+    // Sparse pixel sparkle overlay, four frames, offset per tile.
+    //
+    // Retinted from the original cyan (#246fa6 base, #92d2f0 highlights) to a
+    // muted slate-teal. The bright blue was the last saturated colour left on
+    // the map and it fought everything around it — the ground is #d2b268 sand,
+    // #8f4f35 earth and #598166 grass, and a tropical blue river through that
+    // reads as a different game. A frontier river is silt and sky, not lagoon.
+    const WC=['','#3c6b70','#5b8f8c','#8fb8ad'];
+    const BASE='#3c6b70', DEEP='#2b4f56', FOAM='rgba(210,230,220,.22)';
 
     // Fill base
     ctx.fillStyle=BASE; ctx.fillRect(sx,sy,T,T);
@@ -8581,13 +8585,18 @@ function drawTile(tx,ty,sx,sy) {
     // Frame index — each tile offset by its position so they don't all animate in sync
     const fi = (Math.floor(Date.now()/320) + tx*3 + ty*5) & 3;
     const frame = FRAMES[fi];
-    // Draw 2x2 tiling of the 16x16 pattern to fill the 32x32 tile
+    // The sparkle sheet is 16px and the tile is 32, so the pattern is laid
+    // four times per tile. Laying it identically four times put a visible 16px
+    // grid across the whole river — the frame index varies per tile, but not
+    // within one. Each quadrant is mirrored instead, which costs nothing and
+    // breaks the repeat: the eye stops finding the lattice.
     for(const [px,py,ci] of frame){
       ctx.fillStyle=WC[ci];
-      ctx.fillRect(sx+px,   sy+py,   1,1);  // top-left quadrant
-      ctx.fillRect(sx+px+16,sy+py,   1,1);  // top-right
-      ctx.fillRect(sx+px,   sy+py+16,1,1);  // bottom-left
-      ctx.fillRect(sx+px+16,sy+py+16,1,1);  // bottom-right
+      const mx = 15 - px, my = 15 - py;          // the mirrored coordinates
+      ctx.fillRect(sx+px,      sy+py,      1,1); // top-left  — as drawn
+      ctx.fillRect(sx+mx+16,   sy+py,      1,1); // top-right — flipped in x
+      ctx.fillRect(sx+px,      sy+my+16,   1,1); // bottom-left — flipped in y
+      ctx.fillRect(sx+mx+16,   sy+my+16,   1,1); // bottom-right — both
     }
     // Top foam edge
     ctx.fillStyle=FOAM; ctx.fillRect(sx,sy,T,1);
@@ -8981,8 +8990,8 @@ function drawTile(tx,ty,sx,sy) {
     ctx.fillStyle='#b89858'; ctx.fillRect(sx,sy,T,T);
     ctx.fillStyle='#c8a860'; ctx.fillRect(sx,sy,T,2);
     // Water edge — lower half
-    ctx.fillStyle='#246fa6'; ctx.fillRect(sx,sy+T*0.5,T,T*0.5);
-    ctx.fillStyle='#384e86'; ctx.fillRect(sx,sy+T-4,T,4);
+    ctx.fillStyle='#3c6b70'; ctx.fillRect(sx,sy+T*0.5,T,T*0.5);
+    ctx.fillStyle='#2b4f56'; ctx.fillRect(sx,sy+T-4,T,4);
     // Animated water ripple rings
     const rt=Date.now()*0.0018+tx*0.8+ty*0.6;
     const ra=0.35+0.25*Math.sin(rt);
@@ -18381,7 +18390,7 @@ const MINIMAP_TILE_COLORS = {
   // Terrain — warm frontier palette
   [TL.GRASS]:'#598166',      [TL.DIRT]:'#8f4f35',        [TL.SAND]:'#d2b268',
   [TL.STONE]:'#5b4b41',      [TL.ROCK]:'#897762',         [TL.FLOWERS]:'#a8c85c',
-  [TL.WATER]:'#246fa6',      [TL.DEEP_WATER]:'#384e86',   [TL.ROAD]:'#8f7c66',
+  [TL.WATER]:'#3c6b70',      [TL.DEEP_WATER]:'#2b4f56',   [TL.ROAD]:'#8f7c66',
   [TL.TREE]:'#276b1f',       [TL.BUSH]:'#426848',
   // Farm
   [TL.FARM_DRY]:'#7a6251',   [TL.FARM_TILLED]:'#423734', [TL.FARM_WATERED]:'#382f2c',
@@ -20251,9 +20260,9 @@ function drawHCTile(t, tx, ty, sx, sy) {
     }
     case TL.WATER: {
       // Same Mana Seed pixel frames as overworld but with murky green overlay
-      const WC=['','#246fa6','#49a3cb','#92d2f0'];
-      ctx.fillStyle='#246fa6'; ctx.fillRect(sx,sy,HC_T,HC_T);
-      ctx.fillStyle='#384e86'; ctx.fillRect(sx,sy+HC_T-6,HC_T,6);
+      const WC=['','#3c6b70','#5b8f8c','#8fb8ad'];
+      ctx.fillStyle='#3c6b70'; ctx.fillRect(sx,sy,HC_T,HC_T);
+      ctx.fillStyle='#2b4f56'; ctx.fillRect(sx,sy+HC_T-6,HC_T,6);
       const FRAMES=[
         [[1,1,3],[2,1,2],[7,3,3],[11,3,2],[12,3,2],[6,5,2],[13,5,2],[14,5,3],[2,6,2],[3,6,2],[4,8,3],[5,8,2],[9,9,3],[2,11,2],[3,11,2],[13,11,3],[5,13,3],[14,13,2],[0,14,3],[1,14,2],[10,14,2],[11,14,2]],
         [[1,1,2],[2,1,3],[7,3,2],[11,3,2],[12,3,3],[6,5,3],[13,5,2],[14,5,2],[2,6,2],[3,6,3],[4,8,2],[5,8,3],[9,9,2],[10,9,3],[2,11,3],[3,11,2],[13,11,2],[5,13,2],[14,13,3],[0,14,2],[1,14,2],[10,14,2],[11,14,3]],
@@ -20708,7 +20717,7 @@ function renderHoboCampMinimap() {
 
   const colorMap={
     [TL.GRASS]:'#598166',  [TL.DIRT]:'#8f4f35',   [TL.ROAD]:'#8f7c66',
-    [TL.WATER]:'#246fa6',  [TL.WALL]:'#544b46',    [TL.STONE]:'#5b4b41',
+    [TL.WATER]:'#3c6b70',  [TL.WALL]:'#544b46',    [TL.STONE]:'#5b4b41',
     [TL.TOWN_FLOOR]:'#897762',[TL.CAMPFIRE]:'#e07820',[TL.WELL]:'#766a64',
     [TL.CRATE]:'#7a6251',  [TL.TREE]:'#276b1f',    [TL.ROCK]:'#5b4b41',
     [TL.BUSH]:'#426848',   [HC.EXIT]:'#c8b870',

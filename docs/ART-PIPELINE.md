@@ -300,6 +300,30 @@ poll backs all of them up, because a game that renders into a stale buffer
 shows a black screen with no way to recover. `resize()` returns immediately
 when nothing changed, so the poll costs two property reads.
 
+## Not everything painted needs replacing
+
+The water is the case in point. It looked wrong, and the reflex was to swap it
+for pack art — but the painted water is a four-frame sparkle animation with the
+frame index offset per tile, and the delivered packs' water is a flat
+periwhinkle fill with no motion at all. Replacing it would have lost the
+animation and gained nothing.
+
+What was actually wrong was the **colour** and a **sub-tile repeat**:
+
+* `#246fa6` was the last saturated colour on the map, against #d2b268 sand,
+  #8f4f35 earth and #598166 grass. A tropical blue river through that reads as
+  a different game. Retinted to a muted slate-teal — a frontier river is silt
+  and sky, not lagoon.
+* The sparkle sheet is 16px and the tile is 32, so the pattern is laid four
+  times per tile — identically, which put a 16px lattice across the river. The
+  frame index varied per tile but not within one. Each quadrant is mirrored
+  now, which costs nothing and breaks the repeat.
+
+**A tile colour lives in more places than its draw branch.** Water's was in
+six: the tile branch, the edge-blend table, two minimap tables, the
+fishing-spot bank, and the hobo camp creek. Change one and the minimap
+disagrees with the world. `grep` the hex, don't trust the branch.
+
 ## Fixed decorations
 
 `tools/build_fixtures.py` cuts nine pieces out of two packs into
