@@ -267,6 +267,23 @@ Guards were added at the three variant lookups so the same class of mistake
 degrades to a missing fence rather than a black screen. `arr && arr.length`,
 not `arr` — an empty array passes a truthiness check.
 
+### There is a test for this now
+
+```
+./tools/test_render.py          # the repo
+./tools/test_render.py <dir>    # some other build
+```
+
+It draws every tile of the overworld at four viewport **shapes** — wide, tall,
+short, narrow — and separately clears the lazy caches and draws each dependent
+tile type first, which is the cold-start ordering a phone hits and a desktop
+does not. Non-zero exit on failure.
+
+It was written against the bug above and checked against it: run it on the
+commit before the fix and it fails all four shapes, catching 131 fence tiles
+and one gate. A regression test that has not been seen to fail is not yet a
+test.
+
 ## Canvas sizing in an in-app browser
 
 `#gameCanvas` had no CSS width or height, so it displayed at exactly its

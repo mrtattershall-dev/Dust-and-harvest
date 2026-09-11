@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""Regression tests for the world render. Exits non-zero on failure.
+
+    ./tools/test_render.py            # serves the repo and tests it
+    ./tools/test_render.py <dir>      # test a different build directory
+
+Two checks, both written against real bugs that shipped:
+
+1. COLD-START ORDERING. `drawTile`'s painted branches are not pure drawing
+   code — the dirt branch also builds the dirt, fence and fence-gate tile
+   variants in one lazy block, and TL.FENCE and TL.FENCE_GATE depend on that
+   side effect. Wiring dirt to the baked ground put an early `return` in front
+   of that block, so the caches stayed empty and the first fence tile on screen
+   threw out of `drawImage` — which aborts `render()` for the whole frame and
+   blanks the screen.
+
+   The test clears the caches and draws each dependent tile type FIRST, which
+   is what a viewport showing a fence before any dirt does on a real device.
+
+2. EVERY TILE TYPE, FOUR VIEWPORT SHAPES. The bug above only appeared on a
+   phone, because whether a fence is on screen depends on the SHAPE of the
+   viewport and not its size. Testing 1280x800 and calling it covered is how it
+   reached a user.
+
+Needs Playwright and the Chromium at PLAYWRIGHT_BROWSERS_PATH.
+"""
+import asyncio
+import http.server
+import os
+import socketserver
+import sys
+import threading
+import time
+from pathlib import Path
+
+from playwright.async_api import async_playwright
+
+REPO = Path(__file__).resolve().parent.parent
+CHROMIUM = os.environ.get("CHROMIUM", "/opt/pw-browsers/chromium")
+SHAPES = [(1280, 800, "wide"), (428, 926, "tall"),
+          (926, 428, "short"), (360, 780, "narrow")]
+
+BOOT = """() => { startNewGame();
+  const t=document.getElementById('titleScreen'); t.classList.remove('show'); t.style.display='none';
+  const i=document.getElementById('introScreen'); if(i){i.classList.remove('show');i.style.display='none';} }"""
+
+COLD_START = """() => {
+  const out = {};
+  for (const type of ['FENCE','FENCE_GATE','SPRINKLER']) {
+    if (TL[type] === undefined) { out[type] = 'skip: no such tile'; continue; }
+    let fx = -1, fy = -1;
+    for (let y=0; y<MAP_H && fy<0; y++) for (let x=0; x<MAP_W; x++)
+      if (tileMap[y*MAP_W+x] === TL[type]) { fx=x; fy=y; break; }
+    if (fx < 0) { out[type] = 'skip: none on map'; continue; }
+    delete drawTile._dirtV; delete drawTile._fenceV;
+    delete drawTile._fenceHV; delete drawTile._fenceGateV;
+    let drew = 0; const od = ctx.drawImage;
+    ctx.drawImage = function () { drew++; return od.apply(this, arguments); };
+    try { drawTile(fx, fy, 0, 0); out[type] = drew > 0 ? 'ok' : 'FAIL: drew nothing'; }
+    catch (e) { out[type] = 'FAIL: threw ' + e.message.slice(0, 60); }
+    finally { ctx.drawImage = od; }
+  }
+  return out;
+}"""
+
+ALL_TILES = """() => {
+  const NAME = {}; for (const k in TL) NAME[TL[k]] = k;
+  const fails = {};
+  for (let y=0; y<MAP_H; y++) for (let x=0; x<MAP_W; x++) {
+    try { drawTile(x, y, 0, 0); }
+    catch (e) {
+      const k = (NAME[tileMap[y*MAP_W+x]] || '?') + ': ' + e.message.slice(0, 50);
+      fails[k] = (fails[k] || 0) + 1;
+    }
+  }
+  return fails;
+}"""
+
+
+def serve(directory, port):
+    class H(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *a, **k): super().__init__(*a, directory=str(directory), **k)
+        def log_message(self, *a): pass
+    httpd = socketserver.TCPServer(("", port), H)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    return httpd
+
+
+async def main():
+    root = Path(sys.argv[1]) if len(sys.argv) > 1 else REPO
+    port = int(os.environ.get("PORT", 8765))
+    serve(root, port)
+    failures = []
+
+    async with async_playwright() as p:
+        b = await p.chromium.launch(executable_path=CHROMIUM)
+        for w, h, label in SHAPES:
+            ctx = await b.new_context(viewport={"width": w, "height": h})
+            pg = await ctx.new_page()
+            errs = []
+            pg.on("pageerror", lambda e: errs.append(str(e)[:80]))
+            await pg.route("**fonts.g**", lambda r: r.abort())
+            await pg.goto(f"http://localhost:{port}/index.html?v={time.time()}")
+            await pg.wait_for_timeout(4500)
+            await pg.evaluate(BOOT)
+            await pg.wait_for_timeout(1200)
+
+            cold = await pg.evaluate(COLD_START)
+            bad = {k: v for k, v in cold.items() if v.startswith("FAIL")}
+            tiles = await pg.evaluate(ALL_TILES)
+
+            ok = not bad and not tiles and not errs
+            print(f"{'PASS' if ok else 'FAIL'}  {label:7s} {w}x{h}")
+            for k, v in cold.items():
+                print(f"         cold-start {k}: {v}")
+            if tiles:
+                print(f"         tile draws threw: {tiles}")
+            if errs:
+                print(f"         page errors: {errs[:3]}")
+            if not ok:
+                failures.append(label)
+            await ctx.close()
+        await b.close()
+
+    if failures:
+        print(f"\n{len(failures)} shape(s) failed: {', '.join(failures)}")
+        return 1
+    print("\nall shapes pass")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(asyncio.run(main()))
