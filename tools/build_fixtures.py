@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Cut the world's fixed decorations out of two packs into one atlas.
 
-Run:  ./tools/build_fixtures.py <hunters-lodge-pack> <armor-and-weapons-pack>
+Run:  ./tools/build_fixtures.py <hunters-lodge-pack> <armor-and-weapons-pack> <desert-tileset-pack>
 
 Emits assets/fixtures/fixtures.png + fixtures.json — one small atlas of named
 pieces, each at its native size, blitted at fixed offsets by the draw code.
@@ -63,11 +63,34 @@ PIECES2 = {
     "table": ("Furniture.png", 53, 10, 39, 22),   # empty trestle table
 }
 
+# ── Trees (Desert Tileset) ──────────────────────────────────────────────
+# 64x64, so bigger than a 32px tile — drawn by the overhang pass rather than
+# by drawTile, anchored at the tile's base so the canopy spills over the tiles
+# above it, which is what a tree does.
+#
+# Each tree has a ground disc painted into its base, in a sand version and a
+# grass version. That looked like a reason to reject the whole set — a sand
+# disc on grass reads as a mistake. It is the opposite: the caller picks the
+# variant matching the ground the tree stands on, so the disc becomes the
+# scrub-and-dust apron a real tree has. Hence the _grass/_sand suffixes here;
+# they are not decoration, they are the selector.
+#
+# Tree1 is broadleaf and Tree3 a dense round bush. The pack's Tree2 and Tree4
+# are spiky oasis palms and are deliberately left out — this is a dust-bowl
+# frontier, not a lagoon.
+PIECES3 = {
+    "tree_grass_big":   ("Tree1_grass_shadow2.png", 0, 0, 64, 64),
+    "tree_grass_small": ("Tree1_grass_shadow3.png", 0, 0, 64, 64),
+    "tree_sand_big":    ("Tree1_sand_shadow2.png",  0, 0, 64, 64),
+    "tree_sand_small":  ("Tree1_sand_shadow3.png",  0, 0, 64, 64),
+    "tree_bush":        ("Tree3_3.png",             0, 0, 64, 64),
+}
+
 PAD = 1   # a transparent gutter, so no piece bleeds into its neighbour
 
 
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 4:
         raise SystemExit(__doc__)
     srcs = []
     for a in sys.argv[1:]:
@@ -77,8 +100,10 @@ def main():
         srcs.append(d)
 
     cut = {}
-    for name, (fn, x, y, w, h) in list(PIECES.items()) + list(PIECES2.items()):
-        src = srcs[0] if name in PIECES else srcs[1]
+    ALL = list(PIECES.items()) + list(PIECES2.items()) + list(PIECES3.items())
+    for name, (fn, x, y, w, h) in ALL:
+        src = (srcs[0] if name in PIECES else
+               srcs[1] if name in PIECES2 else srcs[2] / "Objects_separately")
         sheet = Image.open(src / fn).convert("RGBA")
         im = sheet.crop((x, y, x + w, y + h))
         bb = im.getbbox()

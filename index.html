@@ -8527,36 +8527,11 @@ function drawTile(tx,ty,sx,sy) {
     }
   }
   else if(t===TL.TREE){
-    const TRK=['#292129','#5b4b41','#897762','#cfc7b2'];
-    const CAN=['#292129','#276b1f','#57973b','#a8c85c','#e3f19e'];
+    // The ground only. The tree itself is 64px — bigger than this 32px tile —
+    // so it is drawn by drawOverhangProps() after the whole tile pass, or the
+    // tiles to its right and below would paint over its canopy.
     ctx.fillStyle=_owBase(); ctx.fillRect(sx,sy,T,T);
-    // Ground shadow under canopy
     ctx.fillStyle='rgba(0,0,0,.18)'; ctx.fillRect(sx+4,sy+T-8,T-8,6);
-    // Trunk — narrower, only bottom half
-    ctx.fillStyle=TRK[0]; ctx.fillRect(sx+T/2-2,sy+T/2+2,6,T/2-4);
-    ctx.fillStyle=TRK[1]; ctx.fillRect(sx+T/2-1,sy+T/2+3,4,T/2-5);
-    ctx.fillStyle=TRK[3]; ctx.fillRect(sx+T/2-1,sy+T/2+3,1,T/2-6);
-    // Root flare — subtle
-    ctx.fillStyle=TRK[1];
-    ctx.fillRect(sx+T/2-4,sy+T-6,3,4); ctx.fillRect(sx+T/2+2,sy+T-6,3,4);
-    // Canopy — ellipses, slightly transparent at outer edge to blend into bg
-    ctx.fillStyle=CAN[0];
-    ctx.globalAlpha=0.85;
-    ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2-4,12,10,0,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(sx+T/2-6,sy+T/2-7,8,7,-0.3,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(sx+T/2+6,sy+T/2-5,7,6,0.3,0,Math.PI*2); ctx.fill();
-    ctx.globalAlpha=1.0;
-    ctx.fillStyle=CAN[1];
-    ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2-4,10,8,0,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(sx+T/2-5,sy+T/2-7,6,5,-0.3,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(sx+T/2+5,sy+T/2-5,5,4,0.3,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle=CAN[2];
-    ctx.beginPath(); ctx.ellipse(sx+T/2-1,sy+T/2-5,8,7,0,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(sx+T/2-4,sy+T/2-8,4,3,-0.3,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle=CAN[3];
-    ctx.beginPath(); ctx.ellipse(sx+T/2-3,sy+T/2-8,6,5,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle=CAN[4];
-    ctx.beginPath(); ctx.ellipse(sx+T/2-4,sy+T/2-10,3,2,0,0,Math.PI*2); ctx.fill();
   }
   else if(t===TL.WATER){
     // Sparse pixel sparkle overlay, four frames, offset per tile.
@@ -10085,6 +10060,57 @@ function _seasonGoods() {
     ? Object.keys(s.priceBonus).filter(id => ITEMS[id] && ITEMS[id].type === 'crop')
     : [];
   return ids.length ? ids : STALL_GOODS.dry;
+}
+
+// § OVERHANG PROPS
+// Anything taller than one tile. drawTile cannot draw these: it paints tiles
+// left-to-right and top-to-bottom, so a 64px tree drawn in the tile pass is
+// immediately painted over by the tiles to its right and below. They get their
+// own pass after every tile is down, sorted by row so a nearer tree overlaps a
+// farther one.
+//
+// The pass runs BEFORE the entities. That means a character standing on the
+// tile above a tree is drawn over its canopy rather than behind it — slightly
+// wrong, and the lesser of the two errors: drawing after the entities would
+// hide anyone standing in front of the trunk, which is much more noticeable.
+// Fixing it properly means y-sorting props and entities together.
+const OVERHANG_GRASS = ['tree_grass_big', 'tree_grass_small', 'tree_bush'];
+const OVERHANG_SAND  = ['tree_sand_big',  'tree_sand_small',  'tree_bush'];
+
+function drawOverhangProps(cx, cy) {
+  if (!_fixArt.ok) return;
+  // Only the visible rows, plus a margin: a tree rooted below the bottom edge
+  // still has a canopy reaching into view, and one rooted to the right of the
+  // edge still overhangs leftwards.
+  const tw = canvas.width / ZOOM, th = canvas.height / ZOOM;
+  const x0 = Math.max(0, Math.floor(cx / T) - 2);
+  const x1 = Math.min(MAP_W - 1, Math.ceil((cx + tw) / T) + 2);
+  const y0 = Math.max(0, Math.floor(cy / T) - 1);
+  const y1 = Math.min(MAP_H - 1, Math.ceil((cy + th) / T) + 3);
+
+  for (let ty = y0; ty <= y1; ty++) {          // row by row = the depth sort
+    for (let tx = x0; tx <= x1; tx++) {
+      if (getT(tx, ty) !== TL.TREE) continue;
+      if (!exploredWorld[ty * MAP_W + tx]) continue;
+      // Which ground the tree stands on picks the variant, because each one
+      // has its ground disc painted in. Neighbours decide it rather than the
+      // tile itself: a TREE tile is TREE, not grass or sand.
+      // Majority of the four neighbours, not a fixed threshold. "At least two
+      // of four are grass" sounded reasonable and gave the grass apron to only
+      // 4 of 37 trees, because the wilderness fill is mostly stone and dirt —
+      // so trees standing in a grass pocket were getting a sand apron.
+      let grassy = 0, dry = 0;
+      for (const [ox, oy] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+        const n = getT(tx + ox, ty + oy);
+        if (n === TL.GRASS || n === TL.FLOWERS) grassy++;
+        else if (n === TL.SAND || n === TL.DIRT) dry++;
+      }
+      const set = grassy > dry ? OVERHANG_GRASS : OVERHANG_SAND;
+      // Same hash the scatter props use, so a given tree is always that tree.
+      const v = ((tx * 374761393 ^ ty * 668265263) >>> 0) % set.length;
+      drawFixture(set[v], tx * T + T / 2 - cx, (ty + 1) * T - cy);
+    }
+  }
 }
 
 function drawMarketStalls(cx, cy) {
@@ -19033,6 +19059,7 @@ function render() {
   }
 
   for (const npc of npcs) drawNPC(npc);
+  drawOverhangProps(cx, cy);
   drawMarketStalls(cx, cy);
   drawMerchant(cx, cy);
   drawTrapper(cx, cy);

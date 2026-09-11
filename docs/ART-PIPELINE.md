@@ -300,6 +300,41 @@ poll backs all of them up, because a game that renders into a stale buffer
 shows a black screen with no way to recover. `resize()` returns immediately
 when nothing changed, so the poll costs two property reads.
 
+## Props taller than a tile
+
+`drawTile` cannot draw them. It paints tiles left-to-right and top-to-bottom,
+so a 64px tree drawn in the tile pass is immediately painted over by the tiles
+to its right and below. `drawOverhangProps()` runs after every tile is down,
+walking the visible rows in order so a nearer tree overlaps a farther one, and
+anchoring each piece at its tile's **base** so the canopy spills upward.
+
+Scan a margin beyond the visible tiles — a tree rooted just below the bottom
+edge still has a canopy reaching into view.
+
+**Where the pass sits is a choice between two wrongnesses.** Before the
+entities, a character standing on the tile above a tree is drawn over its
+canopy instead of behind it. After them, anyone standing in front of the trunk
+is hidden by the tree, which is far more noticeable. It runs before. Fixing it
+properly means y-sorting props and entities in one list.
+
+### A baked-in ground disc is a selector, not a defect
+
+The desert pack's trees each have a ground disc painted into the base, in a
+sand version and a grass version, and that looked like grounds to reject the
+whole set: a sand disc on grass reads as a mistake. It is the opposite. The
+caller picks the variant matching the ground the tree stands on, and the disc
+becomes the scrub-and-dust apron a real tree has.
+
+Choose it by **majority of the four neighbours**, not a fixed threshold — and
+not from the tile itself, which is `TL.TREE`, not grass or sand. "At least two
+of four are grass" sounded reasonable and gave the grass apron to 4 trees out
+of 37, because the wilderness fill is mostly stone and dirt; trees standing in
+a grass pocket were getting a sand apron. Counting grass against dry and
+taking the larger fixed it.
+
+The pack's spiky oasis palms (Tree2, Tree4) are left out on purpose. This is a
+dust-bowl frontier, not a lagoon.
+
 ## Derived prop groups
 
 A group in `assets/props/` can be baked by recolouring another rather than
