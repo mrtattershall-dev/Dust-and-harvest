@@ -300,6 +300,28 @@ poll backs all of them up, because a game that renders into a stale buffer
 shows a black screen with no way to recover. `resize()` returns immediately
 when nothing changed, so the poll costs two property reads.
 
+## Derived prop groups
+
+A group in `assets/props/` can be baked by recolouring another rather than
+from its own files — see `DERIVED` in `tools/build_props.py`.
+
+`TL.STONE` is the case it was built for. 574 tiles of it — the massif around
+the mine and boulders through the wilderness — and it was one flat grey
+rounded rectangle repeated on a rigid grid. The desert pack has no cliff or
+mountain art at this density: its large rocks are 64px stacked cairns with
+grass tufts baked into their bases, suiting neither a mountain face nor stone
+ground, and there is no 32px tree in it at all.
+
+What it does have is 24 good 32px boulders — already the `rock` group, used by
+the gatherable `TL.ROCK`. Pointing `TL.STONE` straight at them would have made
+the scenery you cannot mine identical to the node you can, and **art that
+erases a gameplay distinction is a downgrade however good it looks**. So
+`stonewall` is those same 24 silhouettes recoloured cold at bake time: same
+variety, obviously different material, distinction intact, no runtime cost.
+
+Hue is left alone in the recolour — lightness shifts and saturation scales.
+These are the artist's shapes and shading; only the material changes.
+
 ## Not everything painted needs replacing
 
 The water is the case in point. It looked wrong, and the reflex was to swap it

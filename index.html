@@ -8602,29 +8602,19 @@ function drawTile(tx,ty,sx,sy) {
     ctx.fillStyle=FOAM; ctx.fillRect(sx,sy,T,1);
   }
   else if(t===TL.STONE){
+    // Real boulders from the desert pack, recoloured cold at bake time so the
+    // impassable stone reads as a different material from the gatherable
+    // TL.ROCK below, which keeps the pack's warm sandstone. Both are the same
+    // 24 silhouettes, so the massif around the mine has real variety instead
+    // of the single flat grey rounded rectangle this used to repeat 574 times.
     ctx.fillStyle=_owBase(); ctx.fillRect(sx,sy,T,T);
-    const s=seed;
-    // Ground shadow
-    ctx.fillStyle='rgba(0,0,0,.2)'; ctx.fillRect(sx+3,sy+T-6,T-6,5);
-    // Main rock body — large, angular, fills most of tile
-    ctx.fillStyle='#58504a'; ctx.fillRect(sx+2,sy+5,T-4,T-11);
-    ctx.fillStyle='#6e6258'; ctx.fillRect(sx+3,sy+6,T-6,T-13);
-    // Top face — lighter, angled top edge
-    ctx.fillStyle='#7e7068'; ctx.fillRect(sx+3,sy+6,T-6,6);
-    ctx.fillStyle='#8e8078'; ctx.fillRect(sx+3,sy+6,T-6,2); // highlight ridge
-    // Right shadow face
-    ctx.fillStyle='#4a4240'; ctx.fillRect(sx+T-6,sy+6,4,T-13);
-    // Bottom shadow
-    ctx.fillStyle='#3a3230'; ctx.fillRect(sx+3,sy+T-8,T-6,3);
-    // Crack lines — two diagonal
-    ctx.fillStyle='rgba(30,20,15,.5)';
-    ctx.fillRect(sx+T/2-1,sy+8,1,T-14); // vertical crack
-    ctx.fillRect(sx+5,sy+10,T/3,1);      // horizontal crack
-    // Notch cutouts from ground base showing through top corners
-    ctx.fillStyle=_owBase();
-    ctx.fillRect(sx,sy+5,3,4); ctx.fillRect(sx+T-3,sy+5,3,4);
-    // Surface speckle
-    if(s%3===0){ ctx.fillStyle='rgba(200,185,165,.25)'; ctx.fillRect(sx+r(s,18)+4,sy+r(s*3,8)+7,4,2); }
+    if(!DHProps.draw(ctx,'stonewall',sx,sy,tx,ty)){
+      // Painted stand-in, so a missing atlas still blocks the way visibly.
+      ctx.fillStyle='rgba(0,0,0,.2)'; ctx.fillRect(sx+3,sy+T-6,T-6,5);
+      ctx.fillStyle='#58504a'; ctx.fillRect(sx+2,sy+5,T-4,T-11);
+      ctx.fillStyle='#6e6258'; ctx.fillRect(sx+3,sy+6,T-6,T-13);
+      ctx.fillStyle='#7e7068'; ctx.fillRect(sx+3,sy+6,T-6,6);
+    }
   }
   else if(t===TL.ROCK){
     const RK=['#292129','#5b4b41','#897762','#cfc7b2','#e0e0d0'];

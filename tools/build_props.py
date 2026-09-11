@@ -17,6 +17,7 @@ Usage:
   ./tools/build_props.py /path/to/deserttilesettopdownpixelart
 """
 
+import colorsys
 import json
 import sys
 from pathlib import Path
@@ -33,6 +34,43 @@ OUT = REPO / "assets" / "props"
 CELL = 32
 COLS = 16
 SRC_SUB = "PNG/Objects_separately"
+
+
+# Groups baked by recolouring another group rather than from their own files.
+#
+# TL.STONE (574 tiles — the massif around the mine, and boulders through the
+# wilderness) was 574 identical flat grey rounded rectangles on a rigid grid.
+# The desert pack has no cliff or mountain art at this density: its big rocks
+# are 64px stacked cairns with grass tufts baked into their bases, which suit
+# neither a mountain face nor stone ground.
+#
+# What it does have is 24 good 32px boulders — already the `rock` group, used
+# by the gatherable TL.ROCK. Pointing STONE at them directly would make the
+# scenery you cannot mine identical to the node you can, which is a real
+# readability loss. So STONE gets the same silhouettes, recoloured cold: same
+# variety, obviously different material, and the distinction survives.
+#
+# dl shifts lightness, sr scales saturation. Hue is left alone — these are the
+# artist's own shapes and shading, only the material changes.
+DERIVED = {
+    "stonewall": {"from": "rock", "dl": -0.08, "sr": 0.35},
+}
+
+
+def recolour(im, dl, sr):
+    out = im.copy()
+    px = out.load()
+    for y in range(out.size[1]):
+        for x in range(out.size[0]):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            h, l, s = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
+            l = max(0.0, min(1.0, l + dl))
+            s = max(0.0, min(1.0, s * sr))
+            nr, ng, nb = colorsys.hls_to_rgb(h, l, s)
+            px[x, y] = (round(nr * 255), round(ng * 255), round(nb * 255), a)
+    return out
 
 
 def log(m):
@@ -72,6 +110,23 @@ def main():
         if idxs:
             out_groups[name] = idxs
         log(f"  {name:12s} {len(idxs)} variants")
+
+    # Derived groups reuse the already-loaded images, recoloured.
+    for name, spec in DERIVED.items():
+        base = groups.get(spec["from"])
+        if not base:
+            log(f"  ?? derived '{name}': no source group '{spec['from']}'")
+            continue
+        idxs = []
+        for f in base:
+            if f not in seen:
+                continue
+            tinted = recolour(order[seen[f]][1], spec["dl"], spec["sr"])
+            idxs.append(len(order))
+            order.append((f + f"#{name}", tinted))
+        if idxs:
+            out_groups[name] = idxs
+            log(f"  {name:12s} {len(idxs)} variants (recoloured from '{spec['from']}')")
 
     for f in missing:
         log(f"  ?? missing source: {f}")
