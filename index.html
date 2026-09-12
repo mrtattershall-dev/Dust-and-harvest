@@ -8627,6 +8627,48 @@ function drawBarn(bx, by, bw, bh, open) {
   ctx.lineWidth = 1;
 }
 
+// A crack network across dried ground, built on a jittered lattice in WORLD
+// coordinates so the cracks join across tile boundaries. Each tile draws the
+// segments that cross it, clipped to itself; the lattice does not know where
+// the tiles are.
+//
+// The alternative — a fixed arrangement of cracks inside each tile — puts the
+// same marks in the same place on every tile, which is a grid if the marks
+// reach the edges and scattered punctuation if they do not. Both were tried.
+//
+// `open` is the share of lattice edges that are cracks; below 1 the mesh stops
+// reading as chicken wire.
+function drawCrackNet(sx, sy, tx, ty, size, cell, dark, lip, open) {
+  ctx.save();
+  ctx.beginPath(); ctx.rect(sx, sy, size, size); ctx.clip();
+  const node = (i, j) => {
+    const n = ((i * 374761393) ^ (j * 668265263)) >>> 0;
+    return [i * cell + (n % 7) - 3, j * cell + ((n >> 8) % 7) - 3];
+  };
+  const i0 = Math.floor((tx * size) / cell) - 1, i1 = Math.floor((tx * size + size) / cell) + 1;
+  const j0 = Math.floor((ty * size) / cell) - 1, j1 = Math.floor((ty * size + size) / cell) + 1;
+  const ox = sx - tx * size, oy = sy - ty * size;
+  ctx.lineWidth = 1;
+  const cut = Math.round(open * 4);
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+    const a = node(i, j);
+    const g = ((i * 2654435761) ^ (j * 40503)) >>> 0;
+    if ((g & 3) < cut) {
+      const b = node(i + 1, j);
+      ctx.strokeStyle = dark;
+      ctx.beginPath(); ctx.moveTo(a[0]+ox, a[1]+oy); ctx.lineTo(b[0]+ox, b[1]+oy); ctx.stroke();
+      if (lip) { ctx.strokeStyle = lip;
+        ctx.beginPath(); ctx.moveTo(a[0]+ox, a[1]+oy-1); ctx.lineTo(b[0]+ox, b[1]+oy-1); ctx.stroke(); }
+    }
+    if (((g >> 2) & 3) < cut) {
+      const c2 = node(i, j + 1);
+      ctx.strokeStyle = dark;
+      ctx.beginPath(); ctx.moveTo(a[0]+ox, a[1]+oy); ctx.lineTo(c2[0]+ox, c2[1]+oy); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
 // Decking: boards laid across a tile, drawn so a RUN of them reads as planks
 // laid side by side rather than as a row of tiles.
 //
@@ -23859,36 +23901,7 @@ function drawBLTile(tx,ty,sx,sy) {
     if(!DHGround.drawToned(ctx,'dust','#a87c44',sx,sy,tx,ty)){
       ctx.fillStyle='#a87c44'; ctx.fillRect(sx,sy,T,T);
     }
-    ctx.save();
-    ctx.beginPath(); ctx.rect(sx,sy,T,T); ctx.clip();
-    const CS=13;                                  // lattice pitch, world px
-    const node=(i2,j2)=>{
-      const n=((i2*374761393 ^ j2*668265263)>>>0);
-      return [i2*CS + (n%7) - 3, j2*CS + ((n>>8)%7) - 3];
-    };
-    const i0=Math.floor((tx*T)/CS)-1, i1=Math.floor((tx*T+T)/CS)+1;
-    const j0=Math.floor((ty*T)/CS)-1, j1=Math.floor((ty*T+T)/CS)+1;
-    const ox=sx-tx*T, oy=sy-ty*T;                 // world -> screen
-    ctx.lineWidth=1;
-    for(let j2=j0;j2<=j1;j2++) for(let i2=i0;i2<=i1;i2++){
-      const a=node(i2,j2);
-      const g=((i2*2654435761 ^ j2*40503)>>>0);
-      // Not every edge of the lattice is a crack — a third are left closed, or
-      // the network is a regular mesh and reads as chicken wire.
-      if((g&3)!==0){
-        const b=node(i2+1,j2);
-        ctx.strokeStyle='rgba(86,58,26,.55)';
-        ctx.beginPath(); ctx.moveTo(a[0]+ox,a[1]+oy); ctx.lineTo(b[0]+ox,b[1]+oy); ctx.stroke();
-        ctx.strokeStyle='rgba(216,176,116,.22)';   // lip catching the light
-        ctx.beginPath(); ctx.moveTo(a[0]+ox,a[1]+oy-1); ctx.lineTo(b[0]+ox,b[1]+oy-1); ctx.stroke();
-      }
-      if(((g>>2)&3)!==0){
-        const c2=node(i2,j2+1);
-        ctx.strokeStyle='rgba(86,58,26,.55)';
-        ctx.beginPath(); ctx.moveTo(a[0]+ox,a[1]+oy); ctx.lineTo(c2[0]+ox,c2[1]+oy); ctx.stroke();
-      }
-    }
-    ctx.restore();
+    drawCrackNet(sx, sy, tx, ty, T, 13, 'rgba(86,58,26,.55)', 'rgba(216,176,116,.22)', 0.75);
     // A few dry pebbles.
     ctx.fillStyle='rgba(200,170,110,.20)';
     if(h%3===0)  ctx.fillRect(sx+(h%24)+2, sy+(h2%22)+3, 2, 2);
@@ -35433,25 +35446,58 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
 
     // ── Water ──────────────────────────────────────────────────────────────
     case JG.WATER_DEEP: {
-      ctx.fillStyle = '#091e10'; ctx.fillRect(sx, sy, T, T);
-      // Shimmer lines
-      const phase = (now * 0.0008 + sx * 0.04 + sy * 0.03) % (Math.PI * 2);
-      ctx.fillStyle = `rgba(20,80,50,${0.25 + 0.15 * Math.sin(phase)})`;
-      ctx.fillRect(sx + 3, sy + T * 0.3, T - 6, 2);
-      ctx.fillStyle = `rgba(20,80,50,${0.18 + 0.12 * Math.sin(phase + 1.4)})`;
-      ctx.fillRect(sx + 6, sy + T * 0.6, T - 10, 2);
+      // Jungle river. Both of these filled near-black (#091e10 and #102818)
+      // and drew two short shimmer bars inside each tile, so a river read as
+      // dark squares with dashes on them rather than as water.
+      //
+      // Lifted into a readable green-teal, and the swells run on WORLD y with
+      // time, so they cross the whole river instead of each tile carrying a
+      // pair of its own. Snapped to whole pixels and drawn a pixel wider, or
+      // the ZOOM scaling leaves a hairline of the zone background at the tile
+      // edges — the ocean had exactly that.
+      const _wx = Math.round(sx), _ww = T + 1;
+      ctx.fillStyle = '#16342c';
+      ctx.fillRect(_wx, Math.round(sy), _ww, T + 1);
+      {
+        const ph = Date.now() * 0.007;
+        for (let py = 0; py < T; py++) {
+          const wy = ty * T + py, m = ((wy * 3 - ph) % 58 + 58) % 58;
+          if (m < 2) { ctx.fillStyle = 'rgba(96,150,126,.18)'; ctx.fillRect(_wx, Math.round(sy+py), _ww, 1); }
+          else if (m >= 4 && m < 6) { ctx.fillStyle = 'rgba(6,22,18,.26)'; ctx.fillRect(_wx, Math.round(sy+py), _ww, 1); }
+        }
+      }
       break;
     }
     case JG.WATER: {
-      ctx.fillStyle = '#102818'; ctx.fillRect(sx, sy, T, T);
-      const p2 = (now * 0.001 + sx * 0.05 + sy * 0.04) % (Math.PI * 2);
-      ctx.fillStyle = `rgba(30,100,60,${0.3 + 0.2 * Math.sin(p2)})`;
-      ctx.fillRect(sx + 2, sy + T * 0.35, T - 4, 2);
-      ctx.fillStyle = `rgba(40,120,70,${0.2 + 0.15 * Math.sin(p2 + 1)})`;
-      ctx.fillRect(sx + 5, sy + T * 0.65, T - 8, 2);
-      // Surface highlight
-      ctx.fillStyle = 'rgba(80,180,100,0.06)';
-      ctx.fillRect(sx, sy, T, T * 0.3);
+      // The shallows: lighter, with the bed showing through and a bank shadow
+      // where it meets the land.
+      const _sx2 = Math.round(sx), _sw = T + 1;
+      ctx.fillStyle = '#20473c';
+      ctx.fillRect(_sx2, Math.round(sy), _sw, T + 1);
+      ctx.fillStyle = 'rgba(120,104,58,.12)'; ctx.fillRect(_sx2, Math.round(sy) + 6, _sw, 12);
+      {
+        const ph = Date.now() * 0.011;
+        for (let py = 0; py < T; py++) {
+          const wy = ty * T + py, m = ((wy * 3 - ph) % 40 + 40) % 40;
+          if (m < 2) { ctx.fillStyle = 'rgba(140,196,164,.20)'; ctx.fillRect(_sx2, Math.round(sy+py), _sw, 1); }
+          else if (m >= 4 && m < 6) { ctx.fillStyle = 'rgba(10,32,26,.22)'; ctx.fillRect(_sx2, Math.round(sy+py), _sw, 1); }
+        }
+      }
+      {
+        const wet = (v) => v === JG.WATER || v === JG.WATER_DEEP;
+        ctx.fillStyle = 'rgba(8,26,20,.34)';
+        if (!wet(getJGT(tx, ty + 1))) ctx.fillRect(sx, sy + T - 5, T, 5);
+        if (!wet(getJGT(tx, ty - 1))) ctx.fillRect(sx, sy, T, 4);
+        if (!wet(getJGT(tx - 1, ty))) ctx.fillRect(sx, sy, 4, T);
+        if (!wet(getJGT(tx + 1, ty))) ctx.fillRect(sx + T - 4, sy, 4, T);
+      }
+      // A glint, keyed to the tile so it does not crawl.
+      {
+        const g = ((tx * 374761393) ^ (ty * 668265263)) >>> 0;
+        const tw = 0.5 + 0.5 * Math.sin(Date.now() * 0.0024 + (g & 15));
+        ctx.fillStyle = 'rgba(190,226,206,' + (tw * 0.20) + ')';
+        ctx.fillRect(sx + (g % 24) + 3, sy + ((g >> 6) % 24) + 3, 2, 1);
+      }
       break;
     }
 
@@ -35517,11 +35563,9 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       if (!(G && G.drawToned(ctx, 'dirt', jgTone('mud'), sx, sy, tx, ty))) {
         ctx.fillStyle = '#3c2c1a'; ctx.fillRect(sx, sy, T, T);
       }
-      // Mud cracks
-      ctx.fillStyle = 'rgba(20,14,8,0.4)';
-      ctx.fillRect(sx + T * 0.4, sy, 1, T);
-      ctx.fillRect(sx, sy + T * 0.6, T * 0.4, 1);
-      ctx.fillRect(sx + T * 0.4, sy + T * 0.4, T * 0.6, 1);
+      // Dried mud, cracked. This drew the same three lines at the same three
+      // places on every tile, which put a grid over every patch of it.
+      drawCrackNet(sx, sy, tx, ty, T, 11, 'rgba(20,14,8,.48)', 'rgba(120,96,60,.16)', 0.7);
       break;
     }
     case JG.DIRT: {
@@ -35762,12 +35806,26 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       break;
     }
     case JG.EXIT: {
-      const ep = 0.5 + 0.5 * Math.abs(Math.sin(now * 0.002));
-      ctx.fillStyle = '#a0905a'; ctx.fillRect(sx, sy, T, T);
-      ctx.fillStyle = `rgba(200,180,80,${ep * 0.4})`;
-      ctx.fillRect(sx + 4, sy + 4, T - 8, T - 8);
-      ctx.fillStyle = `rgba(240,220,100,${ep * 0.3})`;
-      ctx.fillRect(sx + 9, sy + 9, T - 18, T - 18);
+      // The way out. Three nested pulsing yellow squares — the same lit-panel
+      // placeholder the badlands' exit had, and the brightest thing in a dark
+      // zone. It is a cut path with a marker post on it: still unmistakable,
+      // because a made thing pointing somewhere is the only one here.
+      if (!(G && G.drawToned(ctx, 'road', '#8a7a52', sx, sy, tx, ty))) {
+        ctx.fillStyle = '#8a7a52'; ctx.fillRect(sx, sy, T, T);
+      }
+      ctx.fillStyle = 'rgba(60,80,40,.22)';
+      ctx.fillRect(sx, sy, T, 4); ctx.fillRect(sx, sy + T - 4, T, 4);
+      if (getJGT(tx - 1, ty) !== JG.EXIT) {
+        const ep = 0.5 + 0.5 * Math.abs(Math.sin(now * 0.002));
+        ctx.fillStyle = 'rgba(0,0,0,.24)';
+        ctx.beginPath(); ctx.ellipse(sx+T*0.42, sy+T-5, 6, 3, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#6b4a26'; ctx.fillRect(sx+T*0.40, sy+6, 3, T-11);
+        ctx.fillStyle = '#8a6436'; ctx.fillRect(sx+T*0.40, sy+6, 1, T-11);
+        ctx.fillStyle = '#7a5730'; ctx.fillRect(sx+T*0.20, sy+7, 18, 7);
+        ctx.fillStyle = 'rgba(240,220,180,.30)'; ctx.fillRect(sx+T*0.20, sy+7, 18, 1);
+        ctx.fillStyle = 'rgba(255,244,200,' + (0.18 + 0.18*ep) + ')';
+        ctx.fillRect(sx+T*0.20+3, sy+10, 11, 1);
+      }
       break;
     }
     default: {
