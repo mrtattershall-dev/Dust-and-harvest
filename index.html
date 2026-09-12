@@ -26185,9 +26185,68 @@ const JG = {
   WATER_DEEP: 19,
 };
 
+// Kit's settlement is the second act's home base and it was 400 tiles of
+// identical jungle floor with one campfire on it — the emptiest place in the
+// game, and the one the story spends the most time in.
+//
+// HUT is the footprint of a built thing: solid, but drawn as plain ground,
+// because the building sprite goes over it in drawJungleVillage(). JG.WALL
+// would have done for the collision, but the jungle map already has three of
+// those in a ruin fragment and they would have stopped looking like stone.
+Object.assign(JG, { HUT: 31 });
+
 const JG_SOLID = new Set([
   JG.WATER, JG.WATER_DEEP, JG.TREE, JG.DENSE_TREE, JG.ROCK, JG.WALL, JG.BUSH,
+  JG.HUT,
 ]);
+
+// The settlement, in tiles. [x, y, piece] with the piece standing ON (x, y):
+// its sprite is centred there and its feet are at the tile's bottom edge.
+//
+// `solid` is the footprint stamped into the map, and it is NARROWER than the
+// sprite on purpose — the trapper's lodge taught that one. A footprint wider
+// than the art leaves uncovered solid tiles showing as invisible walls the
+// player bumps into a half-tile away from the building.
+//
+// Laid out around the NPCs rather than over them: Kit stands at 40,32, Malu at
+// 33,35, Ren at 45,30, Pira at 37,40, and the fire is at 40,36.
+const JG_VILLAGE = [
+  // [piece,        x,  y, solidW, solidH]
+  // A lodge sprite is 146px — four and a half tiles — so it reaches well above
+  // the tile it stands on. Placed by its ROOT, these were put where their
+  // roofs covered the rows Ren and Pira stand in, and since the NPCs draw
+  // afterwards the two of them appeared to be standing on the roofs. Checked
+  // by rectangle overlap now, not by eye.
+  ['lodge',        34, 31, 3, 2],
+  ['lodge',        47, 38, 3, 2],
+  ['lodge',        33, 43, 3, 2],
+  // Stores and drying racks — what a settlement living off the jungle needs.
+  ['rack',         43, 30, 1, 1],
+  ['rack2',        31, 33, 1, 1],
+  ['hidecrate',    43, 36, 1, 1],
+  ['crate_tall',   32, 31, 1, 1],
+  ['crate_wide',   33, 31, 1, 1],
+  ['sack',         35, 31, 0, 0],
+  ['crate',        43, 34, 1, 1],
+  ['sack',         47, 36, 0, 0],
+  ['crate_wide',   38, 42, 1, 1],
+  ['sack',         39, 42, 0, 0],
+  ['firewood',     41, 36, 0, 0],
+  ['fire',         44, 31, 0, 0],
+  ['table',        38, 34, 1, 1],
+  ['shelf',        42, 39, 1, 1],
+  ['crate_tall',   43, 39, 1, 1],
+  // Scrub left standing when the clearing was cut. Decoration only — a
+  // solid of 0 means nothing is stamped, so these do not block the square.
+  ['tree_shrub',   31, 28, 0, 0],
+  ['tree_scrub',   48, 28, 0, 0],
+  ['tree_bush',    30, 39, 0, 0],
+  ['tree_shrub',   49, 42, 0, 0],
+  ['tree_scrub',   43, 44, 0, 0],
+  ['tree_sapling', 37, 27, 0, 0],
+  ['tree_shrub',   45, 41, 0, 0],
+  ['tree_scrub',   32, 41, 0, 0],
+];
 
 // Tile map — filled by buildJungleMap()
 const jungleMap = new Uint8Array(JG_W * JG_H);
@@ -26216,6 +26275,16 @@ function getJGSolid(x, y) {
 //    66–79 : Jungle Entry fringe — dense trees (Slice 6 fills detail)
 
 let _jungleMapBuilt = false;
+// Stamp the settlement's footprints. Called at the end of buildJungleMap(),
+// after the terrain, so nothing overwrites it.
+function _stampJungleVillage() {
+  for (const [, x, y, w, h] of JG_VILLAGE) {
+    for (let dy = 0; dy < h; dy++)
+      for (let dx = 0; dx < w; dx++)
+        setJGT(x - ((w / 2) | 0) + dx, y - dy, JG.HUT);
+  }
+}
+
 function buildJungleMap() {
   if (_jungleMapBuilt) return;
   _jungleMapBuilt = true;
@@ -26330,6 +26399,8 @@ function buildJungleMap() {
 
   // ── Exit tile (return west) ────────────────────────────────────────────────
   setJGT(40, 0, JG.EXIT); setJGT(41, 0, JG.EXIT);
+
+  _stampJungleVillage();
 }
 
 // ── NPC definitions — Slice 1 (Eastern Dock + Kit's Village) ──────────────
@@ -26638,6 +26709,10 @@ function renderJungleZone() {
       }
     }
   }
+
+  // The settlement's buildings, after the tile pass and before the people
+  // who live in them.
+  drawJungleVillage(cx, cy);
 
   // NPCs
   JG_NPCS.forEach(npc => {
@@ -34905,6 +34980,15 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       }
       break;
     }
+    case JG.HUT: {
+      // The footprint of a building. Plain ground — drawJungleVillage() puts
+      // the building on top of it, after the whole tile pass, so that its roof
+      // is not painted over by the tiles below and to the right of it.
+      if (!(G && G.drawToned(ctx, 'pen', jgTone('floor'), sx, sy, tx, ty))) {
+        ctx.fillStyle = '#1e3c18'; ctx.fillRect(sx, sy, T, T);
+      }
+      break;
+    }
     case JG.JUNGLE_FLOOR: {
       // Litter over bare earth, so this is the pen's churned soil rather than
       // turf, pulled green. Coarser mottling than the grass, which is what
@@ -35108,10 +35192,23 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       break;
     }
     case JG.CAMPFIRE: {
-      ctx.fillStyle = '#2a2010'; ctx.fillRect(sx, sy, T, T);
-      // Stone ring
-      ctx.fillStyle = '#3c3428';
-      ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T*0.65, 9, 5, 0, 0, Math.PI*2); ctx.fill();
+      // A fire stands ON the ground; it filled its whole tile near-black, so
+      // the settlement's fire was a dark square with a flame on it. The ring
+      // and the scorch are what mark the ground, not a box.
+      if (!(G && G.drawToned(ctx, 'pen', jgTone('floor'), sx, sy, tx, ty))) {
+        ctx.fillStyle = '#1e3c18'; ctx.fillRect(sx, sy, T, T);
+      }
+      ctx.fillStyle = 'rgba(28,20,10,.55)';
+      ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T*0.62, 12, 8, 0, 0, Math.PI*2); ctx.fill();
+      // Stone ring — individual stones, lit from the fire itself.
+      for (let a = 0; a < 9; a++) {
+        const th = (a / 9) * Math.PI * 2;
+        const rx = sx + T/2 + Math.cos(th) * 10, ry = sy + T*0.64 + Math.sin(th) * 6;
+        ctx.fillStyle = (Math.sin(th) > 0) ? '#4a4238' : '#3a332c';
+        ctx.fillRect(rx - 2, ry - 2, 4, 4);
+        ctx.fillStyle = 'rgba(255,180,80,.16)';
+        ctx.fillRect(rx - 2, ry - 2, 4, 1);
+      }
       // Logs
       ctx.fillStyle = '#4a3010';
       ctx.fillRect(sx+T/2-7, sy+T*0.55, 14, 3);
@@ -35148,6 +35245,25 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
     }
   }
 };
+
+// Kit's settlement. Drawn after the whole tile pass, like the overworld's
+// overhang props: a lodge is four tiles tall, so tiles below and to the right
+// of its footprint would paint over its roof otherwise.
+//
+// Sorted by the root row so a building nearer the camera covers one behind it.
+// Drawn before the NPCs, and the huts are placed clear of where the five of
+// them stand, so the simple order is the right one here.
+function drawJungleVillage(cx, cy) {
+  if (!_fixArt.ok) return;
+  const vw = canvas.width / ZOOM, vh = canvas.height / ZOOM;
+  const sorted = JG_VILLAGE.slice().sort((a, b) => a[2] - b[2]);
+  for (const [piece, tx, ty] of sorted) {
+    if (!exploredJungle[ty * JG_W + tx]) continue;
+    const sx = tx * JG_T + JG_T / 2 - cx, sy = (ty + 1) * JG_T - cy;
+    if (sx < -JG_T * 6 || sx > vw + JG_T * 6 || sy < -JG_T * 6 || sy > vh + JG_T * 6) continue;
+    drawFixture(piece, sx, sy);
+  }
+}
 
 // ── Replace _drawJGNPC with per-character pixel art ──────────────────────────
 // Which sprite actor stands in for each jungle character, the same way
