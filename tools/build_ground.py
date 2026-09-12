@@ -58,10 +58,12 @@ SOURCES = {
     "farmland":  "All Tileset/16x16.png",
     "forest":    "All Tileset/16x16.png",
     "farmyard":  "PNG/ground_grass_bricks.png",
+    "minecave":  "All Tileset/16x16.png",
 }
 # Two packs ship a file at the same path, so each is pinned to the pack folder
 # whose name contains this.
-SOURCE_PACK = {"farmland": "farmlands", "forest": "greenforest"}
+SOURCE_PACK = {"farmland": "farmlands", "forest": "greenforest",
+               "minecave": "miners-cave"}
 
 # The two tones in spots.png, measured off the sheet.
 TONE_DARK = (174, 138, 90)
@@ -117,6 +119,21 @@ TERRAINS = {
     # more coarsely than a wagon track.
     "dirt":  {"kind": "scatter", "base": "#8f4f35",
               "clusters": 30, "per": 15, "spread": 30, "loose": 115},
+    # The mine's floor. A scatter, not a mosaic of the Miner's Cave pack's
+    # cobble cells — that was the plan and the tool refused it three times
+    # over: (5,*) are not fully opaque, (4,2) is 69 apart in tone from (3,0),
+    # (3,2) is 42 apart, and the three that survived the tone check do not
+    # join cleanly (seam 67 against a tolerance of 27). That block is an
+    # autotile set with directional edges and per-cell lighting, not a set of
+    # interchangeable variants, exactly like the undead pack's rock.
+    #
+    # What the pack is good for here is the COLOUR: #b9946b is 42% of its cave
+    # floor. Darkened to sit under a mine's lighting, that is the base below,
+    # and the existing spots.png mottling does the rest. Lighter than the
+    # #3a3028 it replaces, because the mine was hard to read rather than
+    # merely plain.
+    "minefloor": {"kind": "scatter", "base": "#5f4c3c",
+                  "clusters": 26, "per": 13, "spread": 32, "loose": 95},
 }
 
 

@@ -23395,11 +23395,17 @@ const MINE_TILE_COLORS = {
   [TL.MINE_SHAFT_UP]:  ['#182838','#102030'],
 };
 
-function drawMineTile(t, sx, sy) {
+// tx/ty are the WORLD tile coordinates. They are needed for the baked floor
+// texture, which samples itself by tile so the surface stays put as the
+// camera moves. The painted detail this replaces hashed off `sx` — the SCREEN
+// x — so every speck of gravel slid across the floor as the player walked.
+function drawMineTile(t, sx, sy, tx, ty) {
   const c = MINE_TILE_COLORS[t] || MINE_TILE_COLORS[TL.MINE_WALL];
   ctx.fillStyle = c[0]; ctx.fillRect(sx, sy, T, T);
 
   if (t === TL.MINE_FLOOR) {
+    // Real cave floor, when the atlas is there.
+    if (tx !== undefined && DHGround.draw(ctx,'minefloor',sx,sy,tx,ty)) return;
     // Rough hewn stone floor — deterministic per tile
     const mh=(sx*2654435761+sy*1013904223)>>>0;
     const mh2=(sx*1013904223+sy*2654435761)>>>0;
@@ -23592,7 +23598,7 @@ function renderMineMap() {
   for (let ty2=sty;ty2<=ety;ty2++) for (let tx2=stx;tx2<=etx;tx2++) {
     const sx=tx2*T-cx, sy=ty2*T-cy;
     const t = getMineT(floor, tx2, ty2);
-    drawMineTile(t, sx, sy);
+    drawMineTile(t, sx, sy, tx2, ty2);
   }
   ctx.restore();
 
@@ -23724,7 +23730,7 @@ function renderBLMineMap() {
   ctx.save();
   for (let ty2=sty;ty2<=ety;ty2++) for (let tx2=stx;tx2<=etx;tx2++) {
     const sx=tx2*T-cx, sy=ty2*T-cy;
-    drawMineTile(getBLMineT(floor,tx2,ty2), sx, sy);
+    drawMineTile(getBLMineT(floor,tx2,ty2), sx, sy, tx2, ty2);
   }
   ctx.restore();
   // Fog of war
