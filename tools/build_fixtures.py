@@ -54,6 +54,10 @@ PIECES = {
     "fire":      ("Exterior_objects.png", 166, 340, 26, 36),  # fire pit, spit and pot
     "crate":     ("Exterior_objects.png", 291, 424, 25, 34),
     "trap":      ("Trap.png",               0,   0, 32, 32),  # set, first frame
+    # The lodge itself: log walls, thatched roof, chimney, door. 144x146 —
+    # four and a half tiles wide and four and a half tall, so the overhang
+    # rules apply and its footprint needs solid tiles under it.
+    "lodge":     ("Exterior_objects.png", 11, 119, 144, 146),
 }
 
 # ── Market square (Armor and Weapons pack) ──────────────────────────────

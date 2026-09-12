@@ -5848,7 +5848,7 @@ const FORGE_TX = 29,      FORGE_TY = 26;      // smelting forge
 const CHEST_TX = 16,      CHEST_TY = 26;
 // Trapper's camp. Declared here with the other landmarks because world-gen
 // clears his ground, and that runs long before the trapper module below.
-const TRAPPER_TX = 48, TRAPPER_TY = 39;
+const TRAPPER_TX = 48, TRAPPER_TY = 44;
 const TRAPPER_X = TRAPPER_TX * T + T / 2;
 const TRAPPER_Y = TRAPPER_TY * T + T / 2;
 const WORKBENCH_TX = 26,  WORKBENCH_TY = 26;
@@ -6058,12 +6058,27 @@ function buildMap() {
   setT(79,36,TL.OCEAN_PORTAL);
   setT(79,37,TL.OCEAN_PORTAL);
 
-  // Trapper's camp — a cleared patch in the wilderness just south of the
-  // central river crossing, so it is found on the way in rather than hunted
-  // for. Cleared LAST: the wilderness fill, the tree/rock scatter and the
+  // Trapper's camp — a cleared patch in the wilderness south of the central
+  // river crossing, so it is found on the way in rather than hunted for.
+  // Cleared LAST: the wilderness fill, the tree/rock scatter and the
   // ranch-zone pass all rewrite ground, and an earlier clearing gets buried.
-  for(let y=TRAPPER_TY-2;y<=TRAPPER_TY+2;y++)
-    for(let x=TRAPPER_TX-2;x<=TRAPPER_TX+2;x++) setT(x,y,TL.DIRT);
+  //
+  // Wide enough for the lodge behind him as well as the camp in front. It sits
+  // at y=44 rather than 39 so the lodge's roof, which reaches four and a half
+  // tiles above its base, clears the river at y34-35 — a cabin overlapping the
+  // water reads as a mistake.
+  for(let y=TRAPPER_TY-4;y<=TRAPPER_TY+2;y++)
+    for(let x=TRAPPER_TX-3;x<=TRAPPER_TX+3;x++) setT(x,y,TL.DIRT);
+  // The lodge's wall base is solid, so it cannot be walked through — and the
+  // footprint has to sit strictly INSIDE the sprite, not merely near it.
+  // TL.BUILDING draws as dark planks, so any solid tile the cabin does not
+  // cover shows as a dark band beside it. The sprite is 144px wide and its
+  // walls about 60px tall, centred on him and based two tiles up: that is
+  // three tiles across and two down, with margin on every side. The roof
+  // overhangs the tiles above and those stay walkable, which is what the eye
+  // expects of a roof.
+  for(let y=TRAPPER_TY-3;y<=TRAPPER_TY-2;y++)
+    for(let x=TRAPPER_TX-1;x<=TRAPPER_TX+1;x++) setT(x,y,TL.BUILDING);
 }
 buildMap();
 
@@ -10202,10 +10217,15 @@ function drawMarketStalls(cx, cy) {
 
 function drawTrapper(cx, cy) {
   const sx = TRAPPER_X - cx, sy = TRAPPER_Y - cy;
-  if (sx < -T*3 || sx > canvas.width + T*3 || sy < -T*3 || sy > canvas.height + T*3) return;
+  // Generous upward margin: the lodge's roof reaches four and a half tiles
+  // above his feet, so it is still visible when he himself is off the top.
+  if (sx < -T*5 || sx > canvas.width + T*5 || sy < -T*8 || sy > canvas.height + T*3) return;
   if (!exploredWorld[TRAPPER_TY * MAP_W + TRAPPER_TX]) return;
   const bob = Math.sin(Date.now() * 0.0016) * 1.4;
 
+  // The lodge first: it is behind the camp and behind him. Its base sits two
+  // tiles above his feet, which is the bottom of its solid footprint.
+  drawFixture('lodge', sx, sy - T * 1.5);
   for (const [name, ox, oy] of CAMP_BEHIND) drawFixture(name, sx + ox, sy + oy);
 
   ctx.globalAlpha = .22; ctx.fillStyle = '#000';
