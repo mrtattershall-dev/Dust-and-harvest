@@ -22297,6 +22297,18 @@ function exitOcean() {
 }
 
 // ── Tile Renderer ─────────────────────────────────────────────────────────────
+const _OC_TERRAIN_LAZY = () => ({
+  [OC.SAND]:  ['sand', '#c09a58'],
+  [OC.GRASS]: ['sand', '#b49055'],
+  [OC.ROAD]:  ['road', '#a89060'],
+  [OC.EXIT]:  ['road', '#a89060'],
+});
+let _OC_TERRAIN = null;
+function _ocEdges(tx, ty, sx, sy) {
+  if (!_OC_TERRAIN) _OC_TERRAIN = _OC_TERRAIN_LAZY();
+  drawTerrainEdges(tx, ty, sx, sy, OC_T, getOCT, (v) => _OC_TERRAIN[v] || null);
+}
+
 function drawOCTile(t, tx, ty, sx, sy) {
   const seed = (tx*7919 + ty*6271) & 0xFFFF;
   const rn = (s,m) => ((s*2654435761+1013904223)>>>0)%m;
@@ -22326,6 +22338,7 @@ function drawOCTile(t, tx, ty, sx, sy) {
         if(wet(getOCT(tx-1,ty))){ ctx.fillStyle='rgba(100,60,20,.14)'; ctx.fillRect(sx,sy,5,OC_T); }
         if(wet(getOCT(tx+1,ty))){ ctx.fillStyle='rgba(100,60,20,.14)'; ctx.fillRect(sx+OC_T-5,sy,5,OC_T); }
       }
+      _ocEdges(tx,ty,sx,sy);
       // Grit flecks — dark
       ctx.fillStyle='#7a5228';
       ctx.fillRect(sx+rn(seed,OC_T-2),   sy+rn(seed+1,OC_T-4)+2, 2,1);
@@ -22358,6 +22371,7 @@ function drawOCTile(t, tx, ty, sx, sy) {
       if(!DHGround.drawToned(ctx,'sand','#b49055',sx,sy,tx,ty)){
         ctx.fillStyle='#b09050'; ctx.fillRect(sx,sy,OC_T,OC_T);
       }
+      _ocEdges(tx,ty,sx,sy);
       const gt=Date.now()*0.0008+tx*0.4;
       ctx.strokeStyle='#8a9048'; ctx.lineWidth=1.5;
       for(let i=0;i<4;i++){
@@ -22676,6 +22690,7 @@ function drawOCTile(t, tx, ty, sx, sy) {
         if(ns){ ctx.fillRect(sx+6,sy,3,OC_T); ctx.fillRect(sx+OC_T-9,sy,3,OC_T); }
         else  { ctx.fillRect(sx,sy+6,OC_T,3); ctx.fillRect(sx,sy+OC_T-9,OC_T,3); }
       }
+      _ocEdges(tx,ty,sx,sy);
       break;
     }
 
@@ -23340,6 +23355,18 @@ function renderBadlandsMap() {
   if(minimapVisible) renderMinimap();
 }
 
+// The badlands' loose ground and the tone each is retoned to. MESA, CANYON and
+// REDROCK are deliberately absent: they are cliff faces, they already shade
+// where they end, and a cliff does not interdigitate with the sand at its foot.
+const _BL_TERRAIN = {
+  [BL.DUSTFLOOR]: ['dust', null],
+  [BL.CRACKED]:   ['dust', '#a87c44'],
+  [BL.SULFUR]:    ['dust', '#9c8446'],
+};
+function _blEdges(tx, ty, sx, sy) {
+  drawTerrainEdges(tx, ty, sx, sy, T, getBLT, (v) => _BL_TERRAIN[v] || null);
+}
+
 function drawBLTile(tx,ty,sx,sy) {
   const t=getBLT(tx,ty);
 
@@ -23391,7 +23418,7 @@ function drawBLTile(tx,ty,sx,sy) {
 
   if(t===BL.DUSTFLOOR) {
     // Real sand from the desert pack, retinted to the badlands' own tan.
-    if(DHGround.draw(ctx,'dust',sx,sy,tx,ty)) return;
+    if(DHGround.draw(ctx,'dust',sx,sy,tx,ty)){ _blEdges(tx,ty,sx,sy); return; }
     // Sandy dust — warm tan with wind-streak texture
     ctx.fillStyle='#d89b62'; ctx.fillRect(sx,sy,T,T);
     ctx.fillStyle='#c68a55'; ctx.fillRect(sx,sy,T,T/2); // slight horizon split
@@ -23454,6 +23481,7 @@ function drawBLTile(tx,ty,sx,sy) {
     ctx.fillStyle='rgba(200,170,110,.20)';
     if(h%3===0)  ctx.fillRect(sx+(h%24)+2, sy+(h2%22)+3, 2, 2);
     if(h2%4===0) ctx.fillRect(sx+(h2%20)+5, sy+(h%20)+6, 2, 1);
+    _blEdges(tx,ty,sx,sy);
   } else if(t===BL.REDROCK) {
     // Layered red sandstone. It was three bands at the same three heights in
     // every tile, with a highlight down the top and left of each tile and a
