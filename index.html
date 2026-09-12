@@ -9029,8 +9029,13 @@ function drawTile(tx,ty,sx,sy) {
     ctx.fillStyle='#c89040'; ctx.fillRect(sx+5,sy+10,T-10,2);
   }
   else if(t===TL.FISHING_SPOT){
-    // Sandy bank dropping into water
-    ctx.fillStyle='#b89858'; ctx.fillRect(sx,sy,T,T);
+    // Sandy bank dropping into water. The bank is the same sand as the tiles
+    // either side of it, so it comes from the baked ground rather than a flat
+    // fill — a flat #b89858 square between two textured sand tiles reads as a
+    // hole in the beach.
+    if(!DHGround.draw(ctx,'sand',sx,sy,tx,ty)){
+      ctx.fillStyle='#b89858'; ctx.fillRect(sx,sy,T,T);
+    }
     ctx.fillStyle='#c8a860'; ctx.fillRect(sx,sy,T,2);
     // Water edge — lower half
     ctx.fillStyle='#3c6b70'; ctx.fillRect(sx,sy+T*0.5,T,T*0.5);
