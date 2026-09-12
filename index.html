@@ -23755,7 +23755,26 @@ const _BL_TERRAIN = {
   [BL.DUSTFLOOR]: ['dust', null],
   [BL.CRACKED]:   ['dust', '#a87c44'],
   [BL.SULFUR]:    ['dust', '#9c8446'],
+  [BL.ASH]:       ['minefloor', '#686058'],
 };
+// The ground a free-standing thing in the badlands is standing on: the
+// MAJORITY of its non-overlay neighbours, baked, with _blBase()'s flat colour
+// as the fallback. Mirrors the overworld's _owGround().
+function _blGround(tx, ty, sx, sy, fallback) {
+  const tally = {};
+  let best = -1, bestN = 0;
+  for (const [dx, dy] of [[0,1],[0,-1],[1,0],[-1,0],[1,1],[-1,-1],[1,-1],[-1,1]]) {
+    const nt = getBLT(tx + dx, ty + dy);
+    if (!_BL_TERRAIN[nt]) continue;
+    tally[nt] = (tally[nt] || 0) + 1;
+    if (tally[nt] > bestN) { bestN = tally[nt]; best = nt; }
+  }
+  const g = _BL_TERRAIN[best];
+  ctx.fillStyle = fallback; ctx.fillRect(sx, sy, T, T);
+  if (g) { if (g[1]) DHGround.drawToned(ctx, g[0], g[1], sx, sy, tx, ty);
+           else      DHGround.draw(ctx, g[0], sx, sy, tx, ty); }
+}
+
 function _blEdges(tx, ty, sx, sy) {
   drawTerrainEdges(tx, ty, sx, sy, T, getBLT, (v) => _BL_TERRAIN[v] || null);
 }
@@ -23782,7 +23801,7 @@ function drawBLTile(tx,ty,sx,sy) {
   // Special rendering for railroad tracks
   if (t === BL.RAIL_TRACK) {
     // Draw ground base first so tracks sit on terrain
-    ctx.fillStyle=_blBase(); ctx.fillRect(sx,sy,T,T);
+    _blGround(tx, ty, sx, sy, _blBase());
     // Wooden sleeper/tie — runs full width, centered
     ctx.fillStyle='#4a3220'; ctx.fillRect(sx,sy+T/2-3,T,6);
     ctx.fillStyle='#5a4028'; ctx.fillRect(sx,sy+T/2-3,T,1); // sleeper highlight
@@ -23910,8 +23929,14 @@ function drawBLTile(tx,ty,sx,sy) {
     if(!_rr(tx+1,ty)){ ctx.fillStyle='rgba(0,0,0,.16)'; ctx.fillRect(sx+T-3,sy,3,T); }
 
   } else if(t===BL.ASH) {
-    // Deep zone ash — grey with bone-white flecks and char patches
-    ctx.fillStyle='#686058'; ctx.fillRect(sx,sy,T,T);
+    // Deep zone ash. 645 tiles, and the base was one flat grey — the char
+    // patches and flecks sat on it like confetti on cardboard. It is the baked
+    // cave floor cooled to grey, which gives the surface its grain, and the
+    // char and flecks now read as things lying on ash.
+    if(!DHGround.drawToned(ctx,'minefloor','#686058',sx,sy,tx,ty)){
+      ctx.fillStyle='#686058'; ctx.fillRect(sx,sy,T,T);
+    }
+    _blEdges(tx,ty,sx,sy);
     // Char patches
     if(h%4===0){ ctx.fillStyle='#484038'; ctx.fillRect(sx+(h%14)+1,sy+(h2%10)+2,h%8+4,h2%6+3); }
     // Bone-white ash flecks
@@ -23968,24 +23993,41 @@ function drawBLTile(tx,ty,sx,sy) {
     if(!cE){ ctx.fillStyle='#3a1408'; ctx.fillRect(sx+T-4,sy,4,T); ctx.fillStyle='#4a1c0c'; ctx.fillRect(sx+T-3,sy,2,T); }
 
   } else if(t===BL.DEADWOOD) {
-    ctx.fillStyle=_blBase(); ctx.fillRect(sx,sy,T,T);
-    // Base shadow
-    ctx.fillStyle='rgba(0,0,0,.15)'; ctx.fillRect(sx+T/2-3,sy+T-6,6,4);
-    // Trunk — narrower, lower start
-    ctx.fillStyle='#b0a080'; ctx.fillRect(sx+T/2-2,sy+8,4,T-12);
-    ctx.fillStyle='rgba(130,110,70,.4)'; ctx.fillRect(sx+T/2-2,sy+10,1,T-16); ctx.fillRect(sx+T/2+1,sy+12,1,T-18);
-    // Two dead branches — not too long
-    ctx.fillStyle='#c0b090';
-    ctx.fillRect(sx+T/2-9,sy+11,8,2);  // left branch
-    ctx.fillRect(sx+T/2+2,sy+16,7,2);  // right branch
-    // Branch knots
-    ctx.fillStyle='rgba(100,80,50,.4)';
-    ctx.fillRect(sx+T/2-3,sy+10,3,3); ctx.fillRect(sx+T/2-3,sy+15,2,2);
-    // Bleach highlight
-    ctx.fillStyle='rgba(240,225,190,.25)'; ctx.fillRect(sx+T/2-1,sy+8,1,T-14);
+    // A dead tree. It was a straight pale post with two straight branches at
+    // right angles to it, which at this size reads as a plus sign; and its
+    // base sat on a flat neighbour COLOUR rather than on the ground.
+    _blGround(tx, ty, sx, sy, _blBase());
+    {
+      const dh=((tx*2654435761)^(ty*40503))>>>0;
+      const bx=sx+T/2+((dh&3)-1);
+      ctx.fillStyle='rgba(0,0,0,.22)';
+      ctx.beginPath(); ctx.ellipse(bx,sy+T-5,7,3,0,0,Math.PI*2); ctx.fill();
+      // Trunk: leans, and tapers as it rises.
+      const lean=((dh>>2)&3)-1.5;
+      ctx.strokeStyle='#a89878'; ctx.lineCap='round';
+      ctx.lineWidth=4; ctx.beginPath();
+      ctx.moveTo(bx,sy+T-5); ctx.lineTo(bx+lean*2,sy+T*0.42); ctx.stroke();
+      ctx.lineWidth=2; ctx.beginPath();
+      ctx.moveTo(bx+lean*2,sy+T*0.42); ctx.lineTo(bx+lean*4,sy+5); ctx.stroke();
+      // Three broken limbs, at angles, not at right angles.
+      ctx.lineWidth=2; ctx.strokeStyle='#bcac8a';
+      const LIMB=[[-1,0.50,-9,-6],[1,0.38,9,-5],[-1,0.26,-7,-7]];
+      for(let k=0;k<3;k++){
+        if(((dh>>(6+k))&7)===0) continue;             // some are gone
+        const [sgn,fy,ex,ey]=LIMB[k];
+        const ox=bx+lean*(2+fy), oy=sy+T*fy+4;
+        ctx.beginPath(); ctx.moveTo(ox,oy);
+        ctx.lineTo(ox+ex*0.6,oy+ey*0.4);
+        ctx.lineTo(ox+ex,oy+ey); ctx.stroke();
+      }
+      ctx.lineWidth=1; ctx.lineCap='butt';
+      // A split down the trunk.
+      ctx.fillStyle='rgba(96,80,50,.45)';
+      ctx.fillRect(bx-1,sy+T*0.46,1,T*0.34);
+    }
 
   } else if(t===BL.SKULL_ROCK) {
-    ctx.fillStyle=_blBase(); ctx.fillRect(sx,sy,T,T);
+    _blGround(tx, ty, sx, sy, _blBase());
     if(!DHProps.draw(ctx,'skull',sx,sy,tx,ty)){
     // Ground shadow
     ctx.fillStyle='rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2+7,10,4,0,0,Math.PI*2); ctx.fill();
@@ -24051,7 +24093,7 @@ function drawBLTile(tx,ty,sx,sy) {
     }
 
   } else if(t===BL.TUMBLEWEED) {
-    ctx.fillStyle=_blBase(); ctx.fillRect(sx,sy,T,T);
+    _blGround(tx, ty, sx, sy, _blBase());
     if(!DHProps.draw(ctx,'tumbleweed',sx,sy,tx,ty)){
     // Ground shadow
     ctx.fillStyle='rgba(0,0,0,.15)'; ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2+6,9,4,0,0,Math.PI*2); ctx.fill();
@@ -24109,7 +24151,7 @@ function drawBLTile(tx,ty,sx,sy) {
 
   } else if(t===BL.BL_BONE) {
     // Bone scatter — multiple bones arranged naturally
-    ctx.fillStyle=_blBase(); ctx.fillRect(sx,sy,T,T);
+    _blGround(tx, ty, sx, sy, _blBase());
     if(!DHProps.draw(ctx,'bone',sx,sy,tx,ty)){
     ctx.fillStyle='#ddd0b8';
     // Long bone horizontal — slight angle
@@ -24136,112 +24178,116 @@ function drawBLTile(tx,ty,sx,sy) {
 
     }
   } else if(t===BL.BL_COPPER) {
-    ctx.fillStyle=_blBase(); ctx.fillRect(sx,sy,T,T);
-    ctx.fillStyle='#7a3c18'; ctx.fillRect(sx+3,sy+3,T-6,T-6);
-    // Copper vein seam — irregular blob
-    ctx.fillStyle='#d07030'; ctx.fillRect(sx+5,sy+6,9,7);
-    ctx.fillStyle='#e09040'; ctx.fillRect(sx+7,sy+7,6,5);
-    ctx.fillStyle='#f0a050'; ctx.fillRect(sx+8,sy+8,4,3); // bright core
-    ctx.fillStyle='#b05820'; ctx.fillRect(sx+T-11,sy+8,6,5);
-    // Verdigris oxidation
-    ctx.fillStyle='rgba(30,110,50,.4)'; ctx.fillRect(sx+9,sy+11,4,2); ctx.fillRect(sx+T-10,sy+10,3,2);
-    // Rock matrix
-    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(sx+T-8,sy+T-8,6,6);
-    // Pickaxe score line
-    ctx.save();
-    ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(sx+6,sy+5); ctx.lineTo(sx+T-7,sy+T-7); ctx.stroke();
-    ctx.restore();
+    // An ore deposit, cut into the badlands rock the way the mine's are cut
+    // into its rock — these were four flat coloured squares with a mark on
+    // each, and the mine already had one seam renderer for exactly this.
+    if(!DHGround.drawToned(ctx,'dust','#8a5a30',sx,sy,tx,ty)){
+      ctx.fillStyle='#8a5a30'; ctx.fillRect(sx,sy,T,T);
+    }
+    drawOreSeam(sx, sy, tx, ty, '#5e2c0e', '#a8571f', '#dd8a3e');
 
   } else if(t===BL.BL_IRON) {
-    ctx.fillStyle=_blBase(); ctx.fillRect(sx,sy,T,T);
-    ctx.fillStyle='#2e3444'; ctx.fillRect(sx+3,sy+3,T-6,T-6);
-    // Iron banding — thick dark stripes
-    ctx.fillStyle='#6878a0'; ctx.fillRect(sx+4,sy+7,T-8,4);
-    ctx.fillStyle='#8090b8'; ctx.fillRect(sx+4,sy+8,T-8,2);
-    ctx.fillStyle='#505870'; ctx.fillRect(sx+4,sy+14,T-8,4);
-    ctx.fillStyle='#607088'; ctx.fillRect(sx+4,sy+15,T-8,2);
-    // Metallic highlight
-    ctx.fillStyle='rgba(180,200,230,.25)'; ctx.fillRect(sx+6,sy+8,4,1); ctx.fillRect(sx+6,sy+15,3,1);
-    // Matrix shadow
-    ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(sx+3,sy+T-5,T-6,4);
-    ctx.save();
-    ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(sx+7,sy+5); ctx.lineTo(sx+T-6,sy+T-6); ctx.stroke();
-    ctx.restore();
+    // An ore deposit, cut into the badlands rock the way the mine's are cut
+    // into its rock — these were four flat coloured squares with a mark on
+    // each, and the mine already had one seam renderer for exactly this.
+    if(!DHGround.drawToned(ctx,'dust','#6a6258',sx,sy,tx,ty)){
+      ctx.fillStyle='#6a6258'; ctx.fillRect(sx,sy,T,T);
+    }
+    drawOreSeam(sx, sy, tx, ty, '#333a46', '#6d7686', '#a6b0c0');
 
   } else if(t===BL.BL_SILVER) {
-    ctx.fillStyle=_blBase(); ctx.fillRect(sx,sy,T,T);
-    ctx.fillStyle='#9aa0a8'; ctx.fillRect(sx+3,sy+3,T-6,T-6);
-    const sp=0.4+Math.sin(Date.now()*.0018+tx*0.7)*0.35;
-    // Silver vein — bright irregular mass
-    ctx.fillStyle=`rgba(200,215,240,${sp})`; ctx.fillRect(sx+5,sy+6,T-10,5);
-    ctx.fillStyle=`rgba(230,242,255,${sp*0.8})`; ctx.fillRect(sx+7,sy+7,T-14,3);
-    ctx.fillStyle=`rgba(160,180,220,${sp})`; ctx.fillRect(sx+6,sy+13,T-12,4);
-    // Sparkle points
-    ctx.fillStyle=`rgba(255,255,255,${sp})`; ctx.fillRect(sx+9,sy+7,2,1); ctx.fillRect(sx+T/2,sy+14,1,2);
-    // Matrix shadow
-    ctx.fillStyle='rgba(50,60,80,.2)'; ctx.fillRect(sx+3,sy+T-5,T-6,4);
+    // An ore deposit, cut into the badlands rock the way the mine's are cut
+    // into its rock — these were four flat coloured squares with a mark on
+    // each, and the mine already had one seam renderer for exactly this.
+    if(!DHGround.drawToned(ctx,'dust','#6e6a62',sx,sy,tx,ty)){
+      ctx.fillStyle='#6e6a62'; ctx.fillRect(sx,sy,T,T);
+    }
+    drawOreSeam(sx, sy, tx, ty, '#464e5c', '#939db0', '#dde4f0',
+                0.74+Math.sin(Date.now()*.002+tx*2.3+ty*1.1)*0.26);
 
   } else if(t===BL.BL_OBSIDIAN) {
-    ctx.fillStyle=_blBase(); ctx.fillRect(sx,sy,T,T);
-    ctx.fillStyle='#100015'; ctx.fillRect(sx+3,sy+3,T-6,T-6);
-    const gl=0.35+0.28*Math.sin(Date.now()*.0025+tx*1.1+ty*0.7);
-    // Glassy body — obsidian has a conchoidal fracture pattern
-    ctx.fillStyle=`rgba(70,8,150,${gl*0.55})`; ctx.fillRect(sx+5,sy+5,T-10,T-10);
-    // Fracture facets
-    ctx.save();
-    ctx.strokeStyle=`rgba(150,70,240,${gl*0.7})`; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(sx+8,sy+6); ctx.lineTo(sx+T-8,sy+T-9); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(sx+T-9,sy+7); ctx.lineTo(sx+9,sy+T-8); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(sx+T/2,sy+5); ctx.lineTo(sx+5,sy+T/2); ctx.stroke();
-    ctx.restore();
-    // Bright reflection point
-    ctx.fillStyle=`rgba(220,160,255,${gl*0.55})`; ctx.fillRect(sx+T/2-1,sy+T/2-1,3,3);
-    ctx.fillStyle=`rgba(255,220,255,${gl*0.8})`; ctx.fillRect(sx+T/2,sy+T/2,1,1);
-    // Edge depth
-    ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillRect(sx+T-4,sy,4,T); ctx.fillRect(sx,sy+T-4,T,4);
+    // An ore deposit, cut into the badlands rock the way the mine's are cut
+    // into its rock — these were four flat coloured squares with a mark on
+    // each, and the mine already had one seam renderer for exactly this.
+    if(!DHGround.drawToned(ctx,'dust','#3a3440',sx,sy,tx,ty)){
+      ctx.fillStyle='#3a3440'; ctx.fillRect(sx,sy,T,T);
+    }
+    drawOreSeam(sx, sy, tx, ty, '#140f1c', '#2c2338', '#6b5a86');
 
   } else if(t===BL.BL_EXIT) {
-    const pt=Date.now()*.0022+tx*0.6+ty*1.1;
-    const pulse=0.3+0.28*Math.sin(pt);
-    ctx.fillStyle=`rgba(60,200,160,${pulse})`; ctx.fillRect(sx,sy,T,T);
-    ctx.save();
-    ctx.strokeStyle=`rgba(100,240,200,${0.5+0.3*Math.sin(pt*1.4)})`; ctx.lineWidth=2;
-    ctx.strokeRect(sx+2,sy+2,T-4,T-4);
-    ctx.restore();
-    ctx.fillStyle=`rgba(180,255,230,${0.25+0.2*Math.sin(pt*2)})`; ctx.fillRect(sx+6,sy+6,T-12,T-12);
-    ctx.fillStyle=`rgba(255,255,255,${0.6+0.3*Math.sin(pt*1.8)})`;
-    ctx.beginPath();
-    ctx.moveTo(sx+T/2-6,sy+T/2); ctx.lineTo(sx+T/2+3,sy+T/2-6); ctx.lineTo(sx+T/2+3,sy+T/2+6);
-    ctx.closePath(); ctx.fill();
+    // The way back east. This pulsed a teal rectangle with a white arrow on
+    // it — a UI button lying on the desert, and the brightest thing in the
+    // zone by a distance.
+    //
+    // It is a worn track now, with a signpost arrow on it. It still reads as
+    // "this way out" because it is the only made thing pointing anywhere, and
+    // it still pulses, but as a glint rather than a lit panel.
+    if(!DHGround.drawToned(ctx,'road','#a08560',sx,sy,tx,ty)){
+      ctx.fillStyle='#a08560'; ctx.fillRect(sx,sy,T,T);
+    }
+    _blEdges(tx,ty,sx,sy);
+    {
+      // Wheel ruts running east, continuous along the run.
+      ctx.fillStyle='rgba(112,88,52,.20)';
+      ctx.fillRect(sx,sy+7,T,3); ctx.fillRect(sx,sy+T-10,T,3);
+      // One post per run, on the tile where the run starts.
+      if(getBLT(tx-1,ty)!==BL.BL_EXIT){
+        const pt=Date.now()*.0022+ty*1.1;
+        ctx.fillStyle='rgba(0,0,0,.22)';
+        ctx.beginPath(); ctx.ellipse(sx+T*0.42,sy+T-5,6,3,0,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#6b4a26'; ctx.fillRect(sx+T*0.40,sy+7,3,T-12);
+        ctx.fillStyle='#8a6436'; ctx.fillRect(sx+T*0.40,sy+7,1,T-12);
+        // The board, pointing east.
+        ctx.fillStyle='#7a5730'; ctx.fillRect(sx+T*0.22,sy+8,17,7);
+        ctx.beginPath();
+        ctx.moveTo(sx+T*0.22+17,sy+8); ctx.lineTo(sx+T*0.22+22,sy+11.5);
+        ctx.lineTo(sx+T*0.22+17,sy+15); ctx.closePath(); ctx.fill();
+        ctx.fillStyle='rgba(240,220,180,.30)'; ctx.fillRect(sx+T*0.22,sy+8,17,1);
+        ctx.fillStyle='rgba(255,240,200,'+(0.20+0.16*Math.sin(pt))+')';
+        ctx.fillRect(sx+T*0.22+3,sy+11,10,1);
+      }
+    }
 
   } else if(t===BL.ASH||t===0) { // fallback for 0
     ctx.fillStyle='#686058'; ctx.fillRect(sx,sy,T,T);
     if((tx*3+ty*7)%5===0){ctx.fillStyle='rgba(100,90,80,.4)';ctx.fillRect(sx+4,sy+6,3,2);}
 
   } else if(t===BL.TOXIC_VENT) {
-    ctx.fillStyle='#3a4810'; ctx.fillRect(sx,sy,T,T);
+    // A fumarole in the ground, not a bright green square with a blob on it.
+    // It filled the whole tile #3a4810 and layered two more pulsing green
+    // rectangles inside it, so a vent field read as a row of lit buttons.
+    //
+    // Ground first, then the stain it has left, then the hole, then the vapour
+    // coming out of it — and the vapour is the only part that moves.
+    if(!DHGround.drawToned(ctx,'dust','#8f7c3e',sx,sy,tx,ty)){
+      ctx.fillStyle='#8f7c3e'; ctx.fillRect(sx,sy,T,T);
+    }
     const bub=Date.now()*.003+tx*1.7+ty*2.3;
-    // Toxic ground stain — expanding circle
-    ctx.fillStyle=`rgba(60,140,8,${0.35+0.2*Math.sin(bub)})`; ctx.fillRect(sx+2,sy+2,T-4,T-4);
-    ctx.fillStyle=`rgba(80,160,10,${0.4+0.25*Math.sin(bub+0.8)})`; ctx.fillRect(sx+5,sy+5,T-10,T-10);
-    // Vent crack
-    ctx.fillStyle='#111a04';
-    ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2+3,7,4,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#070e02';
-    ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2+3,5,3,0,0,Math.PI*2); ctx.fill();
-    // Sulfur crust ring
-    ctx.save();
-    ctx.strokeStyle=`rgba(160,200,20,${0.3+0.2*Math.sin(bub+1)})`; ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2+3,9,6,0,0,Math.PI*2); ctx.stroke();
-    ctx.restore();
-    // Bubbling gas
-    for(let b=0;b<3;b++){
-      const bx=sx+7+b*7, by=sy+T/2-1+Math.sin(bub+b*1.1)*3.5;
-      const ba=0.55+0.3*Math.sin(bub+b*1.6);
-      ctx.fillStyle=`rgba(130,220,20,${ba})`;
-      ctx.beginPath(); ctx.arc(bx,by,2+Math.abs(Math.sin(bub+b)),0,Math.PI*2); ctx.fill();
+    // Mineral stain round the vent, soft-edged.
+    ctx.fillStyle='rgba(108,132,32,.34)';
+    ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T*0.58,13,9,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(78,104,22,.40)';
+    ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T*0.60,9,6,0,0,Math.PI*2); ctx.fill();
+    // Crusted rim, individual lumps.
+    for(let a=0;a<8;a++){
+      const th=(a/8)*Math.PI*2;
+      const rx=sx+T/2+Math.cos(th)*8, ry=sy+T*0.60+Math.sin(th)*5.5;
+      ctx.fillStyle=(a%2)?'rgba(190,178,86,.55)':'rgba(146,132,54,.55)';
+      ctx.fillRect(rx-2,ry-2,4,3);
+    }
+    // The hole.
+    ctx.fillStyle='#231f12';
+    ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T*0.60,6,4,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#0d0b06';
+    ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T*0.60,4,2.5,0,0,Math.PI*2); ctx.fill();
+    // Vapour, rising and fading.
+    for(let k=0;k<3;k++){
+      const ph=(bub*0.5+k*0.8)%1;
+      ctx.fillStyle='rgba(150,196,70,'+(0.30*(1-ph))+')';
+      ctx.beginPath();
+      ctx.ellipse(sx+T/2+Math.sin(bub+k*2)*3, sy+T*0.56-ph*16,
+                  3+ph*4, 2+ph*3, 0, 0, Math.PI*2);
+      ctx.fill();
     }
 
   } else if(t===BL.SETTLEMENT) {
