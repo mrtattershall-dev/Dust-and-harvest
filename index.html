@@ -8422,6 +8422,75 @@ function drawFogTile(sx, sy, seed) {
   const bucket = (seed >>> 0) % 256;
   ctx.drawImage(_fogCache.get(bucket) || _buildFogTile(bucket), sx, sy);
 }
+// One fence tile: posts and rails in weathered timber, lit from the upper left
+// like everything else on the map.
+//
+// A run that goes left-right is seen broadside, so its rails span the tile. A
+// run that goes away from the camera is seen end-on, so the same rails are a
+// narrow band up the middle. Both are drawn from the tile's actual neighbours,
+// which is what lets a corner turn and a run end at a post instead of in mid
+// air.
+function drawFenceTile(tx, ty, sx, sy, gate) {
+  const isF = (v) => v === TL.FENCE || v === TL.FENCE_GATE;
+  const n = isF(getT(tx, ty - 1)), s = isF(getT(tx, ty + 1));
+  const e = isF(getT(tx + 1, ty)), w = isF(getT(tx - 1, ty));
+  const TOP = sy + T * 0.20, GND = sy + T * 0.88;
+  const R1 = sy + T * 0.40, R2 = sy + T * 0.62;   // the two rail heights
+  const LIGHT = '#9c8158', MID = '#7a6242', DARK = '#4f3e28';
+  const g = gate ? 1 : 0;
+
+  // Shadow the fence throws on the ground, before any timber.
+  ctx.fillStyle = 'rgba(0,0,0,.20)';
+  if (e || w) ctx.fillRect(sx + (w ? 0 : T * 0.36), GND - 1,
+                           (e && w) ? T : T * 0.64, 3);
+  if (n || s) ctx.fillRect(sx + T * 0.40, sy + (n ? 0 : T * 0.4),
+                           5, (n && s) ? T : T * 0.6);
+
+  // Rails along a broadside run.
+  const rail = (y) => {
+    const x0 = sx + (w ? 0 : T * 0.38), x1 = sx + (e ? T : T * 0.62);
+    if (x1 <= x0) return;
+    ctx.fillStyle = gate ? '#8a6f4a' : MID; ctx.fillRect(x0, y, x1 - x0, 4);
+    ctx.fillStyle = LIGHT; ctx.fillRect(x0, y, x1 - x0, 1);
+    ctx.fillStyle = DARK;  ctx.fillRect(x0, y + 3, x1 - x0, 1);
+  };
+  if (e || w) { rail(R1); rail(R2); }
+
+  // The same rails on a run going away from the camera: a narrow band, with
+  // the near edge caught by the light.
+  if (n || s) {
+    const y0 = sy + (n ? 0 : T * 0.38), y1 = sy + (s ? T : T * 0.62);
+    if (y1 > y0) {
+      ctx.fillStyle = DARK;  ctx.fillRect(sx + T * 0.40, y0, 6, y1 - y0);
+      ctx.fillStyle = MID;   ctx.fillRect(sx + T * 0.41, y0, 4, y1 - y0);
+      ctx.fillStyle = LIGHT; ctx.fillRect(sx + T * 0.41, y0, 1, y1 - y0);
+    }
+  }
+
+  // A gate hangs between its posts, so it gets a brace and a latch instead of
+  // a post in the middle of the opening.
+  if (g) {
+    ctx.strokeStyle = '#8a6f4a'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sx + T * 0.14, R2 + 3); ctx.lineTo(sx + T * 0.86, R1);
+    ctx.stroke(); ctx.lineWidth = 1;
+    ctx.fillStyle = '#b9b3a6';                       // latch
+    ctx.fillRect(sx + T * 0.80, R1 + 3, 3, 5);
+  } else {
+    // Post. Split faces, and a cap so it has a top rather than just stopping.
+    const px = sx + T * 0.38;
+    ctx.fillStyle = DARK;  ctx.fillRect(px - 1, TOP, 8, GND - TOP);
+    ctx.fillStyle = MID;   ctx.fillRect(px, TOP, 6, GND - TOP);
+    ctx.fillStyle = LIGHT; ctx.fillRect(px, TOP, 2, GND - TOP);
+    ctx.fillStyle = '#b39668'; ctx.fillRect(px - 1, TOP, 8, 2);
+    // Weathering: one dark check running down the grain.
+    if (((tx * 374761393 ^ ty * 668265263) >>> 0) & 1) {
+      ctx.fillStyle = 'rgba(40,30,18,.35)';
+      ctx.fillRect(px + 3, TOP + 4, 1, (GND - TOP) * 0.6);
+    }
+  }
+}
+
 function drawTile(tx,ty,sx,sy) {
   const t=getT(tx,ty), c=TC[t]||TC[TL.GRASS];
   ctx.fillStyle=c[0]; ctx.fillRect(sx,sy,T,T);
@@ -8459,12 +8528,19 @@ function drawTile(tx,ty,sx,sy) {
     for(const [dx,dy] of dirs){
       const nt=getT(tx+dx,ty+dy);
       if(overlays.has(nt)||!TC[nt]) continue;
+      // Flat colour first, THEN the texture. The baked draw rounds to whole
+      // world pixels and the canvas is then scaled by ZOOM, so a sub-pixel
+      // hairline can survive at the tile's edge — and what showed through it
+      // was the OVERLAY's own base colour, drawing a pale rectangle round
+      // every crate. Underpainting with the neighbour's colour makes that
+      // hairline the right colour instead of the wrong one.
+      ctx.fillStyle=TC[nt][0]; ctx.fillRect(sx,sy,T,T);
       const name=_owTerrain[nt];
-      if(name&&DHGround.draw(ctx,name,sx,sy,tx,ty)) return;
-      ctx.fillStyle=TC[nt][0]; ctx.fillRect(sx,sy,T,T); return;
+      if(name) DHGround.draw(ctx,name,sx,sy,tx,ty);
+      return;
     }
-    if(DHGround.draw(ctx,'grass',sx,sy,tx,ty)) return;
     ctx.fillStyle=TC[TL.GRASS][0]; ctx.fillRect(sx,sy,T,T);
+    DHGround.draw(ctx,'grass',sx,sy,tx,ty);
   }
 
   if(t===TL.GRASS){
@@ -8557,58 +8633,20 @@ function drawTile(tx,ty,sx,sy) {
         makeDirt(0x8c,0x58,0x28,6),
         makeDirt(0x82,0x50,0x22,7), // darkest
       ];
-      // Pre-bake fence and gate variants — dirt base + wood post/rails composited on top
-      const bakeFence=(dirtOc)=>{
-        const oc=document.createElement('canvas'); oc.width=oc.height=32;
-        const fc=oc.getContext('2d');
-        fc.drawImage(dirtOc,0,0);
-        fc.fillStyle='#786030'; fc.fillRect(14,0,4,32);
-        fc.fillStyle='#887040'; fc.fillRect(14,0,2,32);
-        fc.fillStyle='#584820'; fc.fillRect(17,0,1,32);
-        fc.fillStyle='#685828'; fc.fillRect(0,6,32,3);
-        fc.fillStyle='#786838'; fc.fillRect(0,6,32,1);
-        fc.fillStyle='#685828'; fc.fillRect(0,18,32,3);
-        fc.fillStyle='#786838'; fc.fillRect(0,18,32,1);
-        return oc;
-      };
-      const bakeFenceH=(dirtOc)=>{
-        const oc=document.createElement('canvas'); oc.width=oc.height=32;
-        const fc=oc.getContext('2d');
-        fc.drawImage(dirtOc,0,0);
-        fc.fillStyle='#786030'; fc.fillRect(0,14,32,4);
-        fc.fillStyle='#887040'; fc.fillRect(0,14,32,2);
-        fc.fillStyle='#584820'; fc.fillRect(0,17,32,1);
-        fc.fillStyle='#685828'; fc.fillRect(6,0,3,32);
-        fc.fillStyle='#786838'; fc.fillRect(6,0,1,32);
-        fc.fillStyle='#685828'; fc.fillRect(18,0,3,32);
-        fc.fillStyle='#786838'; fc.fillRect(18,0,1,32);
-        return oc;
-      };
-      const bakeGate=(dirtOc)=>{
-        const oc=document.createElement('canvas'); oc.width=oc.height=32;
-        const fc=oc.getContext('2d');
-        fc.drawImage(dirtOc,0,0);
-        fc.fillStyle='#887040'; fc.fillRect(14,0,4,8); fc.fillRect(14,24,4,8);
-        fc.fillStyle='#988050'; fc.fillRect(14,0,2,8); fc.fillRect(14,24,2,8);
-        fc.fillStyle='rgba(160,110,55,0.5)'; fc.fillRect(0,10,32,4);
-        fc.fillStyle='rgba(180,130,65,0.35)'; fc.fillRect(0,10,32,1);
-        return oc;
-      };
-      drawTile._fenceV=drawTile._dirtV.map(bakeFence);
-      drawTile._fenceHV=drawTile._dirtV.map(bakeFenceH);
-      drawTile._fenceGateV=drawTile._dirtV.map(bakeGate);
     }
     // The baked ground draws the dirt itself, but the early return for it has
-    // to come AFTER the block above, not before it. That block builds the
-    // fence, fence-gate and dirt variants together, and TL.FENCE relies on
-    // drawing a dirt tile to trigger it ("force dirt init", below). When dirt
-    // was wired to DHGround the return jumped that block, so _dirtV stayed
-    // undefined, _fenceV fell back to `(_dirtV||[])` = an empty array, and the
-    // first fence tile on screen indexed it, got undefined, and threw out of
-    // drawImage — which aborts render() for the whole frame. The result was a
-    // black screen with a strip of world at the top, and it only appeared when
-    // a fence tile was in view, so it depended on the shape of the viewport:
-    // reported from a phone, invisible in every desktop test.
+    // to come AFTER the block above, not before it. That block is not pure
+    // drawing code: it BUILDS the dirt variants other tile types then index,
+    // and it is triggered by a dirt tile being drawn. When dirt was wired to
+    // DHGround the return jumped it, the caches stayed empty, and the first
+    // dependent tile on screen indexed an empty array, got undefined, and
+    // threw out of drawImage — which aborts render() for the whole frame. The
+    // result was a black screen with a strip of world at the top, and because
+    // whether a dependent tile is on screen depends on the SHAPE of the
+    // viewport it was reported from a phone and invisible in every desktop
+    // test. TL.FENCE and TL.FENCE_GATE have since been rewritten to draw
+    // themselves, but TL.SPRINKLER still indexes _dirtV, so the hazard is
+    // live and tools/test_render.py still covers it.
     // Real packed earth from the farm tileset, sampled from one continuous surface.
     if(DHGround.draw(ctx,'dirt',sx,sy,tx,ty)) return;
     // Smooth value noise: average neighbors so no tile jumps far from adjacent ones
@@ -8776,29 +8814,51 @@ function drawTile(tx,ty,sx,sy) {
     if(gameState.isNight){ctx.fillStyle='rgba(255,200,80,.15)';ctx.fillRect(sx+8,sy+8,T-16,T-16);}
   }
   else if(t===TL.FENCE){
-    if(!drawTile._dirtV) drawTile(0,36,0,0); // force dirt init by drawing a dirt tile off-screen
-    if(!drawTile._fenceV||!drawTile._fenceV.length) drawTile._fenceV=(drawTile._dirtV||[]).filter(Boolean).map(d=>{const oc=document.createElement('canvas');oc.width=oc.height=32;const fc=oc.getContext('2d');fc.drawImage(d,0,0);fc.fillStyle='#786030';fc.fillRect(14,0,4,32);fc.fillStyle='#887040';fc.fillRect(14,0,2,32);fc.fillStyle='#584820';fc.fillRect(17,0,1,32);fc.fillStyle='#685828';fc.fillRect(0,6,32,3);fc.fillStyle='#786838';fc.fillRect(0,6,32,1);fc.fillStyle='#685828';fc.fillRect(0,18,32,3);fc.fillStyle='#786838';fc.fillRect(0,18,32,1);return oc;});
-    if(!drawTile._fenceHV||!drawTile._fenceHV.length) drawTile._fenceHV=(drawTile._dirtV||[]).filter(Boolean).map(d=>{const oc=document.createElement('canvas');oc.width=oc.height=32;const fc=oc.getContext('2d');fc.drawImage(d,0,0);fc.fillStyle='#786030';fc.fillRect(0,14,32,4);fc.fillStyle='#887040';fc.fillRect(0,14,32,2);fc.fillStyle='#584820';fc.fillRect(0,17,32,1);fc.fillStyle='#685828';fc.fillRect(6,0,3,32);fc.fillStyle='#786838';fc.fillRect(6,0,1,32);fc.fillStyle='#685828';fc.fillRect(18,0,3,32);fc.fillStyle='#786838';fc.fillRect(18,0,1,32);return oc;});
-    const nN=getT(tx,ty-1), nS=getT(tx,ty+1);
-    const isEW=(nN===TL.FENCE||nN===TL.FENCE_GATE||nS===TL.FENCE||nS===TL.FENCE_GATE);
-    const variants=isEW?drawTile._fenceHV:drawTile._fenceV;
-    if(variants&&variants.length){const n=(x,y)=>((x*374761393+y*668265263+x*y*1234567)>>>0)&255;const v=Math.round((n(tx,ty)+n(tx+1,ty)+n(tx,ty+1)+n(tx-1,ty)+n(tx,ty-1))/5/32)&7;ctx.drawImage(variants[v],sx,sy);}
+    // The fence used to be baked into an offscreen canvas per dirt variant,
+    // which had two problems. It carried the DIRT tile with it, so a fence run
+    // along the top of a field sat on a strip of earth with grass either side
+    // of it; and the timber was olive (#786030/#685828), which at this size
+    // read as a green patterned ribbon rather than as a fence.
+    //
+    // Drawn straight instead, over whatever ground the fence actually stands
+    // on, and following its neighbours so a run joins up and a corner turns.
+    _owGround();
+    drawFenceTile(tx, ty, sx, sy, false);
   }
   else if(t===TL.WALL){
-    ctx.fillStyle='#3a3228'; ctx.fillRect(sx,sy,T,T);
-    ctx.fillStyle='#4a4238'; ctx.fillRect(sx,sy,T,2);
-    ctx.fillStyle='#2a2218'; ctx.fillRect(sx,sy+T-2,T,2);
-    // Stone block pattern
-    ctx.fillStyle='#2e2620';
-    ctx.fillRect(sx+2,sy+T/2,T-4,1);
-    if((tx+ty)%2===0){
-      ctx.fillRect(sx+T/2,sy+2,1,T/2-1);
-    } else {
-      ctx.fillRect(sx+4,sy+T/2+1,1,T/2-3);
-      ctx.fillRect(sx+T-5,sy+2,1,T/2-1);
+    // The town wall. Was three flat fills and a (tx+ty)%2 block pattern, which
+    // gave 109 tiles of the same two rectangles alternating. Over the baked
+    // stone instead, with the courses offset per row so the joints stagger the
+    // way coursed masonry actually does.
+    if(!DHGround.drawToned(ctx,'minefloor','#4a4038',sx,sy,tx,ty)){
+      ctx.fillStyle='#3a3228'; ctx.fillRect(sx,sy,T,T);
     }
-    ctx.fillStyle='#4a4238';
-    ctx.fillRect(sx+2,sy+T/2-1,T-4,1);
+    const wh=((tx*374761393^ty*668265263)>>>0);
+    const CH=T/4;                                   // four courses per tile
+    for(let k=0;k<4;k++){
+      const yy=sy+k*CH;
+      const row=ty*4+k;
+      // Each block gets its own value, so a course is blocks and not a band.
+      for(let b=-1;b<2;b++){
+        const bx=sx+((row&1)?0:T/2)+b*T;
+        if(bx>=sx+T||bx+T<=sx) continue;
+        const bh=((row*2654435761)^((bx/T*4|0)*40503))>>>0;
+        ctx.fillStyle='rgba(255,240,220,'+(0.018+((bh>>4)&3)*0.014)+')';
+        ctx.fillRect(Math.max(bx,sx)+1,yy+1,Math.min(bx+T,sx+T)-Math.max(bx,sx)-2,CH-2);
+        ctx.fillStyle='rgba(0,0,0,.30)';            // the vertical joint
+        if(bx>sx&&bx<sx+T) ctx.fillRect(bx,yy,1,CH);
+      }
+      ctx.fillStyle='rgba(0,0,0,.34)'; ctx.fillRect(sx,yy+CH-1,T,1);
+      ctx.fillStyle='rgba(255,255,255,.05)'; ctx.fillRect(sx,yy,T,1);
+    }
+    // Capped at the top and in shadow at the foot, so it has height.
+    if(getT(tx,ty-1)!==TL.WALL){
+      ctx.fillStyle='#6a6055'; ctx.fillRect(sx,sy,T,3);
+      ctx.fillStyle='rgba(255,255,255,.10)'; ctx.fillRect(sx,sy,T,1);
+    }
+    if(getT(tx,ty+1)!==TL.WALL){
+      ctx.fillStyle='rgba(0,0,0,.40)'; ctx.fillRect(sx,sy+T-4,T,4);
+    }
   }
   else if(t===TL.WELL){
     // No pack in the library ships a well, so this one is drawn — but drawn as
@@ -9130,9 +9190,8 @@ function drawTile(tx,ty,sx,sy) {
     }
   }
   else if(t===TL.FENCE_GATE){
-    if(!drawTile._dirtV) drawTile(0,36,0,0);
-    if(!drawTile._fenceGateV||!drawTile._fenceGateV.length) drawTile._fenceGateV=(drawTile._dirtV||[]).filter(Boolean).map(d=>{const oc=document.createElement('canvas');oc.width=oc.height=32;const fc=oc.getContext('2d');fc.drawImage(d,0,0);fc.fillStyle='#887040';fc.fillRect(14,0,4,8);fc.fillRect(14,24,4,8);fc.fillStyle='#988050';fc.fillRect(14,0,2,8);fc.fillRect(14,24,2,8);fc.fillStyle='rgba(160,110,55,0.5)';fc.fillRect(0,10,32,4);fc.fillStyle='rgba(180,130,65,0.35)';fc.fillRect(0,10,32,1);return oc;});
-    if(drawTile._fenceGateV&&drawTile._fenceGateV.length){const n=(x,y)=>((x*374761393+y*668265263+x*y*1234567)>>>0)&255;const v=Math.round((n(tx,ty)+n(tx+1,ty)+n(tx,ty+1)+n(tx-1,ty)+n(tx,ty-1))/5/32)&7;ctx.drawImage(drawTile._fenceGateV[v],sx,sy);}
+    _owGround();
+    drawFenceTile(tx, ty, sx, sy, true);
   }
   else if(t===TL.FEED_TROUGH){
     ctx.fillStyle='#5a3810'; ctx.fillRect(sx+2,sy+7,T-4,T-13);

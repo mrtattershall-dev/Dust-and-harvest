@@ -52,19 +52,64 @@ BOOT = """() => { startNewGame();
 
 COLD_START = """() => {
   const out = {};
+  // The invariant itself, checked at the cause rather than at the symptom.
+  //
+  // Drawing a dirt tile is what BUILDS the lazy variant caches other tile
+  // types index. The shipped bug was an early `return` for the baked ground
+  // placed in front of that block, which left the caches empty; the black
+  // screen was only the symptom, by way of an unguarded consumer indexing an
+  // empty array and throwing out of drawImage. Every consumer is guarded now,
+  // so the symptom no longer appears — which is exactly why this has to test
+  // that drawing dirt still fills the caches, or the check passes for free
+  // and the next unguarded consumer ships the same black screen.
+  {
+    let dx = -1, dy = -1;
+    for (let y = 0; y < MAP_H && dy < 0; y++) for (let x = 0; x < MAP_W; x++)
+      if (tileMap[y*MAP_W+x] === TL.DIRT) { dx = x; dy = y; break; }
+    if (dx < 0) out['dirt builds caches'] = 'FAIL: no dirt on the map';
+    else {
+      delete drawTile._dirtV;
+      try { drawTile(dx, dy, 0, 0); } catch (e) {}
+      out['dirt builds caches'] =
+        (drawTile._dirtV && drawTile._dirtV.length)
+          ? 'ok' : 'FAIL: _dirtV still empty after drawing dirt';
+    }
+  }
   for (const type of ['FENCE','FENCE_GATE','SPRINKLER']) {
     if (TL[type] === undefined) { out[type] = 'skip: no such tile'; continue; }
     let fx = -1, fy = -1;
     for (let y=0; y<MAP_H && fy<0; y++) for (let x=0; x<MAP_W; x++)
       if (tileMap[y*MAP_W+x] === TL[type]) { fx=x; fy=y; break; }
-    if (fx < 0) { out[type] = 'skip: none on map'; continue; }
+    // If the map does not happen to carry one, put one down. Skipping was
+    // hiding the only tile type that still depends on the lazy cache: the
+    // fence and gate were rewritten to draw themselves, so without this the
+    // ordering check had no live subject left and passed for free.
+    let placed = -1;
+    if (fx < 0) {
+      placed = 4 * MAP_W + 4; fx = 4; fy = 4;
+      var _was = tileMap[placed]; tileMap[placed] = TL[type];
+    }
     delete drawTile._dirtV; delete drawTile._fenceV;
     delete drawTile._fenceHV; delete drawTile._fenceGateV;
-    let drew = 0; const od = ctx.drawImage;
-    ctx.drawImage = function () { drew++; return od.apply(this, arguments); };
-    try { drawTile(fx, fy, 0, 0); out[type] = drew > 0 ? 'ok' : 'FAIL: drew nothing'; }
-    catch (e) { out[type] = 'FAIL: threw ' + e.message.slice(0, 60); }
-    finally { ctx.drawImage = od; }
+    // Measured off the canvas, not by counting drawImage calls. Counting blits
+    // was a proxy for "the tile painted something", and it stopped being one
+    // the moment a tile type went back to being drawn rather than blitted —
+    // it then reported a perfectly good fence as drawing nothing. Clear the
+    // cell to a colour nothing uses and check the tile covered it.
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#ff00ff'; ctx.fillRect(0, 0, T, T);
+    let err = null;
+    try { drawTile(fx, fy, 0, 0); } catch (e) { err = e.message.slice(0, 60); }
+    let left = 0;
+    const d = ctx.getImageData(0, 0, T, T).data;
+    for (let i = 0; i < d.length; i += 4)
+      if (d[i] > 240 && d[i+1] < 40 && d[i+2] > 240) left++;
+    ctx.restore();
+    if (placed >= 0) tileMap[placed] = _was;
+    out[type] = err ? 'FAIL: threw ' + err
+              : left > T * T * 0.02 ? 'FAIL: left ' + left + '/' + (T*T) + ' px unpainted'
+              : 'ok';
   }
   return out;
 }"""
