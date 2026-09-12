@@ -10357,6 +10357,43 @@ const _fixArt = { img: new Image(), rects: null, ok: false };
     .catch(e => console.warn('[fixtures] no atlas (' + e.message + ')'));
 })();
 
+// A darkened copy of the whole fixtures atlas, for pieces standing indoors.
+//
+// Lowering globalAlpha does not do this job: it makes the piece TRANSLUCENT,
+// which over a dark floor darkens it a little and washes it out a lot — the
+// ruins' shrubs still read as a lawn at 0.5. This multiplies the sprite down
+// instead, through 'source-atop' so the transparent parts of the atlas stay
+// transparent, and caches the result per level, so a dimmed piece costs the
+// same blit an undimmed one does.
+const _fixDimCache = {};
+function _fixAtlasDim(mul) {
+  const key = mul.toFixed(2);
+  if (_fixDimCache[key]) return _fixDimCache[key];
+  if (!_fixArt.ok) return null;
+  const cv = document.createElement('canvas');
+  cv.width = _fixArt.img.width; cv.height = _fixArt.img.height;
+  const c = cv.getContext('2d');
+  c.imageSmoothingEnabled = false;
+  c.drawImage(_fixArt.img, 0, 0);
+  c.globalCompositeOperation = 'source-atop';
+  c.fillStyle = 'rgba(6,8,10,' + (1 - mul).toFixed(3) + ')';
+  c.fillRect(0, 0, cv.width, cv.height);
+  _fixDimCache[key] = cv;
+  return cv;
+}
+
+// Like drawFixture, but multiplied down to `mul` of its brightness.
+function drawFixtureDim(name, sx, sy, mul) {
+  if (!_fixArt.ok) return false;
+  const r = _fixArt.rects[name];
+  if (!r) return false;
+  const atlas = _fixAtlasDim(mul);
+  if (!atlas) return false;
+  ctx.drawImage(atlas, r[0], r[1], r[2], r[3],
+                Math.round(sx - r[2] / 2), Math.round(sy - r[3]), r[2], r[3]);
+  return true;
+}
+
 // Blit one named piece, standing on (sx, sy) and centred on it.
 function drawFixture(name, sx, sy) {
   if (!_fixArt.ok) return false;
@@ -33293,6 +33330,71 @@ function buildRuinsMap() {
   setRUT(8,  25, JG.FLOOR); // land promise    (archive, deep)
 }
 
+// § ALTAVERDE RUINS — what is left in it
+//
+// The three chambers have doorways and dividing walls, so the LAYOUT was never
+// the problem: 961 floor tiles of identical stone with thirty rocks on them
+// was. It is called the Entry Hall, the Processing floor and the Archive, so
+// what belongs in it is what Altaverde left when they cleared out in a hurry —
+// crates, shelves, benches — and what the jungle has done to it since.
+//
+// Scattered against the same rule the town uses: a prop only goes where it
+// touches a wall, so nothing lands in the middle of a room and no route is
+// obstructed. Nothing here is stamped into the map; it is all decoration.
+//
+// Overgrowth gets its own, sparser pass in the open floor — a sapling coming
+// up through a flagstone belongs in the middle of a room, unlike a crate.
+const RUINS_PROPS = ['crate_tall', 'crate_wide', 'shelf', 'crate', 'table',
+                     'sack', 'crate_wide', 'tree_shrub', 'shelf', 'rack',
+                     'crate_tall', 'tree_scrub', 'hidecrate', 'crate'];
+const RUINS_GROWTH = ['tree_sapling', 'tree_shrub', 'tree_scrub', 'tree_bush'];
+
+function drawRuinsProps(cx, cy) {
+  if (!_fixArt.ok) return;
+  const vw = canvas.width / ZOOM, vh = canvas.height / ZOOM;
+  const x0 = Math.max(0, Math.floor(cx / RU_T) - 2);
+  const x1 = Math.min(RU_W - 1, Math.ceil((cx + vw) / RU_T) + 2);
+  const y0 = Math.max(0, Math.floor(cy / RU_T) - 1);
+  const y1 = Math.min(RU_H - 1, Math.ceil((cy + vh) / RU_T) + 3);
+
+  const wallish = (x, y) => { const v = getRUT(x, y); return v === JG.WALL || v === JG.ROCK; };
+  const has = (x, y) => {
+    if (getRUT(x, y) !== JG.FLOOR) return 0;
+    if (y <= 2 && x >= 17 && x <= 22) return 0;          // keep the way in clear
+    let t = false;
+    for (const [dx, dy] of [[0,1],[0,-1],[1,0],[-1,0]]) if (wallish(x + dx, y + dy)) { t = true; break; }
+    if (!t) return 0;
+    const h = ((x * 2654435761) ^ (y * 40503)) >>> 0;
+    return ((h >>> 3) % 100 < 30) ? h : 0;
+  };
+
+  for (let ty = y0; ty <= y1; ty++) {                    // row by row = depth sort
+    for (let tx = x0; tx <= x1; tx++) {
+      if (!exploredRuins[ty * RU_W + tx]) continue;
+      const sx = tx * RU_T + RU_T / 2 - cx, sy = (ty + 1) * RU_T - cy;
+      const h = has(tx, ty);
+      if (h) {
+        // Same no-neighbours rule as the town: these pieces are wider and
+        // taller than a tile, so two together heap rather than read as two.
+        if (has(tx - 1, ty) || has(tx, ty - 1) ||
+            has(tx - 1, ty - 1) || has(tx + 1, ty - 1)) continue;
+        drawFixtureDim(RUINS_PROPS[(h >>> 11) % RUINS_PROPS.length], sx, sy, 0.58);
+        continue;
+      }
+      // Growth, out in the open, where nothing has been stacked.
+      if (getRUT(tx, ty) !== JG.FLOOR) continue;
+      if (ty <= 2 && tx >= 17 && tx <= 22) continue;
+      const g = ((tx * 374761393) ^ (ty * 668265263)) >>> 0;
+      if ((g >>> 5) % 100 >= 7) continue;
+      // Dimmed: a shrub inside a hall lit by one torch is not lit like a shrub
+      // on a lawn, and at full strength these glowed against the dark stone.
+      // Lowering alpha over a dark floor darkens them, which is what is wanted
+      // and costs nothing.
+      drawFixtureDim(RUINS_GROWTH[(g >>> 13) % RUINS_GROWTH.length], sx, sy, 0.40);
+    }
+  }
+}
+
 // ── Ruins zone state ──────────────────────────────────────────────────────────
 if (typeof gameState.inRuins === 'undefined') gameState.inRuins = false;
 
@@ -33379,6 +33481,10 @@ function renderRuinsZone() {
       if (!exploredRuins[ty*RU_W+tx]) ctx.fillRect(tx*RU_T-cx, ty*RU_T-cy, RU_T+1, RU_T+1);
     }
   }
+
+  // What Altaverde left and what the jungle has done to it, before the
+  // player so they walk in front of it.
+  drawRuinsProps(cx, cy);
 
   // Player
   drawPlayer();
@@ -35150,16 +35256,38 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
 
     // ── Structure tiles ────────────────────────────────────────────────────
     case JG.ROCK: {
-      ctx.fillStyle = '#2e2c28'; ctx.fillRect(sx, sy, T, T);
-      // Rock face — irregular polygon suggestion
-      ctx.fillStyle = '#3c3830';
-      ctx.fillRect(sx + 3, sy + 4, T - 6, T - 8);
-      // Highlight edge
-      ctx.fillStyle = 'rgba(160,150,120,0.15)';
-      ctx.fillRect(sx + 3, sy + 4, T - 6, 3);
-      // Shadow edge
-      ctx.fillStyle = 'rgba(0,0,0,0.3)';
-      ctx.fillRect(sx + 3, sy + T - 7, T - 6, 3);
+      // Rubble, not a grey box with a highlight along its top and a shadow
+      // along its bottom — which is the tile-pitch banding again, and in the
+      // ruins these read as filing cabinets on the floor. The baked rock props
+      // give real silhouettes; the ground under them is whatever the room is.
+      if (!(G && G.drawToned(ctx, 'minefloor',
+                             window.JG_BIOME === 'ruins' ? '#4a453c' : jgTone('floor'),
+                             sx, sy, tx, ty))) {
+        ctx.fillStyle = '#2e2c28'; ctx.fillRect(sx, sy, T, T);
+      }
+      if (window.JG_BIOME === 'ruins' ||
+          !(tx !== undefined && window.DHProps &&
+            DHProps.draw(ctx, 'rock', sx, sy, tx, ty))) {
+        // Fallen masonry: a heap of blocks. A first attempt scattered three
+        // small pale rectangles across the tile with a wide dark ellipse under
+        // them, which read as scraps of paper beside a hole.
+        const rh = ((tx * 2654435761) ^ (ty * 40503)) >>> 0;
+        ctx.fillStyle = 'rgba(0,0,0,.26)';
+        ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T*0.76, 11, 4, 0, 0, Math.PI*2); ctx.fill();
+        // Bottom course first, then smaller blocks resting on it, so the pile
+        // has a shape instead of being three things at the same height.
+        const LAY = [[0, 13, 7], [-5, 8, 6], [4, 7, 5], [-1, 5, 4]];
+        for (let k = 0; k < LAY.length; k++) {
+          const q = (rh >> (k * 6)) & 63;
+          const bw = LAY[k][1] + (q & 3), bh = LAY[k][2] + ((q >> 2) & 1);
+          const bx = sx + T/2 + LAY[k][0] - bw/2 + ((q >> 3) & 3) - 1;
+          const by = sy + T*0.74 - bh * (k + 1) + k * 2;
+          ctx.fillStyle = '#332e28'; ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+          ctx.fillStyle = '#5e574b'; ctx.fillRect(bx, by, bw, bh);
+          ctx.fillStyle = 'rgba(198,188,162,.24)'; ctx.fillRect(bx, by, bw, 1);
+          ctx.fillStyle = 'rgba(0,0,0,.22)';       ctx.fillRect(bx, by + bh - 1, bw, 1);
+        }
+      }
       break;
     }
     case JG.WALL: {
