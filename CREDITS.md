@@ -102,6 +102,15 @@ is an edit to `jungle-map.json`, not to the renderer.
 
 ---
 
+## Bundled libraries
+
+**PeerJS 1.5.5** — `assets/js/vendor/peerjs.min.js`, MIT. Vendored rather than
+loaded from a CDN so multiplayer works on networks that block one.
+
+- <https://peerjs.com>
+
+---
+
 ## Fonts
 
 **Special Elite** and **Rye**, via Google Fonts, under the SIL Open Font License.

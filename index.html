@@ -37638,15 +37638,21 @@ function _drawGuideCover() {
 // Load PeerJS dynamically so a slow/blocked CDN doesn't crash the whole page
 function _dhLoadPeerJS(callback) {
   if (typeof Peer !== 'undefined') { callback(null); return; }
-  const cdns = [
-    'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js',
-    'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js',
+  /* The local copy first. Multiplayer used to exist only if unpkg or jsdelivr
+     answered, which is the same class of dependency as the Google Fonts link
+     and fails on the same networks — a corporate firewall, a school, a country
+     that blackholes a CDN. The failure message blamed the player's internet.
+     The CDNs stay as a fallback in case the file is missing from a deployment. */
+  const sources = [
+    'assets/js/vendor/peerjs.min.js',
+    'https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js',
+    'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js',
   ];
   let tried = 0;
   function tryNext() {
-    if (tried >= cdns.length) { callback(new Error('Could not load PeerJS from any CDN. Check your internet connection.')); return; }
+    if (tried >= sources.length) { callback(new Error('Could not load PeerJS.')); return; }
     const s = document.createElement('script');
-    s.src = cdns[tried++];
+    s.src = sources[tried++];
     s.onload = () => { if (typeof Peer !== 'undefined') callback(null); else tryNext(); };
     s.onerror = tryNext;
     document.head.appendChild(s);
