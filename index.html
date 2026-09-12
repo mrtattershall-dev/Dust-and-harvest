@@ -33914,6 +33914,23 @@ function _djDrawBaked(ctx, t, sx, sy, tx, ty) {
   ctx.imageSmoothingEnabled = prev;
 }
 
+/* Quarter-resolution buffer the glow pass composites into — see the pass for
+   why. Rebuilt only when the viewport changes. */
+const DJ_GLOW_SCALE = 4;
+let _djGlowBuf = null;
+function _djGlowBuffer(W, H) {
+  const w = Math.max(1, Math.ceil(W / DJ_GLOW_SCALE));
+  const h = Math.max(1, Math.ceil(H / DJ_GLOW_SCALE));
+  if (!_djGlowBuf || _djGlowBuf.canvas.width !== w || _djGlowBuf.canvas.height !== h) {
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const c = canvas.getContext('2d');
+    if (!c) return null;
+    _djGlowBuf = { canvas, ctx: c };
+  }
+  return _djGlowBuf;
+}
+
 const _djGlowCache = {};
 function _djGlowSprite(kind, r) {
   const key = kind + r;
@@ -33984,25 +34001,52 @@ function renderDeepJungleZone() {
   // ran at ~26 fps against 60 everywhere else, and profiling put almost none of
   // it in script — it was paint. The falloff is now baked into an offscreen
   // canvas once per colour and blitted, with the pulse applied as globalAlpha.
+  /* Caching the gradients was not enough. Profiling by disabling passes showed
+     this one pass costs 27 fps on its own — the zone runs at 30 with it and 57
+     without. The reason is overdraw, not arithmetic: a formation's glow is 128
+     world pixels across, the canvas is scaled by ZOOM, and at 3.25 that is a
+     416x416 region of additive blending per tile. Thirty of them is over five
+     megapixels of 'lighter' compositing every frame, most of it overlapping.
+
+     So the glows are gathered into a quarter-resolution buffer and composited
+     once. Sixteen times less blended area, one additive blit instead of fifty,
+     and nothing visible is lost because a soft radial falloff is exactly the
+     kind of image that survives being drawn small and scaled back up. */
   const formPulse = 0.4 + 0.3 * Math.sin(now * 0.0008);
-  ctx.globalCompositeOperation = 'lighter';
-  for (let ty = ty0; ty <= ty1; ty++) {
-    for (let tx = tx0; tx <= tx1; tx++) {
-      if (!exploredDeep[ty * DJ_W + tx]) continue;
-      const dt = getDJT(tx, ty);
-      if (dt !== JG.FORMATION && dt !== JG.BIOLUM) continue;
-      const sx = tx * DJ_T + DJ_T/2 - cx;
-      const sy = ty * DJ_T + DJ_T/2 - cy;
-      const isForm = dt === JG.FORMATION;
-      const r = isForm ? 64 : 28;
-      ctx.globalAlpha = isForm
-        ? formPulse * 0.18
-        : 0.3 + 0.2 * Math.sin(now * 0.0015 + tx + ty) * 0.12;
-      ctx.drawImage(_djGlowSprite(isForm ? 'formation' : 'biolum', r), sx - r, sy - r);
+  const gb = _djGlowBuffer(W, H);
+  if (gb) {
+    const g2 = gb.ctx, S = DJ_GLOW_SCALE;
+    g2.setTransform(1, 0, 0, 1, 0, 0);
+    g2.clearRect(0, 0, gb.canvas.width, gb.canvas.height);
+    g2.globalCompositeOperation = 'lighter';
+    for (let ty = ty0; ty <= ty1; ty++) {
+      for (let tx = tx0; tx <= tx1; tx++) {
+        if (!exploredDeep[ty * DJ_W + tx]) continue;
+        const dt = getDJT(tx, ty);
+        if (dt !== JG.FORMATION && dt !== JG.BIOLUM) continue;
+        const sx = tx * DJ_T + DJ_T/2 - cx;
+        const sy = ty * DJ_T + DJ_T/2 - cy;
+        const isForm = dt === JG.FORMATION;
+        const r = isForm ? 64 : 28;
+        // Cheap reject: a glow entirely off-screen still costs a blit.
+        if (sx + r < 0 || sy + r < 0 || sx - r > W || sy - r > H) continue;
+        g2.globalAlpha = isForm
+          ? formPulse * 0.18
+          : 0.3 + 0.2 * Math.sin(now * 0.0015 + tx + ty) * 0.12;
+        const spr = _djGlowSprite(isForm ? 'formation' : 'biolum', r);
+        g2.drawImage(spr, (sx - r) / S, (sy - r) / S, (r * 2) / S, (r * 2) / S);
+      }
     }
+    g2.globalAlpha = 1;
+    g2.globalCompositeOperation = 'source-over';
+
+    ctx.globalCompositeOperation = 'lighter';
+    const smooth = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = true;   // soft light, so scaling up is free quality
+    ctx.drawImage(gb.canvas, 0, 0, gb.canvas.width, gb.canvas.height, 0, 0, W, H);
+    ctx.imageSmoothingEnabled = smooth;
+    ctx.globalCompositeOperation = 'source-over';
   }
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = 'source-over';
 
   // ── Biolum ground fog ─────────────────────────────────────────────────────
   // A soft cyan haze drifts across the deep zone floor
