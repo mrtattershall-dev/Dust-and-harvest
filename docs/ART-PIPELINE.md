@@ -267,6 +267,15 @@ Guards were added at the three variant lookups so the same class of mistake
 degrades to a missing fence rather than a black screen. `arr && arr.length`,
 not `arr` — an empty array passes a truthiness check.
 
+### The test covers every zone, not just the overworld
+
+`tools/test_render.py` enters all eight zones behind the overworld — mine,
+badlands, badlands mine, hobo camp, ocean, jungle, deep jungle, ruins — renders
+a frame in each, and checks that something was actually painted. Each has its
+own draw code, and a crash in any of them is a black screen for whoever walks
+in. I had spent a long time on overworld art before ever looking at four of
+them.
+
 ### There is a test for this now
 
 ```

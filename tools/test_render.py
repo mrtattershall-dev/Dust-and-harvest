@@ -17,7 +17,13 @@ Two checks, both written against real bugs that shipped:
    The test clears the caches and draws each dependent tile type FIRST, which
    is what a viewport showing a fence before any dirt does on a real device.
 
-2. EVERY TILE TYPE, FOUR VIEWPORT SHAPES. The bug above only appeared on a
+2. EVERY ZONE RENDERS. The game has eight zones behind the overworld — mine,
+   badlands, badlands mine, hobo camp, ocean, jungle, deep jungle, ruins —
+   each with its own draw code. A crash in any of them is a black screen for
+   whoever walks in. The test enters each, renders a frame, and checks that
+   something was actually painted rather than the frame throwing.
+
+3. EVERY TILE TYPE, FOUR VIEWPORT SHAPES. The bug above only appeared on a
    phone, because whether a fence is on screen depends on the SHAPE of the
    viewport and not its size. Testing 1280x800 and calling it covered is how it
    reached a user.
@@ -77,6 +83,35 @@ ALL_TILES = """() => {
 }"""
 
 
+ZONES = [
+    ("overworld",   None),
+    ("mine",        "enterMine()"),
+    ("badlands",    "enterBadlands()"),
+    ("badlands mine", "enterBadlands(); enterBLMine()"),
+    ("hobo camp",   "enterHoboCamp()"),
+    ("ocean",       "enterOcean()"),
+    ("jungle",      "enterJungle()"),
+    ("deep jungle", "enterJungle(); enterDeepJungle()"),
+    ("ruins",       "enterRuins()"),
+]
+
+# Render one frame and report whether it painted anything. A zone whose draw
+# code throws leaves the canvas as it was, so "more than one distinct colour
+# across a grid of samples" is the cheapest honest test that a frame happened.
+ZONE_FRAME = """(js) => {
+  const out = {};
+  try { eval(js); } catch (e) { return {enter: 'FAIL: ' + e.message.slice(0, 60)}; }
+  try { render(); } catch (e) { return {draw: 'FAIL: ' + e.message.slice(0, 60)}; }
+  const seen = new Set();
+  for (let i = 1; i < 5; i++) for (let j = 1; j < 5; j++) {
+    const d = ctx.getImageData((canvas.width * i / 5) | 0, (canvas.height * j / 5) | 0, 1, 1).data;
+    seen.add(d[0] + ',' + d[1] + ',' + d[2]);
+  }
+  out.colours = seen.size;
+  return out;
+}"""
+
+
 def serve(directory, port):
     class H(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *a, **k): super().__init__(*a, directory=str(directory), **k)
@@ -104,6 +139,28 @@ async def main():
             await pg.wait_for_timeout(4500)
             await pg.evaluate(BOOT)
             await pg.wait_for_timeout(1200)
+
+            # Zones first: entering one changes global state, so this runs
+            # on its own page load per shape and the tile checks follow on a
+            # fresh one. Cheaper here is wrong — a half-entered jungle would
+            # make the tile census meaningless.
+            for zname, js in ZONES:
+                if js is None:
+                    continue
+                z = await pg.evaluate(ZONE_FRAME, js)
+                bad = z.get("enter") or z.get("draw")
+                if bad:
+                    print(f"         zone {zname}: {bad}")
+                    failures.append(f"{label}/{zname}")
+                elif z.get("colours", 0) < 2:
+                    print(f"         zone {zname}: FAIL drew a blank frame")
+                    failures.append(f"{label}/{zname}")
+                else:
+                    print(f"         zone {zname}: ok ({z['colours']} colours)")
+            await pg.reload()
+            await pg.wait_for_timeout(4000)
+            await pg.evaluate(BOOT)
+            await pg.wait_for_timeout(1000)
 
             cold = await pg.evaluate(COLD_START)
             bad = {k: v for k, v in cold.items() if v.startswith("FAIL")}

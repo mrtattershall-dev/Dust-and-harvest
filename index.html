@@ -5903,10 +5903,17 @@ const MERCHANT_INTERACT_RADIUS = 72;
 //
 // `weights` is [[tile, share], ...]; shares are relative and need not sum to
 // anything. `passes` controls blob size — more passes, broader patches.
-function clumpFill(x0, y0, x1, y1, weights, passes) {
+//
+// `set` and `rand` are injected so the badlands can use this too: it writes
+// through setBLT, and it generates from a seeded rng so the same badlands
+// comes back every game. Passing Math.random there would have quietly made it
+// different on every load.
+function clumpFill(x0, y0, x1, y1, weights, passes, set, rand) {
+  set = set || setT;
+  rand = rand || Math.random;
   const w = x1 - x0 + 1, h = y1 - y0 + 1, n = w * h;
   let f = new Float32Array(n);
-  for (let i = 0; i < n; i++) f[i] = Math.random();
+  for (let i = 0; i < n; i++) f[i] = rand();
 
   // Box blur. Reads from a copy so tiles already updated this pass cannot
   // bias their neighbours — smoothing in place smears toward the top-left.
@@ -5936,7 +5943,7 @@ function clumpFill(x0, y0, x1, y1, weights, passes) {
     const v = f[y * w + x];
     let k = cuts.findIndex(c => v <= c);
     if (k < 0) k = weights.length - 1;
-    setT(x0 + x, y0 + y, weights[k][0]);
+    set(x0 + x, y0 + y, weights[k][0]);
   }
 }
 
@@ -14153,20 +14160,27 @@ function buildBadlands() {
   const MID_X   = 55; // x < 55  → midlands
   // x >= 55 → entry zone
 
-  // ── Base fill — varies by zone ──
-  for(let y=0;y<BL_H;y++) for(let x=0;x<BL_W;x++) {
-    const n=rng();
-    if (x < DEEP_X) {
-      // Deep: mostly ash and redrock, oppressive
-      setBLT(x,y, n<.45?BL.ASH : n<.72?BL.REDROCK : n<.88?BL.CRACKED : BL.SKULL_ROCK);
-    } else if (x < MID_X) {
-      // Mid: cracked/redrock mix
-      setBLT(x,y, n<.50?BL.CRACKED : n<.76?BL.REDROCK : BL.DUSTFLOOR);
-    } else {
-      // Entry: open dustfloor and cracked, easier to traverse
-      setBLT(x,y, n<.40?BL.DUSTFLOOR : n<.72?BL.CRACKED : BL.REDROCK);
-    }
-  }
+  // ── Base fill — varies by zone, and clumps rather than speckling ──
+  //
+  // This was a per-tile rng draw, which measured worse than the overworld's
+  // did before the same fix: 19% of tiles had no orthogonal neighbour of their
+  // own type and agreement was 43%. With real ground under it that reads as a
+  // checkerboard of red slabs and cracked earth.
+  //
+  // Shares are the old thresholds, renormalised where a band's draw also
+  // produced something that is no longer part of the ground fill. The seeded
+  // rng is passed through so the badlands stays identical from game to game.
+  clumpFill(0, 0, DEEP_X - 1, BL_H - 1,
+            [[BL.ASH, 45], [BL.REDROCK, 27], [BL.CRACKED, 16]], 5, setBLT, rng);
+  clumpFill(DEEP_X, 0, MID_X - 1, BL_H - 1,
+            [[BL.CRACKED, 50], [BL.REDROCK, 26], [BL.DUSTFLOOR, 24]], 5, setBLT, rng);
+  clumpFill(MID_X, 0, BL_W - 1, BL_H - 1,
+            [[BL.DUSTFLOOR, 40], [BL.CRACKED, 32], [BL.REDROCK, 28]], 5, setBLT, rng);
+  // Skull rock stays scattered at its old 12% of the deep band. It is a
+  // gatherable node, not ground: clumping it would bunch the deep badlands'
+  // harvestables into a few piles and leave the rest bare.
+  for(let y=0;y<BL_H;y++) for(let x=0;x<DEEP_X;x++)
+    if (rng() < .12) setBLT(x, y, BL.SKULL_ROCK);
 
   // ── Mesa plateaus — denser in deep/mid, sparse in entry ──
   const mesaCount = 18;
@@ -22996,24 +23010,47 @@ function drawBLTile(tx,ty,sx,sy) {
     if(h%7===0){ ctx.fillStyle='rgba(140,110,70,.45)'; ctx.fillRect(sx+(h%14)+3,sy+(h2%14)+5,2,2); }
 
   } else if(t===BL.CRACKED) {
-    // Cracked dry earth — warm base with fracture network
-    ctx.fillStyle='#b89050'; ctx.fillRect(sx,sy,T,T);
-    ctx.fillStyle='#a07840'; ctx.fillRect(sx+1,sy+1,T-2,T-2);
-    // Sub-tile shading — make it look like raised cracked slabs
-    ctx.fillStyle='rgba(80,50,20,.18)';
-    ctx.fillRect(sx,sy+T-4,T,4); ctx.fillRect(sx+T-4,sy,4,T);
-    // Crack network — 3 lines, deterministic angles
+    // Cracked dry earth. 1633 tiles — a quarter of the badlands — and it used
+    // to read as a placeholder: an inset rect outlined every tile into a hard
+    // grid, and three cracks spanning corner to corner drew what looked like a
+    // large X on each one.
+    //
+    // No delivered pack has cracked-earth decals (the dungeon pack's
+    // "decorative cracks" are damaged masonry edges, not overlays), so this is
+    // painted properly instead of imported.
+    //
+    // The base sits flat to the tile edge with no inset, so nothing draws the
+    // grid. Cracks are short, branch, and are placed away from the edges, so
+    // they read as a fracture network rather than a symbol.
+    ctx.fillStyle='#a87c44'; ctx.fillRect(sx,sy,T,T);
+    // Two or three tonal patches, soft-edged, to break the flat fill.
+    ctx.fillStyle='rgba(150,110,60,.35)';
+    ctx.fillRect(sx+(h%10), sy+(h2%12), 10+(h%8), 7+(h2%6));
+    ctx.fillStyle='rgba(120,84,42,.30)';
+    ctx.fillRect(sx+((h2>>3)%14), sy+((h>>2)%14), 8+(h2%7), 6+(h%5));
+    // A short branching crack, inset from every edge so no two tiles join
+    // theirs into a continuous line across the grid.
     ctx.save();
-    ctx.strokeStyle='#6a4820'; ctx.lineWidth=1;
-    const s0=(h%8)+2;
-    ctx.beginPath(); ctx.moveTo(sx+s0,sy+T/3); ctx.lineTo(sx+T-s0-2,sy+T*2/3); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(sx+T/2+h%5,sy+2); ctx.lineTo(sx+T/3,sy+T-4); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(sx+2,sy+T/2+(h2%8)-4); ctx.lineTo(sx+T/2,sy+T-3); ctx.stroke();
+    ctx.strokeStyle='rgba(86,58,26,.75)'; ctx.lineWidth=1;
+    const cx0 = sx + 6 + (h % 12), cy0 = sy + 6 + (h2 % 12);
+    const dx1 = ((h >> 3) % 9) - 4, dy1 = ((h2 >> 3) % 9) - 4;
+    ctx.beginPath();
+    ctx.moveTo(cx0, cy0);
+    ctx.lineTo(cx0 + dx1, cy0 + dy1);
+    ctx.lineTo(cx0 + dx1 + (((h >> 5) % 7) - 3), cy0 + dy1 + (((h2 >> 5) % 7) - 3));
+    ctx.stroke();
+    // A second, shorter fork off the start point on about half the tiles.
+    if ((h & 1) === 0) {
+      ctx.beginPath();
+      ctx.moveTo(cx0, cy0);
+      ctx.lineTo(cx0 - dy1, cy0 + dx1);
+      ctx.stroke();
+    }
     ctx.restore();
-    // Highlight edge of one slab
-    ctx.fillStyle='rgba(200,170,110,.15)';
-    ctx.fillRect(sx+(h%12)+2,sy+(h2%10)+2,T/3,1);
-
+    // A few dry pebbles.
+    ctx.fillStyle='rgba(200,170,110,.20)';
+    if(h%3===0)  ctx.fillRect(sx+(h%24)+2, sy+(h2%22)+3, 2, 2);
+    if(h2%4===0) ctx.fillRect(sx+(h2%20)+5, sy+(h%20)+6, 2, 1);
   } else if(t===BL.REDROCK) {
     // Layered red sandstone — sedimentary strata
     ctx.fillStyle='#b84828'; ctx.fillRect(sx,sy,T,T);
