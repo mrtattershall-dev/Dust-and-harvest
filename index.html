@@ -26082,6 +26082,7 @@ function drawJGTile(t, sx, sy) {
 }
 
 function renderJungleZone() {
+  window.JG_BIOME = 'jungle';
   if (!gameState.inJungle) return;
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
@@ -26105,7 +26106,7 @@ function renderJungleZone() {
       if (!fog) continue;
       const t = getJGT(tx, ty);
       const sx = tx * JG_T - cx, sy = ty * JG_T - cy;
-      drawJGTile(t, sx, sy);
+      drawJGTile(t, sx, sy, tx, ty);
       if (fog === 1) {
         // Semi-transparent fog-of-war on just-explored tiles (optional)
       }
@@ -32674,6 +32675,7 @@ function _revealRuinsArea(tx, ty, radius) {
 
 // ── Ruins renderer ────────────────────────────────────────────────────────────
 function renderRuinsZone() {
+  window.JG_BIOME = 'ruins';
   if (!gameState.inRuins) return;
   const canvas = document.getElementById('gameCanvas');
   if (!canvas) return;
@@ -32701,7 +32703,7 @@ function renderRuinsZone() {
       const t = getRUT(tx, ty);
       const sx = tx*RU_T - cx, sy = ty*RU_T - cy;
       // Reuse the rich drawJGTile renderer — tiles share the same enum
-      drawJGTile(t, sx, sy);
+      drawJGTile(t, sx, sy, tx, ty);
       // ASCEND tile highlight
       if (t === JG.ASCEND) {
         const p = 0.5+0.5*Math.sin(now*0.002);
@@ -33742,7 +33744,7 @@ function _buildAncientCourtZone() {
 //   ROOT — dark brown with vein-like detail
 //   ANCIENT tiles — cool grey-blue, geometric, non-organic
 
-function _drawDeepJGTile(t, sx, sy, c, timeMs) {
+function _drawDeepJGTile(t, sx, sy, c, timeMs, tx, ty) {
   const T = DJ_T;
   switch (t) {
     case JG.VINE: {
@@ -33913,7 +33915,7 @@ function _drawDeepJGTile(t, sx, sy, c, timeMs) {
     }
     default: {
       // Fallback for any unrecognized tile in deep map — use standard drawJGTile
-      drawJGTile(t, sx, sy);
+      drawJGTile(t, sx, sy, tx, ty);
     }
   }
 }
@@ -33936,6 +33938,7 @@ function _drawDeepJGTile(t, sx, sy, c, timeMs) {
 // Full render pipeline for the deep map: tiles → fog → NPCs → player → effects
 
 function renderDeepJungleZone() {
+  window.JG_BIOME = 'deep';
   if (!gameState.inDeepJungle) return;
   const canvas = document.getElementById('gameCanvas');
   if (!canvas) return;
@@ -33966,7 +33969,7 @@ function renderDeepJungleZone() {
       if (!exploredDeep[ty * DJ_W + tx]) continue;
       const t = getDJT(tx, ty);
       const sx = tx * DJ_T - cx, sy = ty * DJ_T - cy;
-      _drawDeepJGTile(t, sx, sy, ctx, now);
+      _drawDeepJGTile(t, sx, sy, ctx, now, tx, ty);
     }
   }
 
@@ -34310,7 +34313,20 @@ if (typeof _tryCourtEmissaryEncounter === 'undefined') {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Replace drawJGTile with rich per-tile renderer ───────────────────────────
-window.drawJGTile = function drawJGTile(t, sx, sy) {
+window.JG_BIOME = 'jungle';
+const JG_TONE = {
+  jungle: { grass: '#34602a', floor: '#2c4420', mud: '#3c2c1a' },
+  deep:   { grass: '#2a5222', floor: '#243a18', mud: '#342618' },
+  ruins:  { grass: '#24401c', floor: '#2a3a1e', mud: '#342618' },
+};
+function jgTone(k) { return (JG_TONE[window.JG_BIOME] || JG_TONE.jungle)[k]; }
+
+// `tx, ty` are the tile's MAP coordinates and are optional: the baked ground
+// samples one continuous wrap-seamless texture at (tx,ty), so neighbouring
+// tiles show neighbouring pieces of one surface. Callers that don't have them
+// (or a terrain that isn't baked) fall through to the painted branch below.
+window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
+  const G = (tx !== undefined && window.DHGround) ? DHGround : null;
   const ctx = window.ctx || document.getElementById('gameCanvas').getContext('2d');
   const T = JG_T;
   const now = Date.now();
@@ -34343,6 +34359,9 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
 
     // ── Ground tiles ───────────────────────────────────────────────────────
     case JG.SAND: {
+      // River bank: the same baked sand as the desert, cooled and greyed. The
+      // texture supplies the grain, so the scatter below is skipped with it.
+      if (G && G.drawToned(ctx, 'sand', '#b09870', sx, sy, tx, ty)) break;
       ctx.fillStyle = '#b09870'; ctx.fillRect(sx, sy, T, T);
       // Grain scatter
       ctx.fillStyle = 'rgba(160,130,90,0.4)';
@@ -34354,9 +34373,14 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       break;
     }
     case JG.GRASS: {
-      const base = ((sx * 1301 + sy * 503) & 3);
-      const greens = ['#2a5020','#285218','#306028','#243818'];
-      ctx.fillStyle = greens[base]; ctx.fillRect(sx, sy, T, T);
+      // Under a canopy. Same baked turf as the farm, retoned dark and green —
+      // the tufts below stay on top, because they are what makes it read as
+      // jungle undergrowth rather than a field.
+      if (!(G && G.drawToned(ctx, 'grass', jgTone('grass'), sx, sy, tx, ty))) {
+        const base = ((sx * 1301 + sy * 503) & 3);
+        const greens = ['#2a5020','#285218','#306028','#243818'];
+        ctx.fillStyle = greens[base]; ctx.fillRect(sx, sy, T, T);
+      }
       // Blade tufts
       ctx.fillStyle = 'rgba(60,120,40,0.35)';
       for (let i = 0; i < 4; i++) {
@@ -34367,7 +34391,12 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       break;
     }
     case JG.JUNGLE_FLOOR: {
-      ctx.fillStyle = '#1e3c18'; ctx.fillRect(sx, sy, T, T);
+      // Litter over bare earth, so this is the pen's churned soil rather than
+      // turf, pulled green. Coarser mottling than the grass, which is what
+      // separates the two at a glance.
+      if (!(G && G.drawToned(ctx, 'pen', jgTone('floor'), sx, sy, tx, ty))) {
+        ctx.fillStyle = '#1e3c18'; ctx.fillRect(sx, sy, T, T);
+      }
       // Leaf litter — scattered dark spots
       ctx.fillStyle = 'rgba(10,24,8,0.5)';
       for (let i = 0; i < 5; i++) {
@@ -34378,7 +34407,9 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       break;
     }
     case JG.MUD: {
-      ctx.fillStyle = '#3c2c1a'; ctx.fillRect(sx, sy, T, T);
+      if (!(G && G.drawToned(ctx, 'dirt', jgTone('mud'), sx, sy, tx, ty))) {
+        ctx.fillStyle = '#3c2c1a'; ctx.fillRect(sx, sy, T, T);
+      }
       // Mud cracks
       ctx.fillStyle = 'rgba(20,14,8,0.4)';
       ctx.fillRect(sx + T * 0.4, sy, 1, T);
@@ -34387,6 +34418,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       break;
     }
     case JG.DIRT: {
+      if (G && G.drawToned(ctx, 'dirt', '#4a3420', sx, sy, tx, ty)) break;
       ctx.fillStyle = '#4a3420'; ctx.fillRect(sx, sy, T, T);
       ctx.fillStyle = 'rgba(30,20,10,0.3)';
       ctx.fillRect(sx + 4, sy + 4, T - 8, 1);
@@ -34396,8 +34428,13 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
 
     // ── Trees — the centrepiece ────────────────────────────────────────────
     case JG.TREE: {
-      // Ground shadow
-      ctx.fillStyle = '#0e2208'; ctx.fillRect(sx, sy, T, T);
+      // Ground shadow. Drawn OVER the turf, not instead of it — the canopy
+      // below leaves the tile's corners visible, and a flat fill there reads
+      // as a dark square cut into the textured grass beside it.
+      if (!(G && G.drawToned(ctx, 'grass', jgTone('grass'), sx, sy, tx, ty))) {
+        ctx.fillStyle = '#1a3410'; ctx.fillRect(sx, sy, T, T);
+      }
+      ctx.fillStyle = 'rgba(8,20,4,0.55)'; ctx.fillRect(sx, sy, T, T);
       // Trunk
       ctx.fillStyle = '#3a2808';
       ctx.fillRect(sx + T/2 - 3, sy + T * 0.55, 6, T * 0.45);
@@ -34430,7 +34467,10 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       break;
     }
     case JG.BUSH: {
-      ctx.fillStyle = '#162a10'; ctx.fillRect(sx, sy, T, T);
+      if (!(G && G.drawToned(ctx, 'grass', jgTone('grass'), sx, sy, tx, ty))) {
+        ctx.fillStyle = '#1e3c18'; ctx.fillRect(sx, sy, T, T);
+      }
+      ctx.fillStyle = 'rgba(10,26,6,0.42)'; ctx.fillRect(sx, sy, T, T);
       ctx.fillStyle = '#1e4018';
       ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T*0.55, 12, 9, 0, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#285820';
@@ -34455,8 +34495,12 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       break;
     }
     case JG.WALL: {
-      // Ruins stone — block grid + decay
-      ctx.fillStyle = '#1e1c18'; ctx.fillRect(sx, sy, T, T);
+      // Ruins stone — block grid + decay over the baked cave floor, dropped to
+      // near-dark. A flat fill under a grid read as a drawn lattice rather than
+      // masonry; the texture gives the blocks something inside them.
+      if (!(G && G.drawToned(ctx, 'minefloor', '#2a2822', sx, sy, tx, ty))) {
+        ctx.fillStyle = '#1e1c18'; ctx.fillRect(sx, sy, T, T);
+      }
       // Stone blocks — 2×3 grid
       ctx.strokeStyle = 'rgba(60,55,45,0.6)'; ctx.lineWidth = 1;
       ctx.strokeRect(sx + 1, sy + 1, T - 2, T - 2);
@@ -34464,7 +34508,8 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       ctx.strokeRect(sx + 1, sy + T/3, T - 2, 0);
       ctx.strokeRect(sx + 1, sy + 2*T/3, T - 2, 0);
       // Moss patches (seeded)
-      const mh = ((sx * 1301 + sy * 503) & 0xFF) / 255;
+      const mh = (((tx !== undefined ? tx : sx / T) * 1301 +
+                   (ty !== undefined ? ty : sy / T) * 503) & 0xFF) / 255;
       if (mh < 0.4) {
         ctx.fillStyle = 'rgba(30,60,20,0.4)';
         ctx.fillRect(sx + 2, sy + T - 6, 6, 4);
@@ -34473,14 +34518,19 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       break;
     }
     case JG.FLOOR: {
-      ctx.fillStyle = '#2a2620'; ctx.fillRect(sx, sy, T, T);
+      // Lifted well above the #2a2620 it was: the hall is lit by one torch
+      // vignette and at that exposure the old tone left the floor unreadable.
+      if (!(G && G.drawToned(ctx, 'minefloor', '#4a453c', sx, sy, tx, ty))) {
+        ctx.fillStyle = '#2a2620'; ctx.fillRect(sx, sy, T, T);
+      }
       // Worn stone floor — subtle grid
       ctx.strokeStyle = 'rgba(50,45,35,0.5)'; ctx.lineWidth = 1;
       ctx.strokeRect(sx + 1, sy + 1, T - 2, T - 2);
       ctx.strokeRect(sx + T/2, sy + 1, 0, T - 2);
       ctx.strokeRect(sx + 1, sy + T/2, T - 2, 0);
       // Stain/wear
-      const fh = ((sx * 503 + sy * 1301) & 0xFF) / 255;
+      const fh = (((tx !== undefined ? tx : sx / T) * 503 +
+                   (ty !== undefined ? ty : sy / T) * 1301) & 0xFF) / 255;
       if (fh < 0.25) {
         ctx.fillStyle = 'rgba(0,0,0,0.15)';
         ctx.fillRect(sx + 4, sy + 4, 8, 8);
@@ -34489,7 +34539,10 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       break;
     }
     case JG.ROAD: {
-      ctx.fillStyle = '#4a3c2c'; ctx.fillRect(sx, sy, T, T);
+      // The same baked wagon track as the overworld, darkened for the canopy.
+      if (!(G && G.drawToned(ctx, 'road', '#4a3c2c', sx, sy, tx, ty))) {
+        ctx.fillStyle = '#4a3c2c'; ctx.fillRect(sx, sy, T, T);
+      }
       // Worn earth track — compressed wheel grooves
       ctx.fillStyle = 'rgba(30,22,14,0.35)';
       ctx.fillRect(sx + 6, sy, 3, T);
@@ -34503,19 +34556,36 @@ window.drawJGTile = function drawJGTile(t, sx, sy) {
       }
       break;
     }
-    case JG.DOCK: {
-      ctx.fillStyle = '#5a4028'; ctx.fillRect(sx, sy, T, T);
-      // Plank lines
-      ctx.fillStyle = 'rgba(30,18,8,0.4)';
-      for (let i = 1; i < 4; i++) ctx.fillRect(sx, sy + i * T/4, T, 1);
-      ctx.fillStyle = 'rgba(120,90,50,0.15)';
-      ctx.fillRect(sx, sy, T, 2);
-      break;
-    }
+    case JG.DOCK:
     case JG.PLANK: {
-      ctx.fillStyle = '#6a5030'; ctx.fillRect(sx, sy, T, T);
-      ctx.fillStyle = 'rgba(30,18,8,0.35)';
-      for (let i = 1; i < 3; i++) ctx.fillRect(sx, sy + i * T/3, T, 1);
+      const dock = (t === JG.DOCK);
+      // Board tone varies per board, not per tile, so a run of decking reads as
+      // separate planks laid side by side rather than one painted sheet.
+      const rows = dock ? 4 : 3, bh = T / rows;
+      const kx = (tx === undefined) ? (sx / T) | 0 : tx;
+      const ky = (ty === undefined) ? (sy / T) | 0 : ty;
+      for (let i = 0; i < rows; i++) {
+        const h = ((ky * rows + i) * 2654435761 ^ (kx * 40503)) >>> 0;
+        const lift = ((h >>> 5) & 7) - 3;                 // -3..+4 per board
+        const r = (dock ? 0x5a : 0x6a) + lift * 3;
+        const g = (dock ? 0x40 : 0x50) + lift * 2;
+        const b = (dock ? 0x28 : 0x30) + lift;
+        ctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+        ctx.fillRect(sx, sy + i * bh, T, Math.ceil(bh));
+        // Grain: a couple of short streaks along the board.
+        ctx.fillStyle = 'rgba(30,18,8,0.20)';
+        for (let k = 0; k < 2; k++) {
+          const gx = (h >>> (3 + k * 6)) % (T - 8);
+          ctx.fillRect(sx + gx, sy + i * bh + 1 + ((h >>> (2 + k)) & 1), 6, 1);
+        }
+        // The seam between boards.
+        ctx.fillStyle = 'rgba(24,14,6,0.45)';
+        ctx.fillRect(sx, sy + i * bh, T, 1);
+      }
+      // A nail at each end of the run, and the wet edge on a dock.
+      ctx.fillStyle = 'rgba(20,12,6,0.35)';
+      ctx.fillRect(sx + 2, sy + 2, 1, 1); ctx.fillRect(sx + T - 3, sy + 2, 1, 1);
+      if (dock) { ctx.fillStyle = 'rgba(120,90,50,0.12)'; ctx.fillRect(sx, sy, T, 2); }
       break;
     }
     case JG.CAMPFIRE: {
