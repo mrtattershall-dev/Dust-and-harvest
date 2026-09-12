@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Cut the world's fixed decorations out of two packs into one atlas.
 
-Run:  ./tools/build_fixtures.py <hunters-lodge-pack> <armor-and-weapons-pack> <desert-tileset-pack>
+Run:  ./tools/build_fixtures.py <hunters-lodge> <armor-and-weapons> <desert-tileset> <farm-with-animals>
 
 Emits assets/fixtures/fixtures.png + fixtures.json — one small atlas of named
 pieces, each at its native size, blitted at fixed offsets by the draw code.
@@ -83,31 +83,57 @@ PIECES2 = {
 # are spiky oasis palms and are deliberately left out — this is a dust-bowl
 # frontier, not a lagoon.
 PIECES3 = {
-    "tree_grass_big":   ("Tree1_grass_shadow2.png", 0, 0, 64, 64),
-    "tree_grass_small": ("Tree1_grass_shadow3.png", 0, 0, 64, 64),
     "tree_sand_big":    ("Tree1_sand_shadow2.png",  0, 0, 64, 64),
     "tree_sand_small":  ("Tree1_sand_shadow3.png",  0, 0, 64, 64),
     "tree_bush":        ("Tree3_3.png",             0, 0, 64, 64),
+}
+
+# ── Trees for green ground (Top-Down Farm with Animals) ─────────────────
+# Better trees than the desert pack's for anywhere grassy: broadleaf,
+# conifers and gnarled old ones, with grass tufts at the base rather than a
+# sand disc. Rects found by component scan of Objects_outside.png and then
+# checked by eye — the scan merges objects that touch, and one 111x78 "tree"
+# turned out to be two.
+#
+# This pack is 16px-per-tile and the game is 32px, which is why its fence
+# tiles are unusable here. It does not disqualify these: a grid-aligned tile
+# has to fill a tile, but a free-standing prop only has to match pixel
+# DENSITY, and at 1:1 it does. An 80px tree is simply two and a half tiles
+# tall instead of five.
+PIECES4 = {
+    "tree_oak":     ("Objects_outside.png", 385,  16, 61, 80),
+    "tree_pine":    ("Objects_outside.png", 181,  21, 71, 74),
+    "tree_gnarled": ("Objects_outside.png",  19, 101, 58, 70),
+    "tree_round":   ("Objects_outside.png", 451,  22, 53, 69),
+    "tree_sapling": ("Objects_outside.png", 517,  48, 39, 48),
+    "tree_scrub":   ("Objects_outside.png", 324,  54, 39, 39),
+    "tree_shrub":   ("Objects_outside.png", 245, 116, 37, 38),
 }
 
 PAD = 1   # a transparent gutter, so no piece bleeds into its neighbour
 
 
 def main():
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 5:
         raise SystemExit(__doc__)
+    # Each pack keeps its art somewhere slightly different. PNG/ for most; the
+    # farm pack's outdoor objects are only in Tiled_files/.
+    SUBDIRS = ["PNG", "PNG", "PNG", "Tiled_files"]
     srcs = []
-    for a in sys.argv[1:]:
-        d = Path(a) / "PNG"
+    for a, sub in zip(sys.argv[1:], SUBDIRS):
+        d = Path(a) / sub
         if not d.is_dir():
-            raise SystemExit(f"no PNG/ directory under {a}")
+            raise SystemExit(f"no {sub}/ directory under {a}")
         srcs.append(d)
 
     cut = {}
-    ALL = list(PIECES.items()) + list(PIECES2.items()) + list(PIECES3.items())
+    ALL = list(PIECES.items()) + list(PIECES2.items()) + \
+          list(PIECES3.items()) + list(PIECES4.items())
     for name, (fn, x, y, w, h) in ALL:
         src = (srcs[0] if name in PIECES else
-               srcs[1] if name in PIECES2 else srcs[2] / "Objects_separately")
+               srcs[1] if name in PIECES2 else
+               srcs[2] / "Objects_separately" if name in PIECES3 else
+               srcs[3])
         sheet = Image.open(src / fn).convert("RGBA")
         im = sheet.crop((x, y, x + w, y + h))
         bb = im.getbbox()

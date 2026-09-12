@@ -10152,8 +10152,13 @@ function _seasonGoods() {
 // wrong, and the lesser of the two errors: drawing after the entities would
 // hide anyone standing in front of the trunk, which is much more noticeable.
 // Fixing it properly means y-sorting props and entities together.
-const OVERHANG_GRASS = ['tree_grass_big', 'tree_grass_small', 'tree_bush'];
-const OVERHANG_SAND  = ['tree_sand_big',  'tree_sand_small',  'tree_bush'];
+// Green ground gets the farm pack's trees — broadleaf, conifers, gnarled old
+// ones, with grass tufts at the base. Dry ground keeps the desert pack's,
+// whose bases are a sand disc. Two sets, because the base of each tree is
+// painted for the ground it stands on.
+const OVERHANG_GRASS = ['tree_oak', 'tree_pine', 'tree_gnarled', 'tree_round',
+                        'tree_sapling', 'tree_scrub', 'tree_shrub'];
+const OVERHANG_SAND  = ['tree_sand_big', 'tree_sand_small', 'tree_bush'];
 
 function drawOverhangProps(cx, cy) {
   if (!_fixArt.ok) return;

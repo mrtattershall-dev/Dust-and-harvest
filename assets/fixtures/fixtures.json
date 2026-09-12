@@ -60,35 +60,65 @@
    39,
    22
   ],
-  "tree_grass_big": [
+  "tree_sand_big": [
    460,
    1,
    50,
    61
   ],
-  "tree_grass_small": [
+  "tree_sand_small": [
    511,
    1,
    31,
    37
   ],
-  "tree_sand_big": [
-   543,
-   1,
-   50,
-   61
-  ],
-  "tree_sand_small": [
-   594,
-   1,
-   31,
-   37
-  ],
   "tree_bush": [
-   626,
+   543,
    1,
    39,
    39
+  ],
+  "tree_oak": [
+   583,
+   1,
+   61,
+   80
+  ],
+  "tree_pine": [
+   645,
+   1,
+   71,
+   74
+  ],
+  "tree_gnarled": [
+   717,
+   1,
+   58,
+   70
+  ],
+  "tree_round": [
+   776,
+   1,
+   53,
+   69
+  ],
+  "tree_sapling": [
+   830,
+   1,
+   39,
+   48
+  ],
+  "tree_scrub": [
+   870,
+   1,
+   39,
+   39
+  ],
+  "tree_shrub": [
+   910,
+   1,
+   37,
+   38
   ]
  }
 }
