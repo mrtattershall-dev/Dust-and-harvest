@@ -7965,6 +7965,21 @@ function unstickPlayer() {
 }
 
 function getZone(px,py) {
+  /* Every interior has to answer before the coordinate lookup below, because
+     that lookup reads px/py as OVERWORLD tiles. Four interiors did; the mine,
+     the Company mine, the ruins and the deep jungle did not, so they fell
+     through and were labelled by wherever their own local coordinates happened
+     to land on the surface map. That is why the HUD read "Farm" while you stood
+     underground — and worse, it moved: walk deep enough into the mine (ty>=36)
+     and the answer became "Wilderness", which switched on the overworld gather
+     and prompt paths that line 7731 explicitly documents as "(overworld)".
+
+     The mine's labels are deliberately not 'Mine'. 'Mine' means the entrance
+     area on the surface and several checks rely on it meaning exactly that. */
+  if (gameState.inBLMine)     return 'Company Mine';
+  if (gameState.inMine)       return 'The Mine';
+  if (gameState.inRuins)      return 'Altaverde Ruins';
+  if (gameState.inDeepJungle) return 'Deep Jungle';
   if (gameState.inBadlands) return 'Badlands';
   if (gameState.inHoboCamp) return 'Hobo Camp';
   if (gameState.inOcean) return 'The Dock';

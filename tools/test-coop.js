@@ -59,7 +59,31 @@ async function boot(page, tag, errs) {
   }, BROKER);
 }
 
+// Preflight. Without this a dead broker or server just looks like "the two
+// clients would not connect", which reads as a co-op regression and is not one.
+async function preflight() {
+  const probes = [
+    ['game server', GAME],
+    ['peer broker', `http://${BROKER.host}:${BROKER.port}${BROKER.path === '/' ? '' : BROKER.path}/peerjs/id`],
+  ];
+  let ok = true;
+  for (const [what, url] of probes) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+    } catch (e) {
+      console.error(`  cannot reach the ${what} at ${url} — ${e.message}`);
+      ok = false;
+    }
+  }
+  if (!ok) {
+    console.error('\nStart them first (see the header of this file), then re-run.');
+    process.exit(2);
+  }
+}
+
 (async () => {
+  await preflight();
   const browser = await chromium.launch({ executablePath: CHROME });
   const errs = [];
   const host  = await (await browser.newContext()).newPage();
