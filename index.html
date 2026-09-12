@@ -23436,6 +23436,83 @@ const MINE_TILE_COLORS = {
 // texture, which samples itself by tile so the surface stays put as the
 // camera moves. The painted detail this replaces hashed off `sx` — the SCREEN
 // x — so every speck of gravel slid across the floor as the player walked.
+// A vein is a seam of ore chunks running through the rock, not a coloured
+// tile. Every ore drew its own arrangement of bands and rectangles, which read
+// as furniture — the iron one looked like a filing cabinet — so they all come
+// through here and differ only by colour.
+//
+// The seam runs on a diagonal across the tile, seeded off the MAP position so
+// it stays put, with the chunks lit from the top left like everything else
+// underground. `glow` pulses the bright facets, for the ores that should.
+function drawOreSeam(sx, sy, tx, ty, dark, mid, bright, glow) {
+  const h = ((tx * 374761393 + ty * 668265263) >>> 0);
+  const down = (h & 1) === 0;                 // which way the seam leans
+  const n = 4 + (h >> 3) % 3;                 // 4-6 chunks
+  const x0 = 5 + (h >> 6) % 5, y0 = 6 + (h >> 9) % 6;
+  const dx = (T - 12 - x0) / (n - 1), dy = (T - 14 - y0) / (n - 1);
+  const a = glow === undefined ? 1 : glow;
+  for (let i = 0; i < n; i++) {
+    const g = (h >> (2 + i * 3)) & 7;
+    const w = 4 + (g & 3), ht = 3 + ((g >> 2) & 3);
+    // Wander off the line, or the chunks land on an even diagonal and the
+    // seam reads as a flight of stairs rather than ore in rock.
+    const wob = ((h >> (11 + i * 2)) & 7) - 3;
+    const px = sx + x0 + dx * i + wob;
+    const py = sy + (down ? y0 + dy * i : (T - 8) - dy * i)
+             - wob * 0.6 + (((h >> (1 + i)) & 3) - 1);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = dark;   ctx.fillRect(px - 1, py - 1, w + 2, ht + 2);
+    ctx.fillStyle = mid;    ctx.fillRect(px, py, w, ht);
+    ctx.fillStyle = bright; ctx.fillRect(px, py, Math.max(1, w - 2), 1);
+    if ((g & 4) === 0) ctx.fillRect(px, py, 1, Math.max(1, ht - 1));
+    ctx.globalAlpha = 1;
+  }
+  // A couple of loose grains shaken out of the seam.
+  ctx.globalAlpha = a * 0.7;
+  ctx.fillStyle = mid;
+  ctx.fillRect(sx + 3 + (h >> 12) % (T - 8), sy + 3 + (h >> 15) % (T - 8), 2, 2);
+  ctx.fillRect(sx + 3 + (h >> 18) % (T - 8), sy + 3 + (h >> 21) % (T - 8), 1, 2);
+  ctx.globalAlpha = 1;
+}
+
+// The rock face. Every wall, vein, shaft and exit is a hole or a seam in the
+// SAME stone, so they all start here — otherwise each one paints its own base
+// colour inside a 2-3px inset and the mine reads as a grid of separate boxes
+// on a floor, which is exactly what it did.
+//
+// Drawn edge to edge, and seeded off the MAP tile, so the face is continuous
+// across neighbouring wall tiles instead of being re-bordered at every one.
+function drawMineRock(sx, sy, tx, ty) {
+  if (!(tx !== undefined && DHGround.drawToned(ctx, 'minefloor', '#241f1b', sx, sy, tx, ty))) {
+    ctx.fillStyle = '#1f1b18'; ctx.fillRect(sx, sy, T, T);
+  }
+  const h  = ((tx * 7919 + ty * 6271) & 0xFFFF);
+  const h2 = ((tx * 6271 + ty * 7919) & 0xFFFF);
+  // Strata: one bed of rock sitting on another.
+  ctx.fillStyle = 'rgba(64,56,48,.18)';
+  ctx.fillRect(sx, sy + (h % 16) + 4, T, 4);
+  ctx.fillStyle = 'rgba(0,0,0,.30)';
+  ctx.fillRect(sx, sy + (h % 16) + 8, T, 1);
+  // A joint running down through the beds.
+  if (h2 % 3 === 0) {
+    ctx.strokeStyle = 'rgba(0,0,0,.40)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sx + (h2 % 24) + 4, sy);
+    ctx.lineTo(sx + (h2 % 24) + 4 + (h % 7) - 3, sy + T);
+    ctx.stroke();
+  }
+  // Damp gleam where the lamp catches it.
+  if (h % 7 < 2) {
+    ctx.fillStyle = 'rgba(70,84,96,.13)';
+    ctx.fillRect(sx + (h % 20) + 4, sy + (h2 % 18) + 3, 3, 6);
+  }
+  // Light comes from above, so the top of the face is lit and the foot of it
+  // is in shadow. Kept off the left and right edges: a box outline is what
+  // made these read as tiles rather than as one wall.
+  ctx.fillStyle = 'rgba(255,255,255,.045)'; ctx.fillRect(sx, sy, T, 2);
+  ctx.fillStyle = 'rgba(0,0,0,.40)';        ctx.fillRect(sx, sy + T - 4, T, 4);
+}
+
 function drawMineTile(t, sx, sy, tx, ty) {
   const c = MINE_TILE_COLORS[t] || MINE_TILE_COLORS[TL.MINE_WALL];
   ctx.fillStyle = c[0]; ctx.fillRect(sx, sy, T, T);
@@ -23444,8 +23521,8 @@ function drawMineTile(t, sx, sy, tx, ty) {
     // Real cave floor, when the atlas is there.
     if (tx !== undefined && DHGround.draw(ctx,'minefloor',sx,sy,tx,ty)) return;
     // Rough hewn stone floor — deterministic per tile
-    const mh=(sx*2654435761+sy*1013904223)>>>0;
-    const mh2=(sx*1013904223+sy*2654435761)>>>0;
+    const mh=(tx*2654435761+ty*1013904223)>>>0;
+    const mh2=(tx*1013904223+ty*2654435761)>>>0;
     // Surface rock patches
     if(mh%7<2){ ctx.fillStyle='rgba(40,34,28,.5)'; ctx.fillRect(sx+(mh%14)+3,sy+(mh2%12)+4,6,4); }
     if(mh2%9<2){ ctx.fillStyle='rgba(30,25,18,.4)'; ctx.fillRect(sx+(mh2%18)+2,sy+(mh%10)+3,4,3); }
@@ -23459,166 +23536,102 @@ function drawMineTile(t, sx, sy, tx, ty) {
     if(mh2%4===0) ctx.fillRect(sx+(mh2%20)+4,sy+(mh%20)+5,2,1);
     // Puddle — rare
     if(mh%17<1){
-      const pu=0.3+0.15*Math.sin(Date.now()*.002+sx*.1);
+      const pu=0.3+0.15*Math.sin(Date.now()*.002+tx*3.2);
       ctx.fillStyle=`rgba(20,40,60,${pu})`; ctx.beginPath(); ctx.ellipse(sx+(mh%16)+4,sy+(mh2%16)+4,5,3,0,0,Math.PI*2); ctx.fill();
     }
   } else if (t === TL.MINE_WALL) {
-    // Rough stone wall — layered rock face with depth
-    const mwh=(sx*7919+sy*6271)&0xFFFF;
-    const mwh2=(sx*6271+sy*7919)&0xFFFF;
-    ctx.fillStyle='#0e0c0b'; ctx.fillRect(sx+2,sy+2,T-4,T-4);
-    // Two rock layer tones
-    ctx.fillStyle='#161412'; ctx.fillRect(sx+3,sy+3,T-6,T-6);
-    if(mwh%3===0){ ctx.fillStyle='#1c1a16'; ctx.fillRect(sx+4,sy+(mwh%14)+3,T-8,5); }
-    if(mwh2%4===0){ ctx.fillStyle='#131210'; ctx.fillRect(sx+(mwh2%10)+3,sy+4,5,T-8); }
-    // Horizontal strata cracks
-    ctx.strokeStyle='rgba(0,0,0,.55)'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(sx+3,sy+(mwh%10)+6); ctx.lineTo(sx+T-4,sy+(mwh%10)+6+(mwh2%4)-2); ctx.stroke();
-    // Vertical joint
-    if(mwh%2===0){ ctx.beginPath(); ctx.moveTo(sx+(mwh%12)+5,sy+3); ctx.lineTo(sx+(mwh%12)+5+(mwh2%5)-2,sy+T-4); ctx.stroke(); }
-    // Surface moisture gleam — very faint
-    if(mwh%7<2){ ctx.fillStyle='rgba(40,50,60,.15)'; ctx.fillRect(sx+(mwh%18)+3,sy+(mwh2%16)+3,3,6); }
-    // Top-left lit edge (implied light from above)
-    ctx.fillStyle='rgba(255,255,255,.03)'; ctx.fillRect(sx+2,sy+2,T-4,2); ctx.fillRect(sx+2,sy+2,2,T-4);
-    // Bottom-right shadow
-    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(sx+2,sy+T-4,T-4,2); ctx.fillRect(sx+T-4,sy+2,2,T-4);
+    drawMineRock(sx, sy, tx, ty);
   } else if (t === TL.COAL_VEIN) {
-    ctx.fillStyle='#1a1816'; ctx.fillRect(sx+3,sy+3,T-6,T-6);
-    // Coal seam — very dark with satin sheen
-    ctx.fillStyle='#222020'; ctx.fillRect(sx+5,sy+5,T-10,T-10);
-    // Thick irregular coal band
-    ctx.fillStyle='#2c2a28'; ctx.fillRect(sx+4,sy+7,T-8,7);
-    ctx.fillStyle='#181614'; ctx.fillRect(sx+4,sy+15,T-8,5);
-    // Satin sheen — coal reflects at one angle
-    ctx.fillStyle='rgba(100,90,80,.2)'; ctx.fillRect(sx+5,sy+8,T-10,2);
-    ctx.fillStyle='rgba(140,130,110,.15)'; ctx.fillRect(sx+6,sy+8,4,1);
-    // Coal grit flecks
-    ctx.fillStyle='rgba(60,55,50,.5)';
-    ctx.fillRect(sx+6,sy+12,3,2); ctx.fillRect(sx+T-9,sy+10,3,2); ctx.fillRect(sx+8,sy+T-10,3,2);
-    // Matrix rock showing through
-    ctx.fillStyle='rgba(35,30,25,.6)';
-    ctx.fillRect(sx+T-8,sy+T-9,5,4);
+    drawMineRock(sx, sy, tx, ty);
+    drawOreSeam(sx, sy, tx, ty, '#0e0e0e', '#26262a', '#4e4e4a');
   } else if (t === TL.COPPER_VEIN) {
-    ctx.fillStyle='#5a2808'; ctx.fillRect(sx+3,sy+3,T-6,T-6);
-    // Copper ore — orange-brown irregular patches
-    ctx.fillStyle='#c06020'; ctx.fillRect(sx+6,sy+7,8,6);
-    ctx.fillStyle='#e08040'; ctx.fillRect(sx+8,sy+8,5,4);
-    ctx.fillStyle='#d07030'; ctx.fillRect(sx+T-11,sy+8,5,5);
-    // Verdigris hint
-    ctx.fillStyle='rgba(40,120,60,.3)'; ctx.fillRect(sx+10,sy+10,3,2);
-    // Ore glint
-    ctx.fillStyle='rgba(255,180,80,.3)'; ctx.fillRect(sx+9,sy+8,2,2);
+    drawMineRock(sx, sy, tx, ty);
+    drawOreSeam(sx, sy, tx, ty, '#5e2c0e', '#a8571f', '#dd8a3e');
   } else if (t === TL.IRON_VEIN) {
-    ctx.fillStyle='#252830'; ctx.fillRect(sx+3,sy+3,T-6,T-6);
-    // Iron — grey metallic bands
-    ctx.fillStyle='#606878'; ctx.fillRect(sx+5,sy+8,T-10,4);
-    ctx.fillStyle='#808898'; ctx.fillRect(sx+5,sy+9,T-10,2);
-    ctx.fillStyle='#505868'; ctx.fillRect(sx+5,sy+15,T-10,3);
-    // Metallic glint
-    ctx.fillStyle='rgba(180,190,210,.4)'; ctx.fillRect(sx+8,sy+9,4,1);
+    drawMineRock(sx, sy, tx, ty);
+    drawOreSeam(sx, sy, tx, ty, '#333a46', '#6d7686', '#a6b0c0');
   } else if (t === TL.GOLD_VEIN) {
-    ctx.fillStyle='#503010'; ctx.fillRect(sx+3,sy+3,T-6,T-6);
-    const glow = 0.5+Math.sin(Date.now()*.003)*0.3;
-    // Gold vein — irregular bright seam
-    ctx.fillStyle=`rgba(200,140,10,${glow})`;
-    ctx.fillRect(sx+5,sy+6,3,T-12);
-    ctx.fillRect(sx+8,sy+8,4,8);
-    ctx.fillStyle=`rgba(240,190,40,${glow*0.8})`;
-    ctx.fillRect(sx+6,sy+7,2,T-14);
-    // Bright fleck
-    ctx.fillStyle=`rgba(255,230,80,${glow})`;
-    ctx.fillRect(sx+7,sy+10,2,2);
-    ctx.fillRect(sx+T-9,sy+8,2,2);
+    drawMineRock(sx, sy, tx, ty);
+    drawOreSeam(sx, sy, tx, ty, '#5e4410', '#c29520', '#ffe07a',
+                0.72+Math.sin(Date.now()*.003+tx)*0.28);
   } else if (t === TL.CRYSTAL_VEIN) {
-    ctx.fillStyle='#0e0c20'; ctx.fillRect(sx+3,sy+3,T-6,T-6);
-    const pulse = 0.4+Math.sin(Date.now()*.005+sx)*0.4;
-    // Crystal formation — angular facets
-    ctx.fillStyle=`rgba(60,120,220,${pulse})`;
-    // Main crystal spike
-    ctx.beginPath();
-    ctx.moveTo(sx+T/2, sy+5);
-    ctx.lineTo(sx+T/2+5, sy+T-6);
-    ctx.lineTo(sx+T/2-5, sy+T-6);
-    ctx.closePath(); ctx.fill();
-    // Side crystal
-    ctx.fillStyle=`rgba(80,160,240,${pulse*0.7})`;
-    ctx.beginPath();
-    ctx.moveTo(sx+T/2+4, sy+9);
-    ctx.lineTo(sx+T/2+9, sy+T-8);
-    ctx.lineTo(sx+T/2+2, sy+T-8);
-    ctx.closePath(); ctx.fill();
-    // Facet highlight
-    ctx.fillStyle=`rgba(180,220,255,${pulse*0.5})`;
-    ctx.fillRect(sx+T/2-1, sy+6, 2, 5);
+    drawMineRock(sx, sy, tx, ty);
+    drawOreSeam(sx, sy, tx, ty, '#161e46', '#3a63c4', '#9fc6ff',
+                0.62+Math.sin(Date.now()*.005+tx*1.7+ty*0.9)*0.38);
   } else if (t === TL.MINE_EXIT) {
-    ctx.fillStyle='#1a3018'; ctx.fillRect(sx+2,sy+2,T-4,T-4);
-    // Doorway arch
-    ctx.fillStyle='#0a1808'; ctx.fillRect(sx+8,sy+6,T-16,T-10);
-    ctx.fillStyle='#0a1808';
-    ctx.beginPath(); ctx.arc(sx+T/2,sy+10,8,Math.PI,0); ctx.fill();
-    // Door frame — wooden planks
-    ctx.fillStyle='#5a3818'; ctx.fillRect(sx+6,sy+5,2,T-9);
-    ctx.fillRect(sx+T-8,sy+5,2,T-9);
-    ctx.fillRect(sx+6,sy+5,T-12,2);
-    // Daylight glow through door
-    const eg=0.3+Math.sin(Date.now()*.002)*0.1;
-    ctx.fillStyle=`rgba(100,180,80,${eg})`; ctx.fillRect(sx+9,sy+8,T-18,T-14);
-    // Arrow indicator
-    ctx.fillStyle='rgba(100,200,80,.7)';
+    drawMineRock(sx, sy, tx, ty);
+    // The opening: an arch cut back into the face, dark at its edges.
+    ctx.fillStyle = '#0a0806';
     ctx.beginPath();
-    ctx.moveTo(sx+T/2,sy+10); ctx.lineTo(sx+T/2-4,sy+16); ctx.lineTo(sx+T/2+4,sy+16);
-    ctx.closePath(); ctx.fill();
-  } else if (t === TL.MINE_SHAFT_DOWN) {
-    ctx.fillStyle='#100810'; ctx.fillRect(sx+4,sy+4,T-8,T-8);
-    // Shaft opening — dark void
-    ctx.fillStyle='#060408'; ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2,9,7,0,0,Math.PI*2); ctx.fill();
-    // Shaft rim — stone edge
-    ctx.strokeStyle='rgba(80,20,100,.7)'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2,10,8,0,0,Math.PI*2); ctx.stroke();
-    // Down indicator
-    ctx.fillStyle='rgba(140,60,180,.8)';
+    ctx.moveTo(sx+7, sy+T-3); ctx.lineTo(sx+7, sy+11);
+    ctx.arc(sx+T/2, sy+11, T/2-7, Math.PI, 0);
+    ctx.lineTo(sx+T-7, sy+T-3); ctx.closePath(); ctx.fill();
+    // Daylight beyond it. Warm, and brighter towards the middle, so the eye
+    // is pulled through the hole rather than stopped by a coloured panel.
+    const eg = 0.72 + Math.sin(Date.now()*.002) * 0.06;
+    const gr = ctx.createRadialGradient(sx+T/2, sy+T*0.62, 1, sx+T/2, sy+T*0.62, T*0.46);
+    gr.addColorStop(0,   'rgba(255,238,190,' + eg + ')');
+    gr.addColorStop(0.6, 'rgba(226,186,116,' + (eg*0.55) + ')');
+    gr.addColorStop(1,   'rgba(120,92,52,0)');
+    ctx.fillStyle = gr;
     ctx.beginPath();
-    ctx.moveTo(sx+T/2,sy+T/2+5); ctx.lineTo(sx+T/2-4,sy+T/2); ctx.lineTo(sx+T/2+4,sy+T/2);
-    ctx.closePath(); ctx.fill();
-  } else if (t === TL.MINE_SHAFT_UP) {
-    ctx.fillStyle='#081018'; ctx.fillRect(sx+4,sy+4,T-8,T-8);
-    // Shaft opening
-    ctx.fillStyle='#040810'; ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2,9,7,0,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle='rgba(20,80,120,.7)'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2,10,8,0,0,Math.PI*2); ctx.stroke();
-    // Up indicator
-    ctx.fillStyle='rgba(60,140,200,.8)';
-    ctx.beginPath();
-    ctx.moveTo(sx+T/2,sy+T/2-5); ctx.lineTo(sx+T/2-4,sy+T/2); ctx.lineTo(sx+T/2+4,sy+T/2);
-    ctx.closePath(); ctx.fill();
+    ctx.moveTo(sx+9, sy+T-3); ctx.lineTo(sx+9, sy+11);
+    ctx.arc(sx+T/2, sy+11, T/2-9, Math.PI, 0);
+    ctx.lineTo(sx+T-9, sy+T-3); ctx.closePath(); ctx.fill();
+    // Pit timbers: two legs and a cap, the way an adit is actually held open.
+    ctx.fillStyle = '#6b4a26';
+    ctx.fillRect(sx+5, sy+8, 3, T-11);
+    ctx.fillRect(sx+T-8, sy+8, 3, T-11);
+    ctx.fillRect(sx+4, sy+5, T-8, 4);
+    ctx.fillStyle = 'rgba(255,226,170,.30)';       // daylight catching the cap
+    ctx.fillRect(sx+4, sy+5, T-8, 1);
+    ctx.fillStyle = 'rgba(0,0,0,.35)';             // grain
+    ctx.fillRect(sx+4, sy+8, T-8, 1);
+    ctx.fillRect(sx+6, sy+14, 1, T-17);
+    ctx.fillRect(sx+T-7, sy+18, 1, T-21);
+  } else if (t === TL.MINE_SHAFT_DOWN || t === TL.MINE_SHAFT_UP) {
+    // A shaft is a hole in the FLOOR, so the floor goes under it — the wall's
+    // rock face made it a dark box sitting in the middle of the passage. And
+    // it is a timbered hole with a ladder in it, not a coloured disc with an
+    // arrow: the purple and blue rings read as buttons pasted onto the map.
+    const up = (t === TL.MINE_SHAFT_UP);
+    if (!(tx !== undefined && DHGround.draw(ctx, 'minefloor', sx, sy, tx, ty))) {
+      ctx.fillStyle = '#3a3028'; ctx.fillRect(sx, sy, T, T);
+    }
+    // Spoil heaped round the collar.
+    ctx.fillStyle = 'rgba(30,24,18,.45)';
+    ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T/2+1, 13, 11, 0, 0, Math.PI*2); ctx.fill();
+    // The hole. Down is a void; up shows daylight a long way off.
+    ctx.fillStyle = '#050406';
+    ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T/2, 10, 8, 0, 0, Math.PI*2); ctx.fill();
+    if (up) {
+      const lg = ctx.createRadialGradient(sx+T/2, sy+T/2-1, 0, sx+T/2, sy+T/2-1, 8);
+      lg.addColorStop(0, 'rgba(226,206,160,.55)');
+      lg.addColorStop(1, 'rgba(120,104,72,0)');
+      ctx.fillStyle = lg;
+      ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T/2-1, 8, 6, 0, 0, Math.PI*2); ctx.fill();
+    }
+    // Curb timbers round the mouth.
+    ctx.strokeStyle = '#6b4a26'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T/2, 11, 9, 0, 0, Math.PI*2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,226,170,.18)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T/2-1, 11, 9, 0, Math.PI, 0); ctx.stroke();
+    // The ladder: two stiles and rungs, running into the hole.
+    ctx.fillStyle = '#7a5730';
+    ctx.fillRect(sx+T/2-4, sy+T/2-7, 1, 15);
+    ctx.fillRect(sx+T/2+3, sy+T/2-7, 1, 15);
+    ctx.fillStyle = up ? '#8a6436' : '#4a3420';
+    for (let r = -5; r <= 7; r += 4) ctx.fillRect(sx+T/2-4, sy+T/2+r, 8, 1);
+    ctx.lineWidth = 1;
   } else if (t === TL.SILVER_VEIN) {
-    ctx.fillStyle='#1e2028'; ctx.fillRect(sx+3,sy+3,T-6,T-6);
-    const sp = 0.5+Math.sin(Date.now()*.002+sx*.7)*0.3;
-    // Silver — bright cold metallic
-    ctx.fillStyle=`rgba(160,175,200,${sp})`;
-    ctx.fillRect(sx+6,sy+7,T-12,4);
-    ctx.fillStyle=`rgba(200,210,230,${sp*0.7})`;
-    ctx.fillRect(sx+7,sy+8,T-14,2);
-    ctx.fillRect(sx+8,sy+13,T-16,3);
-    // Cold glint
-    ctx.fillStyle=`rgba(220,230,255,${sp})`;
-    ctx.fillRect(sx+8,sy+8,2,1);
+    drawMineRock(sx, sy, tx, ty);
+    drawOreSeam(sx, sy, tx, ty, '#464e5c', '#939db0', '#dde4f0',
+                0.74+Math.sin(Date.now()*.002+tx*2.3+ty*1.1)*0.26);
   } else if (t === TL.SINGING_VEIN) {
-    ctx.fillStyle='#1a1018'; ctx.fillRect(sx+3,sy+3,T-6,T-6);
-    const spd = Date.now()*.00085;
-    const vp = 0.3+Math.sin(spd+sx*.3+sy*.5)*0.35;
-    // Looks like a vein but wrong color — deep purple, unsettling
-    ctx.fillStyle=`rgba(130,70,200,${vp})`;
-    ctx.fillRect(sx+6,sy+6,4,T-12);
-    ctx.fillStyle=`rgba(160,100,220,${vp*0.6})`;
-    ctx.fillRect(sx+T-10,sy+8,4,T-16);
-    // Outer breathing ring
-    ctx.strokeStyle=`rgba(100,60,180,${vp*0.4})`;
-    ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.rect(sx+4,sy+4,T-8,T-8); ctx.stroke();
-    // Faint inner glow
-    ctx.fillStyle=`rgba(180,120,240,${vp*0.2})`;
-    ctx.fillRect(sx+8,sy+8,T-16,T-16);
+    drawMineRock(sx, sy, tx, ty);
+    drawOreSeam(sx, sy, tx, ty, '#2e1442', '#6f38b4', '#c79bf0',
+                0.55+Math.sin(Date.now()*.00085*1000/1000+tx*2.1+ty*3.3)*0.45);
+
   }
 }
 
