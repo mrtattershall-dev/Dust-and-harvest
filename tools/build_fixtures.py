@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Cut the world's fixed decorations out of two packs into one atlas.
 
-Run:  ./tools/build_fixtures.py <hunters-lodge> <armor-and-weapons> <desert-tileset> <farm-with-animals> <fishing-village>
+Run:  ./tools/build_fixtures.py <hunters-lodge> <armor-and-weapons> <desert-tileset>
+            <farm-with-animals> <fishing-village> <chapel>
 
 Emits assets/fixtures/fixtures.png + fixtures.json — one small atlas of named
 pieces, each at its native size, blitted at fixed offsets by the draw code.
@@ -125,15 +126,29 @@ PIECES5 = {
     "sack":       ("Exterior_objetcs.png",  68, 551, 21, 21),
 }
 
+# ── Boot hill (Free Chapel) ─────────────────────────────────────────────
+# The chapel itself is a gothic cathedral with spires and a rose window and
+# has no place in a dust-bowl town. Its graveyard furniture does: a boot hill
+# on the edge of town is a western fixture, and these are plain weathered
+# headstones with grass at the foot, not carved European monuments.
+PIECES6 = {
+    "grave1": ("Exterior.png", 169, 165, 15, 21),
+    "grave2": ("Exterior.png", 199, 164, 17, 22),
+    "grave3": ("Exterior.png", 231, 164, 17, 21),
+    "grave4": ("Exterior.png", 167, 197, 17, 18),
+    "grave5": ("Exterior.png", 232, 226, 16, 24),
+    "grave6": ("Exterior.png", 199, 260, 17, 19),
+}
+
 PAD = 1   # a transparent gutter, so no piece bleeds into its neighbour
 
 
 def main():
-    if len(sys.argv) != 6:
+    if len(sys.argv) != 7:
         raise SystemExit(__doc__)
     # Each pack keeps its art somewhere slightly different. PNG/ for most; the
     # farm pack's outdoor objects are only in Tiled_files/.
-    SUBDIRS = ["PNG", "PNG", "PNG", "Tiled_files", "PNG"]
+    SUBDIRS = ["PNG", "PNG", "PNG", "Tiled_files", "PNG", "PNG"]
     srcs = []
     for a, sub in zip(sys.argv[1:], SUBDIRS):
         d = Path(a) / sub
@@ -143,12 +158,13 @@ def main():
 
     cut = {}
     ALL = list(PIECES.items()) + list(PIECES2.items()) + list(PIECES3.items()) + \
-          list(PIECES4.items()) + list(PIECES5.items())
+          list(PIECES4.items()) + list(PIECES5.items()) + list(PIECES6.items())
     for name, (fn, x, y, w, h) in ALL:
         src = (srcs[0] if name in PIECES else
                srcs[1] if name in PIECES2 else
                srcs[2] / "Objects_separately" if name in PIECES3 else
-               srcs[3] if name in PIECES4 else srcs[4])
+               srcs[3] if name in PIECES4 else
+               srcs[4] if name in PIECES5 else srcs[5])
         sheet = Image.open(src / fn).convert("RGBA")
         im = sheet.crop((x, y, x + w, y + h))
         bb = im.getbbox()

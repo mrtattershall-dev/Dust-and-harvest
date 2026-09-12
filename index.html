@@ -5849,6 +5849,16 @@ const CHEST_TX = 16,      CHEST_TY = 26;
 // Trapper's camp. Declared here with the other landmarks because world-gen
 // clears his ground, and that runs long before the trapper module below.
 const TRAPPER_TX = 48, TRAPPER_TY = 44;
+// Boot hill, for the same reason: buildMap() clears bushes off these tiles.
+// This is the third thing in this file to hit the temporal dead zone by being
+// declared beside its draw code instead of above buildMap() — and the second
+// AFTER I wrote a comment warning about it. If world-gen touches it, it goes
+// here.
+const BOOT_HILL = [
+  [38, 20, 'grave6'], [39, 19, 'grave1'], [41, 19, 'grave3'],
+  [40, 21, 'grave4'], [42, 21, 'grave5'], [43, 20, 'grave2'],
+  [44, 19, 'grave1'],
+];
 const TRAPPER_X = TRAPPER_TX * T + T / 2;
 const TRAPPER_Y = TRAPPER_TY * T + T / 2;
 const WORKBENCH_TX = 26,  WORKBENCH_TY = 26;
@@ -6057,6 +6067,12 @@ function buildMap() {
   setT(79,35,TL.OCEAN_PORTAL);
   setT(79,36,TL.OCEAN_PORTAL);
   setT(79,37,TL.OCEAN_PORTAL);
+
+  // Boot hill — a few graves on the grass west of town, just south of the
+  // road, so it is passed on the way in rather than sought out. Cleared of
+  // bushes only: the graves stand on grass, not on a scraped plot.
+  for (const [gx, gy] of BOOT_HILL)
+    if (getT(gx, gy) === TL.BUSH || getT(gx, gy) === TL.TREE) setT(gx, gy, TL.GRASS);
 
   // Trapper's camp — a cleared patch in the wilderness south of the central
   // river crossing, so it is found on the way in rather than hunted for.
@@ -10213,6 +10229,28 @@ function drawOverhangProps(cx, cy) {
       const v = ((tx * 374761393 ^ ty * 668265263) >>> 0) % set.length;
       drawFixture(set[v], tx * T + T / 2 - cx, (ty + 1) * T - cy);
     }
+  }
+}
+
+// § BOOT HILL
+// Headstones from the chapel pack, whose cathedral is gothic and useless here
+// but whose graveyard furniture is exactly right: a boot hill on the edge of
+// town is a western fixture.
+//
+// Deliberately NOT solid. A headstone is a good deal smaller than a 32px
+// tile, and making its whole tile block would stop the player on empty grass
+// a half-tile away from the stone. Walking over a grave is the lesser oddity.
+//   [tile x, tile y, piece] — the list itself lives with the other map
+//   landmarks above buildMap(), which reads it.
+
+function drawBootHill(cx, cy) {
+  if (!_fixArt.ok) return;
+  const vw = canvas.width / ZOOM, vh = canvas.height / ZOOM;
+  for (const [tx, ty, piece] of BOOT_HILL) {
+    const sx = tx * T + T / 2 - cx, sy = (ty + 1) * T - cy;
+    if (sx < -T*2 || sx > vw + T*2 || sy < -T*2 || sy > vh + T*2) continue;
+    if (!exploredWorld[ty * MAP_W + tx]) continue;
+    drawFixture(piece, sx, sy);
   }
 }
 
@@ -19178,6 +19216,7 @@ function render() {
 
   for (const npc of npcs) drawNPC(npc);
   drawOverhangProps(cx, cy);
+  drawBootHill(cx, cy);
   drawMarketStalls(cx, cy);
   drawMerchant(cx, cy);
   drawTrapper(cx, cy);
