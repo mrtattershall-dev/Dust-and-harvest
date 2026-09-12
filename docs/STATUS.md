@@ -12,9 +12,15 @@ rejected and why.
 ./tools/test_render.py <dir>        # or some other build
 ```
 Non-zero exit on failure. It draws every overworld tile, enters all eight
-zones, and separately clears the lazy tile caches to reproduce cold-start
-ordering. It was written against a real black-screen bug and has been seen to
-fail on the commit before that fix.
+zones, and separately checks the cold-start cache ordering. It was written
+against a real black-screen bug and has been seen to fail on the commit before
+that fix.
+
+The cold-start check tests the INVARIANT (drawing a dirt tile must fill the
+lazy caches other tiles index), not the symptom. It used to test the symptom —
+an unguarded consumer throwing — and when every consumer became guarded the
+check started passing on a copy with the bug deliberately put back. Verify any
+change to it in both directions, as that one was.
 
 ## Rebuilding assets
 
@@ -39,23 +45,38 @@ Source zips are not in the repo. `dist/` is a build artifact.
 - **Content** Amos the trapper + camp + lodge; market stalls for Maya and
   Rex; a boot hill west of town.
 - **Badlands** terrain clumped; `BL.CRACKED` repainted (it drew an X per tile).
-- **Mine** floor baked; `drawMineTile` now takes world tile coords.
+- **Mine** every wall, vein, shaft and exit cut into one `drawMineRock()` face;
+  all ore through one `drawOreSeam()`; timbered adit for the exit and ladders
+  in the shafts. The badlands mine shares this renderer.
+- **Jungle, deep jungle, ruins** ground on baked terrain through
+  `DHGround.drawToned()`, which retones a band to a named mean colour once into
+  an offscreen canvas. One turf, three exposures, chosen by `JG_BIOME`.
+- **Fence and gate** drawn from their four neighbours, over whatever ground
+  they stand on. **Town wall** on baked stone with staggered courses.
+- **The well** painted properly; **crates** wired to the baked fixtures.
+- **Tree depth** `drawOverhangProps(cx, cy, late)` runs twice a frame and each
+  tree picks its side from the entities near it.
 - **Mobile** canvas sizing fixed for in-app browsers; touch layout verified.
 
 ## Known unfinished, roughly by value
 
-1. **Jungle and ruins look flat** — 4-7 distinct colours in a sampled frame,
-   against 12-16 for mine/ocean/hobo camp. Never examined properly.
-2. **Mine walls and ore veins** still painted; walls are near-black boxes, the
-   exit is a green square. `!$Metal Ores.png` in the Miner's Cave pack has
-   real ore seams, and that pack also has pit props, beams, ladders, lanterns
-   and mine carts.
-3. **The well** at the player's spawn is a grey box with blue squares. No
-   delivered pack has a well — this one needs painting, not importing.
-4. **`TL.FENCE`** (131 tiles) and town `WALL` (109) still painted.
-5. **Tree canopies draw under entities** — `drawOverhangProps` runs before the
-   entity pass, so someone standing above a tree is drawn over its canopy. The
-   fix is y-sorting props and entities in one list.
+1. **The source packs are not in the repo** and were not in the container this
+   work was done in, so nothing new could be baked — only what is already in
+   `assets/` could be re-used and retoned. Everything below that needs pack art
+   is blocked until the zips are re-delivered.
+2. **Mine props** — the Miner's Cave pack's `!$Metal Ores.png`, pit props,
+   beams, ladders, lanterns and mine carts are still unused. The mine reads
+   well now but every part of it is drawn, not imported.
+3. **Jungle NPCs** render as stacked rectangles (Pira, and others like her).
+   The overworld NPCs have real sprites; the jungle ones never got them.
+4. **Ruins interior** is readable now but sparse — no furniture, no rubble
+   props, and the torch vignette is the only lighting.
+5. **True y-sorting.** `_treeIsInFront()` decides per tree from the entities
+   near it, which is right except when two entities stand either side of one
+   tree's root; the tree then goes in front of both. Sorting props and entities
+   into one list is the real fix, and means restructuring the NPC, enemy,
+   animal and player loops — several of which later slices patch again.
+6. **Unexamined packs**: medieval interior, green village, green dungeon.
 
 ## Traps this file exists to stop you re-learning
 
@@ -77,6 +98,17 @@ Source zips are not in the repo. `dist/` is a build artifact.
   them ZOOM times too generous.
 - **Tests that set `player.x/y` measure nothing** — the camera eases. Set
   `gameState.camera` directly.
+- **The map is not the same twice.** `buildMap()` uses `Math.random` through
+  `clumpFill`, so tile positions differ between page loads. A probe that finds
+  a tile in one run and asserts about it in another is testing nothing — find
+  and assert in the same evaluate.
+- **A function's first definition may not be the one that runs.** Later slices
+  reassign `window.drawJGTile` and friends. Trace an actual call before editing
+  either copy; `drawJGTile` has a dead definition 8000 lines above the live one.
+- **Detail hashed off `sx`/`sy` crawls.** Screen coordinates move with the
+  camera, so anything seeded from them slides across the world as the player
+  walks. Seed from `tx`/`ty`. Found in the mine (every wall, vein and floor
+  detail) and the ruins (moss and floor stains).
 - **Measure, don't eye it.** A sack "with no fish in it" had two. Tile
   censuses before and after caught majority-smoothing quietly deleting the
   sand. Render icon candidates at size AND through the game's own `itemIcon`.

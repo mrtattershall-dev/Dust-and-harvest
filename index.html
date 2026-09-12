@@ -10353,7 +10353,42 @@ const OVERHANG_GRASS = ['tree_oak', 'tree_pine', 'tree_gnarled', 'tree_round',
                         'tree_sapling', 'tree_scrub', 'tree_shrub'];
 const OVERHANG_SAND  = ['tree_sand_big', 'tree_sand_small', 'tree_bush'];
 
-function drawOverhangProps(cx, cy) {
+// Whether a given tree has to be drawn IN FRONT of the entities.
+//
+// Every tree used to be drawn before them, so the player could walk under a
+// canopy and still be painted on top of it — the tree behaved like a floor
+// decal rather than something standing in the world.
+//
+// A proper y-sort would mean restructuring the NPC, enemy, animal and player
+// loops, several of which are patched again further down the file. It is not
+// needed: a canopy only ever overlaps what is within about two tiles of it, so
+// each tree can decide for itself. If anything standing near this tree has its
+// feet ABOVE the tree's root, the tree is in front of it and must be drawn
+// late; otherwise it is behind everything near it and can go early as before.
+//
+// The one case this does not resolve is two entities near the same tree, one
+// either side of its root — the tree then goes in front of both. Real
+// y-sorting is the fix for that, if it ever shows.
+function _treeIsInFront(rootX, rootY) {
+  const near = (e) => e && Math.abs(e.x - rootX) < T * 1.4 &&
+                      e.y > rootY - T * 2.6 && e.y < rootY + T * 0.6;
+  if (near(player) && player.y < rootY) return true;
+  for (const list of [
+        (typeof npcs !== 'undefined') ? npcs : null,
+        (typeof enemies !== 'undefined') ? enemies : null,
+        (typeof animals !== 'undefined') ? animals : null]) {
+    if (!list) continue;
+    for (const e of list) {
+      if (e.hp !== undefined && e.hp <= 0) continue;
+      if (near(e) && e.y < rootY) return true;
+    }
+  }
+  return false;
+}
+
+// `late` selects which half of the trees to draw: false before the entities,
+// true after them. Called twice per frame, once each way.
+function drawOverhangProps(cx, cy, late) {
   if (!_fixArt.ok) return;
   // Only the visible rows, plus a margin: a tree rooted below the bottom edge
   // still has a canopy reaching into view, and one rooted to the right of the
@@ -10384,7 +10419,9 @@ function drawOverhangProps(cx, cy) {
       const set = grassy > dry ? OVERHANG_GRASS : OVERHANG_SAND;
       // Same hash the scatter props use, so a given tree is always that tree.
       const v = ((tx * 374761393 ^ ty * 668265263) >>> 0) % set.length;
-      drawFixture(set[v], tx * T + T / 2 - cx, (ty + 1) * T - cy);
+      const rootX = tx * T + T / 2, rootY = (ty + 1) * T;
+      if (_treeIsInFront(rootX, rootY) !== !!late) continue;
+      drawFixture(set[v], rootX - cx, rootY - cy);
     }
   }
 }
@@ -19379,7 +19416,7 @@ function render() {
   }
 
   for (const npc of npcs) drawNPC(npc);
-  drawOverhangProps(cx, cy);
+  drawOverhangProps(cx, cy, false);
   drawBootHill(cx, cy);
   drawMarketStalls(cx, cy);
   drawMerchant(cx, cy);
@@ -19388,6 +19425,8 @@ function render() {
   drawAnimals(cx, cy);  // Phase 8: ranch
   drawEnemies(cx, cy);
   drawPlayer();
+  // The trees that stand in front of something. See _treeIsInFront().
+  drawOverhangProps(cx, cy, true);
   drawAttackArc(cx, cy);
   ctx.font='bold 13px serif'; ctx.textAlign='center';
   for (const z of ZONE_LABELS) {
