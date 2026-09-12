@@ -8471,6 +8471,105 @@ function drawTerrainEdges(tx, ty, sx, sy, size, get, terrainOf) {
   }
 }
 
+// The extent of the barn a tile belongs to, found by flood fill and cached for
+// every tile of it at once. Not hardcoded, so a second barn — or a moved one —
+// still draws as one building.
+function barnBox(tx, ty) {
+  if (!barnBox._c) barnBox._c = {};
+  const key = tx + ',' + ty;
+  if (barnBox._c[key]) return barnBox._c[key];
+  const isBarn = (x, y) => { const v = getT(x, y); return v === TL.BARN_CLOSED || v === TL.BARN_OPEN; };
+  const seen = new Set([key]), q = [[tx, ty]];
+  let x0 = tx, x1 = tx, y0 = ty, y1 = ty;
+  while (q.length) {
+    const [x, y] = q.pop();
+    if (x < x0) x0 = x; if (x > x1) x1 = x;
+    if (y < y0) y0 = y; if (y > y1) y1 = y;
+    for (const [dx, dy] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+      const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+      if (seen.has(k) || !isBarn(nx, ny)) continue;
+      seen.add(k); q.push([nx, ny]);
+    }
+  }
+  const box = { x0, x1, y0, y1 };
+  for (const k of seen) barnBox._c[k] = box;
+  return box;
+}
+
+// One whole barn in the rect (bx, by, bw, bh): roof over the top, boarded
+// front below it, big doors in the middle. Everything is proportional to the
+// rect, so the barn is still a barn if its footprint changes.
+function drawBarn(bx, by, bw, bh, open) {
+  const roofH = bh * 0.46;
+  const RED = '#7a2f1c', RED_D = '#5c2214', RED_L = '#8d3b24';
+  // Shadow on the ground at the foot of the wall.
+  ctx.fillStyle = 'rgba(0,0,0,.28)';
+  ctx.fillRect(bx - 2, by + bh - 3, bw + 4, 5);
+  // ── Roof: shingle courses, darker away from the ridge, with an overhang.
+  ctx.fillStyle = '#3a2118';
+  ctx.fillRect(bx - 3, by, bw + 6, roofH);
+  for (let y = 0; y < roofH - 2; y += 4) {
+    const t2 = y / roofH;
+    const v = Math.round(58 + t2 * 26);
+    ctx.fillStyle = 'rgb(' + (v + 16) + ',' + (v - 14) + ',' + (v - 22) + ')';
+    ctx.fillRect(bx - 3, by + 2 + y, bw + 6, 3);
+    ctx.fillStyle = 'rgba(0,0,0,.20)';
+    ctx.fillRect(bx - 3, by + 2 + y + 3, bw + 6, 1);
+  }
+  // Ridge along the top, catching the light.
+  ctx.fillStyle = '#9a4a2e'; ctx.fillRect(bx - 3, by, bw + 6, 3);
+  ctx.fillStyle = 'rgba(255,200,170,.20)'; ctx.fillRect(bx - 3, by, bw + 6, 1);
+  // Eaves shadow where the roof meets the wall.
+  ctx.fillStyle = 'rgba(0,0,0,.34)'; ctx.fillRect(bx - 3, by + roofH - 3, bw + 6, 4);
+  // ── Wall: vertical boards.
+  const wy = by + roofH, wh = bh - roofH;
+  ctx.fillStyle = RED; ctx.fillRect(bx, wy, bw, wh);
+  for (let x = 0; x < bw; x += 7) {
+    ctx.fillStyle = 'rgba(0,0,0,.16)'; ctx.fillRect(bx + x, wy, 1, wh);
+    ctx.fillStyle = 'rgba(255,210,180,.06)'; ctx.fillRect(bx + x + 1, wy, 1, wh);
+  }
+  // White corner boards and a rail under the eaves.
+  ctx.fillStyle = '#d9d2c2';
+  ctx.fillRect(bx, wy, 4, wh); ctx.fillRect(bx + bw - 4, wy, 4, wh);
+  ctx.fillRect(bx, wy, bw, 3);
+  ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(bx, wy + 3, bw, 1);
+  // ── Doors, centred, standing on the ground.
+  const dw = Math.min(bw * 0.52, bw - 16), dh = wh * 0.74;
+  const dx0 = bx + (bw - dw) / 2, dy0 = wy + wh - dh;
+  ctx.fillStyle = '#d9d2c2';                       // frame
+  ctx.fillRect(dx0 - 3, dy0 - 3, dw + 6, dh + 3);
+  if (open) {
+    ctx.fillStyle = '#180c07'; ctx.fillRect(dx0, dy0, dw, dh);
+    ctx.fillStyle = 'rgba(120,86,40,.22)';         // straw catching light inside
+    ctx.fillRect(dx0 + 2, dy0 + dh - 6, dw - 4, 5);
+  } else {
+    ctx.fillStyle = RED_D; ctx.fillRect(dx0, dy0, dw, dh);
+    for (let x = 0; x < dw; x += 6) {
+      ctx.fillStyle = 'rgba(0,0,0,.20)'; ctx.fillRect(dx0 + x, dy0, 1, dh);
+    }
+    ctx.fillStyle = '#d9d2c2';                     // the X brace, both leaves
+    for (const half of [0, 1]) {
+      const hx = dx0 + half * dw / 2, hw = dw / 2;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(hx, dy0, hw, dh); ctx.clip();
+      ctx.strokeStyle = '#d9d2c2'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(hx, dy0); ctx.lineTo(hx + hw, dy0 + dh); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hx + hw, dy0); ctx.lineTo(hx, dy0 + dh); ctx.stroke();
+      ctx.restore();
+    }
+    ctx.fillStyle = '#3a2118'; ctx.fillRect(dx0 + dw / 2 - 1, dy0, 2, dh);
+    ctx.fillStyle = '#2a2420';                     // handles
+    ctx.fillRect(dx0 + dw / 2 - 5, dy0 + dh * 0.5, 3, 2);
+    ctx.fillRect(dx0 + dw / 2 + 2, dy0 + dh * 0.5, 3, 2);
+  }
+  // Hayloft door up in the gable, with its hoist beam.
+  const lw = Math.max(10, bw * 0.2), lx = bx + (bw - lw) / 2, ly = wy - roofH * 0.34;
+  ctx.fillStyle = '#d9d2c2'; ctx.fillRect(lx - 2, ly - 2, lw + 4, roofH * 0.30 + 4);
+  ctx.fillStyle = '#2a1610'; ctx.fillRect(lx, ly, lw, roofH * 0.30);
+  ctx.fillStyle = '#6b4a26'; ctx.fillRect(bx + bw / 2 - 1, ly - 6, 2, 6);
+  ctx.lineWidth = 1;
+}
+
 // Decking: boards laid across a tile, drawn so a RUN of them reads as planks
 // laid side by side rather than as a row of tiles.
 //
@@ -9059,31 +9158,78 @@ function drawTile(tx,ty,sx,sy) {
     ctx.fillRect(sx+3,sy+T/2-1,T-6,2);
   }
   else if(t===TL.FORGE){
-    ctx.fillStyle='#3a2818';ctx.fillRect(sx,sy,T,T);
-    ctx.fillStyle='#584030';ctx.fillRect(sx+3,sy+3,T-6,T-6);
-    ctx.fillStyle='#685040';ctx.fillRect(sx+3,sy+3,T-6,2);
-    ctx.fillStyle='#180c08';ctx.fillRect(sx+8,sy+14,T-16,T-20);
-    const flicker=0.5+0.5*Math.sin(Date.now()*.008+sx);
-    const r2=Math.floor(220+35*flicker), g2=Math.floor(80+60*flicker);
-    ctx.fillStyle=`rgb(${r2},${g2},20)`;ctx.fillRect(sx+10,sy+16,T-20,T-24);
-    ctx.fillStyle='rgba(255,200,80,.6)';ctx.fillRect(sx+12,sy+18,4,3);ctx.fillRect(sx+T-16,sy+20,3,3);
-    ctx.fillStyle='#2a1e18';ctx.fillRect(sx+10,sy,12,7);
-    ctx.fillStyle='#1a0e0a';ctx.fillRect(sx+12,sy+1,8,5);
-    const sm=Date.now()*.002;
-    ctx.fillStyle='rgba(160,140,120,.3)';
-    ctx.fillRect(sx+13+(Math.sin(sm)*2|0),sy-4+(Math.sin(sm*.7)*1|0),3,4);
-    ctx.fillRect(sx+17+(Math.sin(sm+1)*2|0),sy-7+(Math.sin(sm*.5)*1|0),2,4);
+    // A forge standing on the yard, not a dark square with a glow in it. It
+    // filled its whole tile and inset a lighter rectangle, which is a box; and
+    // its flicker hashed off sx — the SCREEN x — so the coals pulsed at a
+    // different rate depending on where the camera was.
+    _owGround();
+    const fk = 0.5 + 0.5 * Math.sin(Date.now()*.008 + tx*1.7 + ty*0.9);
+    ctx.fillStyle='rgba(0,0,0,.28)';
+    ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T-5, 13, 5, 0, 0, Math.PI*2); ctx.fill();
+    // Stone body, coursed, narrower at the top.
+    ctx.fillStyle='#4a423a'; ctx.fillRect(sx+3, sy+10, T-6, T-14);
+    ctx.fillStyle='#5c5349'; ctx.fillRect(sx+4, sy+11, T-8, T-17);
+    ctx.fillStyle='rgba(0,0,0,.26)';
+    ctx.fillRect(sx+4, sy+17, T-8, 1); ctx.fillRect(sx+4, sy+23, T-8, 1);
+    ctx.fillStyle='rgba(210,200,180,.16)'; ctx.fillRect(sx+4, sy+11, T-8, 1);
+    // Firebox and coals.
+    ctx.fillStyle='#150d0a'; ctx.fillRect(sx+8, sy+14, T-16, 9);
+    ctx.fillStyle='rgb(' + ((190+50*fk)|0) + ',' + ((66+54*fk)|0) + ',16)';
+    ctx.fillRect(sx+9, sy+16, T-18, 6);
+    ctx.fillStyle='rgba(255,214,110,'+(0.45+0.3*fk)+')';
+    ctx.fillRect(sx+11, sy+17, 4, 2); ctx.fillRect(sx+T-15, sy+19, 3, 2);
+    // Chimney hood and smoke.
+    ctx.fillStyle='#3a332c'; ctx.fillRect(sx+10, sy+2, 12, 9);
+    ctx.fillStyle='#484036'; ctx.fillRect(sx+11, sy+2, 10, 2);
+    ctx.fillStyle='#120c09'; ctx.fillRect(sx+13, sy+4, 6, 6);
+    const sm = Date.now()*.002 + tx;
+    ctx.fillStyle='rgba(170,150,130,.26)';
+    ctx.fillRect(sx+14+((Math.sin(sm)*2)|0),   sy-3+((Math.sin(sm*.7))|0), 3, 4);
+    ctx.fillRect(sx+17+((Math.sin(sm+1)*2)|0), sy-7+((Math.sin(sm*.5))|0), 2, 4);
+    // The glow it throws on the ground in front of it.
+    ctx.fillStyle='rgba(255,150,40,'+(0.07+0.05*fk)+')';
+    ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T-3, 14, 5, 0, 0, Math.PI*2); ctx.fill();
   }
   else if(t===TL.WORKBENCH){
-    ctx.fillStyle='#7a5228';ctx.fillRect(sx+2,sy+6,T-4,T-10);
-    ctx.fillStyle='#8a6230';ctx.fillRect(sx+2,sy+6,T-4,2);
-    ctx.fillStyle='#5a3c18';ctx.fillRect(sx+2,sy+T-4,T-4,2);
-    ctx.fillStyle='#5a3818';ctx.fillRect(sx+3,sy+T-8,4,8);ctx.fillRect(sx+T-7,sy+T-8,4,8);
-    ctx.fillStyle='#a07838';ctx.fillRect(sx+5,sy+9,T-10,3);
-    ctx.fillStyle='#b08840';ctx.fillRect(sx+5,sy+9,T-10,1);
-    ctx.font='11px serif';ctx.textAlign='center';ctx.fillText('🪚',sx+T/2,sy+T/2+2);
+    // A carpenter's bench. This was a tan rectangle with a 🪚 EMOJI on it —
+    // rendered in the page's serif font, at a size that has nothing to do with
+    // the game's pixel grid, next to art that is all hand-placed pixels.
+    _owGround();
+    ctx.fillStyle='rgba(0,0,0,.26)';
+    ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T-4, 13, 4, 0, 0, Math.PI*2); ctx.fill();
+    // Legs, then the top over them, so the bench has height.
+    ctx.fillStyle='#4a3216'; ctx.fillRect(sx+5, sy+18, 3, 10); ctx.fillRect(sx+T-8, sy+18, 3, 10);
+    ctx.fillStyle='#3a2610'; ctx.fillRect(sx+5, sy+25, T-10, 2);   // stretcher
+    // Plank top, three boards.
+    for (let k = 0; k < 3; k++) {
+      const yy = sy + 11 + k * 3;
+      ctx.fillStyle = k === 1 ? '#8a6230' : '#7d5729';
+      ctx.fillRect(sx+2, yy, T-4, 3);
+      ctx.fillStyle='rgba(50,32,12,.35)'; ctx.fillRect(sx+2, yy, T-4, 1);
+    }
+    ctx.fillStyle='#a07838'; ctx.fillRect(sx+2, sy+10, T-4, 1);     // lit front edge
+    ctx.fillStyle='#5a3c18'; ctx.fillRect(sx+2, sy+20, T-4, 2);     // apron
+    // A vice on the near corner.
+    ctx.fillStyle='#6e6a62'; ctx.fillRect(sx+3, sy+16, 6, 5);
+    ctx.fillStyle='#8d887e'; ctx.fillRect(sx+3, sy+16, 6, 1);
+    ctx.fillStyle='#4a4640'; ctx.fillRect(sx+4, sy+21, 1, 4);
+    // A saw lying on the top: blade, spine, handle. Drawn, not typed.
+    ctx.fillStyle='#b9b3a6'; ctx.fillRect(sx+11, sy+12, 13, 3);
+    ctx.fillStyle='#dcd6c8'; ctx.fillRect(sx+11, sy+12, 13, 1);
+    ctx.fillStyle='#8e887c';
+    for (let k = 0; k < 6; k++) ctx.fillRect(sx+12 + k*2, sy+15, 1, 1);
+    ctx.fillStyle='#6b4a26'; ctx.fillRect(sx+23, sy+11, 5, 5);
+    ctx.fillStyle='#8a6436'; ctx.fillRect(sx+23, sy+11, 5, 1);
+    // Shavings on the ground.
+    ctx.fillStyle='rgba(214,186,132,.5)';
+    ctx.fillRect(sx+7, sy+T-3, 3, 1); ctx.fillRect(sx+T-11, sy+T-2, 4, 1);
   }
   else if(t===TL.CAMPFIRE){
+    // No base was drawn at all, so the tile's own colour showed and the fire
+    // sat in a grey square. A fire stands on the ground and scorches it.
+    _owGround();
+    ctx.fillStyle='rgba(26,18,10,.50)';
+    ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T*.68,T*.44,T*.26,0,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#484030'; ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T*.65,T*.38,T*.22,0,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#383020'; ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T*.65,T*.26,T*.14,0,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#585040'; ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T*.65,T*.38,T*.22,0,0,Math.PI); ctx.fill();
@@ -9289,19 +9435,26 @@ function drawTile(tx,ty,sx,sy) {
     ctx.restore();
   }
   else if(t===TL.BARN_CLOSED||t===TL.BARN_OPEN){
-    ctx.fillStyle='#3e1808'; ctx.fillRect(sx,sy,T,T); // outline
-    ctx.fillStyle='#5c2818'; ctx.fillRect(sx+1,sy+1,T-2,T-2);
-    ctx.fillStyle='#6a3020'; ctx.fillRect(sx+1,sy+1,T-2,3); // top highlight
-    ctx.fillStyle='#481e10'; ctx.fillRect(sx+1,sy+T-3,T-2,2); // bottom shadow
-    ctx.fillStyle='#381408'; ctx.fillRect(sx,sy,T,5);
-    ctx.fillStyle='#7a3828'; ctx.fillRect(sx+T/2-2,sy,4,8);
-    ctx.fillStyle='#8a4030'; ctx.fillRect(sx+T/2-2,sy,2,8); // highlight
-    if(t===TL.BARN_OPEN){ ctx.fillStyle='#180804'; ctx.fillRect(sx+T/2-5,sy+T-12,10,12); }
-    else {
-      ctx.fillStyle='#6a2e20'; ctx.fillRect(sx+T/2-5,sy+T-12,10,12);
-      ctx.fillStyle='#7a3828'; ctx.fillRect(sx+T/2-5,sy+T-12,2,12);
-      ctx.strokeStyle='#4a1e10'; ctx.lineWidth=1; ctx.strokeRect(sx+T/2-5,sy+T-12,10,12);
-    }
+    // The barn is twenty tiles and every one of them drew the same panel with
+    // the same little door on it, so it read as a wall of twenty doors rather
+    // than as one building.
+    //
+    // It is drawn as ONE barn instead, the way the well is drawn as one well:
+    // each tile clips to itself and draws the whole structure at the barn's
+    // origin, so the roof, the trim and the doors line up across tiles without
+    // any tile needing to know which piece of the picture it holds.
+    _owGround();
+    const bb = barnBox(tx, ty);
+    ctx.save();
+    // The clip is a pixel wide on each side, because the canvas is scaled by
+    // ZOOM and a clip laid exactly on the tile edge leaves a sub-pixel gap
+    // showing the grass through the barn. Overlapping is free here: every tile
+    // draws the same barn, so the overlap is identical to what it covers.
+    ctx.beginPath(); ctx.rect(sx - 1, sy - 1, T + 2, T + 2); ctx.clip();
+    drawBarn(sx - (tx - bb.x0) * T, sy - (ty - bb.y0) * T,
+             (bb.x1 - bb.x0 + 1) * T, (bb.y1 - bb.y0 + 1) * T,
+             t === TL.BARN_OPEN);
+    ctx.restore();
   }
   else if(t===TL.FENCE_GATE){
     _owGround();
