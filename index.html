@@ -8482,21 +8482,35 @@ function drawTerrainEdges(tx, ty, sx, sy, size, get, terrainOf) {
 // at over 120 against a flat interior.
 //
 // `rgb` is the mid tone; boards vary a few values either side of it.
-function drawDecking(sx, sy, tx, ty, size, rows, rgb) {
-  const bh = size / rows, bx = Math.round(sx), bw = size + 1;
-  for (let i = 0; i < rows; i++) {
-    const h = (((ty * rows + i) * 2654435761) >>> 0);
+function drawDecking(sx, sy, tx, ty, size, pitch, rgb) {
+  // Boards are laid on WORLD y at `pitch` pixels, and the pitch must NOT
+  // divide the tile size. With four boards to a 32px tile every board edge
+  // landed on a tile edge, so the decking repeated on a 32px rhythm and read
+  // as the tile grid again — the seam audit scores that at 111 against a flat
+  // interior. A pitch of 7 puts the joints wherever they fall.
+  const y0 = ty * size, y1 = y0 + size;
+  const b0 = Math.floor(y0 / pitch), b1 = Math.floor((y1 - 1) / pitch);
+  const bx = Math.round(sx), bw = size + 1;
+  for (let b = b0; b <= b1; b++) {
+    const h = ((b * 2654435761) >>> 0);
     const lift = ((h >>> 5) & 7) - 3;
-    const yy = Math.round(sy + i * bh);
+    const top = Math.max(b * pitch, y0), bot = Math.min((b + 1) * pitch, y1);
+    const yy = Math.round(sy + (top - y0));
+    const hh = Math.ceil(bot - top) + 1;
     ctx.fillStyle = 'rgb(' + Math.max(0, Math.min(255, rgb[0] + lift * 4)) + ',' +
                              Math.max(0, Math.min(255, rgb[1] + lift * 3)) + ',' +
                              Math.max(0, Math.min(255, rgb[2] + lift * 2)) + ')';
-    ctx.fillRect(bx, yy, bw, Math.ceil(bh) + 1);
-    ctx.fillStyle = 'rgba(30,22,12,.36)'; ctx.fillRect(bx, yy, bw, 1);
-    ctx.fillStyle = 'rgba(200,180,150,.13)'; ctx.fillRect(bx, yy + 1, bw, 1);
-    // Grain, offset per tile so a streak is not in the same place on each.
-    ctx.fillStyle = 'rgba(40,28,16,.16)';
-    ctx.fillRect(bx + (((h ^ (tx * 40503)) >>> 9) % (size - 9)), yy + 2, 7, 1);
+    ctx.fillRect(bx, yy, bw, hh);
+    // The joint and the grain both belong to the BOARD, so they are only
+    // drawn in the tile where the board starts. Drawing the grain on every
+    // segment put a streak 2px below the tile edge whenever a board carried
+    // across one, which is a seam at the tile pitch by another route.
+    if (top === b * pitch) {
+      ctx.fillStyle = 'rgba(30,22,12,.36)'; ctx.fillRect(bx, yy, bw, 1);
+      ctx.fillStyle = 'rgba(200,180,150,.13)'; ctx.fillRect(bx, yy + 1, bw, 1);
+      ctx.fillStyle = 'rgba(40,28,16,.16)';
+      ctx.fillRect(bx + (((h ^ (tx * 40503)) >>> 9) % (size - 9)), yy + 2, 7, 1);
+    }
   }
 }
 
@@ -20913,20 +20927,56 @@ function drawHCTile(t, tx, ty, sx, sy) {
       break;
     }
     case TL.WALL: {
-      ctx.fillStyle='#292129'; ctx.fillRect(sx,sy,HC_T,HC_T);
-      ctx.fillStyle='#3a3228'; ctx.fillRect(sx+1,sy+1,HC_T-2,HC_T-2);
-      ctx.fillStyle='#4a4238'; ctx.fillRect(sx+1,sy+1,HC_T-2,2);
-      ctx.fillStyle='#292129'; ctx.fillRect(sx+2,sy+HC_T/2,HC_T-4,1);
-      if((tx+ty)%2===0){ctx.fillStyle='#292129';ctx.fillRect(sx+HC_T/2,sy+2,1,HC_T/2-1);}
-      else {ctx.fillStyle='#292129';ctx.fillRect(sx+5,sy+HC_T/2+1,1,HC_T/2-3);ctx.fillRect(sx+HC_T-6,sy+2,1,HC_T/2-1);}
-      ctx.fillStyle='#4a4238'; ctx.fillRect(sx+2,sy+HC_T/2-1,HC_T-4,1);
+      // A lean-to in a shanty camp is salvaged board, not coursed masonry —
+      // and this drew masonry, inset by a pixel with a light strip along its
+      // top, so every wall tile was outlined as well as being the wrong thing.
+      //
+      // Boards run vertically here (a wall stands up), so their tone is seeded
+      // by the world COLUMN: a board carries its colour along its length, the
+      // same rule the decking uses for its rows.
+      {
+        // Boards on WORLD x at a pitch of 7, which does not divide the 32px
+        // tile — five boards to a tile put a joint on every tile edge and the
+        // wall repeated on the tile rhythm.
+        const PITCH = 7, wx0 = tx * HC_T, wx1 = wx0 + HC_T;
+        const by = Math.round(sy), bhh = HC_T + 1;
+        for (let b = Math.floor(wx0 / PITCH); b <= Math.floor((wx1 - 1) / PITCH); b++) {
+          const h = ((b * 2654435761) >>> 0);
+          const lift = ((h >>> 5) & 7) - 3;
+          const left = Math.max(b * PITCH, wx0), right = Math.min((b + 1) * PITCH, wx1);
+          const xx = Math.round(sx + (left - wx0)), ww = Math.ceil(right - left) + 1;
+          ctx.fillStyle = 'rgb(' + (0x5b + lift * 4) + ',' +
+                                   (0x4b + lift * 3) + ',' + (0x3a + lift * 2) + ')';
+          ctx.fillRect(xx, by, ww, bhh);
+          if (left === b * PITCH) {             // the joint, only where it is
+            ctx.fillStyle = 'rgba(22,16,12,.42)'; ctx.fillRect(xx, by, 1, bhh);
+            ctx.fillStyle = 'rgba(190,170,140,.12)'; ctx.fillRect(xx + 1, by, 1, bhh);
+          }
+          // A knot or a split, placed per tile so it is not the same board
+          // repeated all the way up.
+          if (((h ^ (ty * 40503)) >>> 7 & 3) === 0) {
+            ctx.fillStyle = 'rgba(20,14,10,.35)';
+            ctx.fillRect(xx + 1, by + ((h >>> 11) % (HC_T - 8)) + 3, 2, 4);
+          }
+        }
+        // A cross-batten holding the boards, where the wall ends at the top.
+        if (getHCT(tx, ty - 1) !== TL.WALL) {
+          ctx.fillStyle = '#6b5a42'; ctx.fillRect(sx, sy + 3, HC_T, 4);
+          ctx.fillStyle = 'rgba(200,180,150,.16)'; ctx.fillRect(sx, sy + 3, HC_T, 1);
+          ctx.fillStyle = 'rgba(0,0,0,.30)'; ctx.fillRect(sx, sy + 6, HC_T, 1);
+        }
+      }
       break;
     }
     case TL.TREE: {
       const TRK=['#292129','#5b4b41','#897762','#cfc7b2'];
       const CAN=['#292129','#276b1f','#57973b','#a8c85c','#e3f19e'];
-      ctx.fillStyle='#647645'; ctx.fillRect(sx,sy,HC_T,HC_T);
-      ctx.fillStyle='#426848'; ctx.fillRect(sx,sy+HC_T-4,HC_T,4);
+      // The turf under it, not a flat green square with a dark strip along
+      // the bottom — the tree's canopy leaves the tile's corners showing.
+      if(!DHGround.drawToned(ctx,'grass','#5c6b44',sx,sy,tx,ty)){
+        ctx.fillStyle='#647645'; ctx.fillRect(sx,sy,HC_T,HC_T);
+      }
+      _hcEdges(tx, ty, sx, sy);
       ctx.fillStyle=TRK[0]; ctx.fillRect(sx+HC_T/2-3,sy+HC_T/2-1,7,HC_T/2+3);
       ctx.fillStyle=TRK[1]; ctx.fillRect(sx+HC_T/2-2,sy+HC_T/2,5,HC_T/2+2);
       ctx.fillStyle=TRK[3]; ctx.fillRect(sx+HC_T/2-2,sy+HC_T/2,2,HC_T/2+1);
@@ -20982,7 +21032,7 @@ function drawHCTile(t, tx, ty, sx, sy) {
     }
     case TL.TOWN_FLOOR: {
       // Lean-to floor — worn planks.
-      drawDecking(sx, sy, tx, ty, HC_T, 4, [0x7a, 0x62, 0x51]);
+      drawDecking(sx, sy, tx, ty, HC_T, 7, [0x7a, 0x62, 0x51]);
       break;
     }
     case TL.CAMPFIRE: {
@@ -21006,6 +21056,24 @@ function drawHCTile(t, tx, ty, sx, sy) {
       break;
     }
     case TL.CRATE: {
+      // The camp keeps its own crate renderer, and it was still the painted
+      // brown box with a cross on it that the overworld's already stopped
+      // being. Same baked fixtures, same ground underneath.
+      {
+        const nb = [[0,1],[0,-1],[1,0],[-1,0]]
+          .map(([dx,dy]) => getHCT(tx+dx, ty+dy))
+          .find(v => _HC_TERRAIN[v]);
+        const g = _HC_TERRAIN[nb] || _HC_TERRAIN[TL.DIRT];
+        if (!DHGround.drawToned(ctx, g[0], g[1], sx, sy, tx, ty)) {
+          ctx.fillStyle = '#7a6251'; ctx.fillRect(sx, sy, HC_T, HC_T);
+        }
+        const ck = ((tx * 73856093) ^ (ty * 19349663)) >>> 0;
+        if (drawFixture(ck & 1 ? 'crate_tall' : 'crate_wide',
+                        sx + HC_T/2, sy + HC_T + 2)) {
+          if ((ck >> 1) % 3 === 0) drawFixture('sack', sx + HC_T/2 - 9, sy + HC_T + 3);
+          break;
+        }
+      }
       ctx.fillStyle='#544b46'; ctx.fillRect(sx,sy,HC_T,HC_T);
       // Outline
       ctx.fillStyle='#292129'; ctx.fillRect(sx+3,sy+3,HC_T-6,HC_T-6);
@@ -22558,26 +22626,9 @@ function drawOCTile(t, tx, ty, sx, sy) {
       // the whole dock read as a chequerboard, and the plank seams were two
       // hard lines at the same two heights on every tile.
       //
-      // Board tone now varies per BOARD rather than per tile, the same way the
-      // jungle's decking does, so a run reads as planks laid side by side.
-      {
-        const rows=4, bh=OC_T/rows;
-        const bx=Math.round(sx), bw=OC_T+1;
-        for(let i2=0;i2<rows;i2++){
-          // Row only — see the jungle decking: a column term breaks the
-          // boards at every tile edge.
-          const hh=((ty*rows+i2)*2654435761)>>>0;
-          const lift=((hh>>>5)&7)-3;
-          ctx.fillStyle='rgb('+(0x7e+lift*4)+','+(0x6c+lift*3)+','+(0x52+lift*2)+')';
-          ctx.fillRect(bx, Math.round(sy+i2*bh), bw, Math.ceil(bh)+1);
-          ctx.fillStyle='rgba(30,22,12,.38)';
-          ctx.fillRect(bx, Math.round(sy+i2*bh), bw, 1);
-          ctx.fillStyle='rgba(190,170,140,.14)';
-          ctx.fillRect(bx, Math.round(sy+i2*bh)+1, bw, 1);
-          ctx.fillStyle='rgba(40,28,16,.16)';
-          ctx.fillRect(bx+(((hh^(tx*40503))>>>9)%(OC_T-9)), Math.round(sy+i2*bh)+2, 7, 1);
-        }
-      }
+      // Board tone varies per BOARD rather than per tile, the same way the
+      // jungle's and the camp's do — through the one drawDecking().
+      drawDecking(sx, sy, tx, ty, OC_T, 7, [0x7e, 0x6c, 0x52]);
       // Knot holes / grain
       if(seed%7===0){ ctx.fillStyle='rgba(40,28,16,.3)'; ctx.beginPath(); ctx.ellipse(sx+rn(seed,OC_T-8)+4,sy+rn(seed+1,OC_T-8)+4,3,2,0,0,Math.PI*2); ctx.fill(); }
       // Salt bleach patches
@@ -22758,7 +22809,7 @@ function drawOCTile(t, tx, ty, sx, sy) {
     }
 
     case OC.FLOOR: {
-      drawDecking(sx, sy, tx, ty, OC_T, 4, [0x7a, 0x68, 0x48]);
+      drawDecking(sx, sy, tx, ty, OC_T, 7, [0x7a, 0x68, 0x48]);
       // Plank grain — faint directional streaks
       if(seed%3===0){ ctx.fillStyle='rgba(80,55,25,.2)'; ctx.fillRect(sx+rn(seed,OC_T-6)+3,sy+3,1,5); }
       if(seed%4===0){ ctx.fillStyle='rgba(80,55,25,.15)'; ctx.fillRect(sx+rn(seed+2,OC_T-6)+3,sy+11,1,4); }
