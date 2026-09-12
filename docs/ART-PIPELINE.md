@@ -300,6 +300,19 @@ poll backs all of them up, because a game that renders into a stale buffer
 shows a black screen with no way to recover. `resize()` returns immediately
 when nothing changed, so the poll costs two property reads.
 
+## Cull bounds are in world pixels
+
+`sx = tx*T + T/2 - cx` is a **world**-pixel offset. Comparing it against
+`canvas.width`, which is **screen** pixels, makes the cull ZOOM times too
+generous — at 3.25 the market stalls drew Rex's entire shopfront while the
+camera was on Maya. Divide: `canvas.width / ZOOM`.
+
+It is invisible on screen, because the canvas clips anyway; it only shows up
+as wasted draw calls, and as tests that quietly measure the wrong thing. A
+test that positions the camera by setting `player.x/y` measures nothing
+either — the camera *eases* toward the player over about half a second, so
+set `gameState.camera` directly when you mean to test a specific view.
+
 ## Terrain that clumps: cut a smooth field at quantiles
 
 The wilderness and the barn zone picked a ground type per tile straight from

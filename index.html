@@ -10120,6 +10120,7 @@ const CAMP_FRONT = [
 const STALL_GOODS = {
   dry:   ['wool', 'egg', 'milk'],                    // the fixed dairy stall
   tools: ['rope', 'plank', 'cloth'],                 // the fixed sundries shelf
+  trade: ['ironBar', 'copperBar', 'leatherStrip'],   // Rex's freight counter
 };
 // Offsets from Maya, not absolute tiles: MAYA_TX is declared several hundred
 // lines below this, so reading it here throws on the temporal dead zone — and
@@ -10127,10 +10128,24 @@ const STALL_GOODS = {
 // takes every const after it down with it. The same trap the trapper's
 // coordinates hit. Resolved at draw time instead.
 //   [piece, dx, dy, which goods, how many]
+// Both traders stood alone on bare ground. Each entry is
+//   [who, piece, dx, dy, goods|null, how many]
+// with dx/dy in tiles from that trader. `who` is resolved at draw time, not
+// here: MAYA_TX and REX_TX are declared several hundred lines below this and
+// reading them at module scope throws on the temporal dead zone, taking every
+// later const with it.
 const STALLS = [
-  ['table', -3,  0, 'season', 3],
-  ['table',  3,  0, 'dry',    3],
-  ['shelf',  0, -3, 'tools',  3],
+  ['maya', 'table', -3,  0, 'season', 3],
+  ['maya', 'table',  3,  0, 'dry',    3],
+  ['maya', 'shelf',  0, -3, 'tools',  3],
+  // Rex trades contracts and freight, so his post is a counter and stock
+  // rather than produce on display.
+  ['rex',  'table',      -3,  0, 'trade', 3],
+  ['rex',  'shelf',       2, -2, null,    0],
+  ['rex',  'crate_tall', -1, -2, null,    0],
+  ['rex',  'crate_wide',  0, -2, null,    0],
+  ['rex',  'sack',        3,  1, null,    0],
+  ['rex',  'crate_tall', -4,  1, null,    0],
 ];
 
 // Crops the season pays a bonus on. Filtered to type 'crop': priceBonus also
@@ -10203,13 +10218,21 @@ function drawOverhangProps(cx, cy) {
 
 function drawMarketStalls(cx, cy) {
   if (!_fixArt.ok) return;
-  for (const [piece, dx, dy, which, n] of STALLS) {
-    const tx = MAYA_TX + dx, ty = MAYA_TY + dy;
+  for (const [who, piece, dx, dy, which, n] of STALLS) {
+    const ax = who === 'rex' ? REX_TX : MAYA_TX;
+    const ay = who === 'rex' ? REX_TY : MAYA_TY;
+    const tx = ax + dx, ty = ay + dy;
     const sx = tx * T + T / 2 - cx, sy = ty * T + T / 2 - cy;
-    if (sx < -T*4 || sx > canvas.width + T*4 || sy < -T*4 || sy > canvas.height + T*4) continue;
+    // World pixels, so the bound is the canvas in WORLD units — width/ZOOM.
+    // Comparing a world offset against canvas.width is the easy mistake here
+    // and it silently makes the cull ZOOM times too generous: at 3.25 this
+    // drew Rex's whole shopfront while the camera was on Maya.
+    const vw = canvas.width / ZOOM, vh = canvas.height / ZOOM;
+    if (sx < -T*4 || sx > vw + T*4 || sy < -T*4 || sy > vh + T*4) continue;
     if (!exploredWorld[ty * MAP_W + tx]) continue;
     if (!drawFixture(piece, sx, sy)) continue;
 
+    if (!which) continue;                       // furniture with nothing on it
     const goods = which === 'season' ? _seasonGoods() : STALL_GOODS[which];
     if (!goods || typeof DHIcons === 'undefined') continue;
     // Goods sit on the surface: one row on a table, stacked on the shelf's
@@ -10229,7 +10252,9 @@ function drawTrapper(cx, cy) {
   const sx = TRAPPER_X - cx, sy = TRAPPER_Y - cy;
   // Generous upward margin: the lodge's roof reaches four and a half tiles
   // above his feet, so it is still visible when he himself is off the top.
-  if (sx < -T*5 || sx > canvas.width + T*5 || sy < -T*8 || sy > canvas.height + T*3) return;
+  // Bounds are in world pixels, so the canvas has to be divided by ZOOM.
+  const _vw = canvas.width / ZOOM, _vh = canvas.height / ZOOM;
+  if (sx < -T*5 || sx > _vw + T*5 || sy < -T*8 || sy > _vh + T*3) return;
   if (!exploredWorld[TRAPPER_TY * MAP_W + TRAPPER_TX]) return;
   const bob = Math.sin(Date.now() * 0.0016) * 1.4;
 
