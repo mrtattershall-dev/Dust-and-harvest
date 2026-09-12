@@ -13,6 +13,7 @@ rejected and why.
 ./tools/test_play.py                # does it still play? (non-zero on failure)
 ./tools/test_play.py dist/dust-and-harvest.html    # ...and does the SHIPPED file?
 ./tools/audit_seams.py              # does a zone show its own tile grid?
+./tools/tile_sheet.py               # every tile type of every zone, side by side
 ```
 Non-zero exit on failure. It draws every overworld tile, enters all eight
 zones, and separately checks the cold-start cache ordering. It was written
@@ -28,6 +29,14 @@ the first frame, during boot. The first version of that test cleared boot noise
 from its error list and so threw away the only report of the fault; it passed
 clean with a deliberate throw wired into every dirt tile. Verified in both
 directions now.
+
+`tile_sheet.py` draws each tile type as a 3x3 patch OF ITSELF, labelled, into
+`dist/tiles-<zone>.png`. It is the fastest way to find art that still looks
+like a prototype — walking the map does not work, because you see what you
+happen to walk past and stop seeing what you pass often. Its first run found
+six placeholders on the overworld, four of which I had walked past repeatedly.
+A 3x3 patch rather than one tile, because the commonest defect is a tile that
+looks fine alone and outlines itself when tiled.
 
 `audit_seams.py` is a SCREENING tool and exits zero — it has a known
 false-positive class (anything deliberately banded: masonry courses, the gap
@@ -81,6 +90,13 @@ and it goes through the asset-inlining shim, which the served build does not.
 - **The well** painted properly; **crates** wired to the baked fixtures.
 - **Kit's settlement** built: cabins, drying racks, stores, fires, scrub. It
   was 400 identical tiles and one campfire.
+- **Every zone-transition marker** off the "pulsing coloured rectangle"
+  pattern — the badlands exit, the jungle exit, the dock's gangplank arrow, the
+  badlands portal and the hobo portal were the brightest things in their zones
+  and all five read as placeholders rather than as exits.
+- **The barn, the forge, the workbench, the campfires, the wells, the feed
+  trough, the ore deposits, the vents and the deadwood** all rebuilt as things
+  standing on ground rather than as boxes.
 - **Town props** scattered against a rule — a prop only goes on a floor tile
   that touches a wall, so street furniture stands against buildings and the
   routes stay clear without needing to know where they are.
@@ -110,8 +126,10 @@ and it goes through the asset-inlining shim, which the served build does not.
    lattice and only grass softens its edges (`_grassEdges`). A patch of sand in
    dirt ends in right angles. Every terrain pair wants that softening, not just
    grass.
-4. **Ruins interior** is readable now but sparse — no furniture, no rubble
-   props, and the torch vignette is the only lighting.
+4. **A zone's own copy of a shared tile type.** The hobo camp has its own
+   renderer for TL.WELL, TL.CRATE, TL.TREE and more, so fixing the overworld's
+   did nothing for it; the ocean and the badlands have their own too. Worth
+   checking the tile sheets side by side when changing anything shared.
 5. **True y-sorting.** `_treeIsInFront()` decides per tree from the entities
    near it, which is right except when two entities stand either side of one
    tree's root; the tree then goes in front of both. Sorting props and entities
