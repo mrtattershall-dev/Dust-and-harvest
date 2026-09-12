@@ -5872,6 +5872,64 @@ const RANCH_ZONE_X_MAX = 34, RANCH_ZONE_Y_MIN = 36, RANCH_ZONE_Y_MAX = 72;
 // Merchant proximity radius (pixels)
 const MERCHANT_INTERACT_RADIUS = 72;
 
+// Fill a rectangle with ground types that clump into patches instead of
+// speckling tile by tile.
+//
+// The wilderness and the barn zone both picked a type per tile from
+// Math.random(), which is salt and pepper: no two adjacent tiles agree, and
+// with real ground textures on them the result reads as a hard checkerboard
+// of grass, sand and dirt. Random is not the same as natural.
+//
+// Method: smooth a field of random values into soft blobs, then cut that
+// field at quantiles to assign types. **Not** majority-of-neighbours
+// smoothing, which was the obvious approach and is quietly destructive — each
+// pass lets the commonest type eat the rarer ones, and three passes took the
+// wilderness from 985/652/217 grass/dirt/sand to 1504/376/57. It clumped
+// beautifully and turned the map into a lawn.
+//
+// Cutting at quantiles cannot do that: the share of tiles below the Nth
+// percentile of the field IS N percent, whatever shape the blobs are. The
+// proportions come out as asked and the clumping is free.
+//
+// `weights` is [[tile, share], ...]; shares are relative and need not sum to
+// anything. `passes` controls blob size — more passes, broader patches.
+function clumpFill(x0, y0, x1, y1, weights, passes) {
+  const w = x1 - x0 + 1, h = y1 - y0 + 1, n = w * h;
+  let f = new Float32Array(n);
+  for (let i = 0; i < n; i++) f[i] = Math.random();
+
+  // Box blur. Reads from a copy so tiles already updated this pass cannot
+  // bias their neighbours — smoothing in place smears toward the top-left.
+  for (let p = 0; p < passes; p++) {
+    const prev = f.slice();
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let sum = 0, cnt = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        sum += prev[ny * w + nx]; cnt++;
+      }
+      f[y * w + x] = sum / cnt;
+    }
+  }
+
+  // Cut the smoothed field at the quantiles the weights ask for.
+  const sorted = Array.from(f).sort((a, b) => a - b);
+  const total = weights.reduce((a, wt) => a + wt[1], 0);
+  const cuts = [];
+  let acc = 0;
+  for (let i = 0; i < weights.length - 1; i++) {
+    acc += weights[i][1];
+    cuts.push(sorted[Math.min(n - 1, Math.floor(n * acc / total))]);
+  }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const v = f[y * w + x];
+    let k = cuts.findIndex(c => v <= c);
+    if (k < 0) k = weights.length - 1;
+    setT(x0 + x, y0 + y, weights[k][0]);
+  }
+}
+
 function buildMap() {
   for(let y=0;y<MAP_H;y++) for(let x=0;x<MAP_W;x++) {
     const n=Math.random();
@@ -5919,10 +5977,17 @@ function buildMap() {
   setT(33,17,TL.ROAD); // cut gap in east farm fence at road crossing
   for(let x=34;x<46;x++) setT(x,17,TL.ROAD);
   for(let y=17;y<34;y++) setT(17,y,TL.ROAD);
-  for(let y=36;y<76;y++) for(let x=0;x<MAP_W;x++) {
-    const n=Math.random();
-    setT(x,y, n<.3?TL.STONE:n<.5?TL.DIRT:n<.65?TL.SAND:TL.GRASS);
-  }
+  // Ground first, in patches. Then the stone on top, still scattered tile by
+  // tile at exactly the rate it was before (30%): stone is SOLID, so clumping
+  // it would build walls across the wilderness and could seal off whole
+  // regions. Obstacles stay scattered; only the look of the ground changes.
+  // Shares below are the old odds renormalised over the 70% that was not
+  // stone — grass 50, dirt 28.6, sand 21.4 — and quantile cutting reproduces
+  // them exactly, so the terrain mix is genuinely unchanged. Only its shape is.
+  clumpFill(0, 36, MAP_W - 1, 75,
+            [[TL.GRASS, 50], [TL.DIRT, 28.6], [TL.SAND, 21.4]], 5);
+  for(let y=36;y<76;y++) for(let x=0;x<MAP_W;x++)
+    if(Math.random() < .3) setT(x, y, TL.STONE);
   for(let i=0;i<80;i++){ const wx=2+Math.floor(Math.random()*(MAP_W-4)),wy=38+Math.floor(Math.random()*34); setT(wx,wy,TL.TREE); }
   for(let i=0;i<60;i++){ const wx=2+Math.floor(Math.random()*(MAP_W-4)),wy=38+Math.floor(Math.random()*34); if(getT(wx,wy)!==TL.TREE) setT(wx,wy,TL.ROCK); }
   for(let y=58;y<76;y++) for(let x=58;x<78;x++) setT(x,y,TL.STONE);
@@ -5946,10 +6011,8 @@ function buildMap() {
 
   // ── Stream D: Barn Zone (SW quadrant, y36–y70, x0–x33) ──────────────
   // Clear barn zone from random wilderness fill — flat grazing ground
-  for(let y=RANCH_ZONE_Y_MIN;y<RANCH_ZONE_Y_MAX;y++) for(let x=0;x<RANCH_ZONE_X_MAX;x++) {
-    const n=Math.random();
-    setT(x,y, n<.7?TL.GRASS:n<.85?TL.DIRT:TL.FLOWERS);
-  }
+  clumpFill(0, RANCH_ZONE_Y_MIN, RANCH_ZONE_X_MAX - 1, RANCH_ZONE_Y_MAX - 1,
+            [[TL.GRASS, 70], [TL.DIRT, 15], [TL.FLOWERS, 15]], 4);
   // Dirt road divider across top of barn zone
   for(let x=0;x<34;x++) setT(x,36,TL.DIRT);
   // Wide grazing field (open pen_floor area)

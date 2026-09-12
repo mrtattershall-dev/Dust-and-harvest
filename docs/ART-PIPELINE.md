@@ -300,6 +300,35 @@ poll backs all of them up, because a game that renders into a stale buffer
 shows a black screen with no way to recover. `resize()` returns immediately
 when nothing changed, so the poll costs two property reads.
 
+## Terrain that clumps: cut a smooth field at quantiles
+
+The wilderness and the barn zone picked a ground type per tile straight from
+`Math.random()`. That is salt and pepper — no two adjacent tiles agree — and
+once real ground textures went on top it read as a hard checkerboard of grass,
+sand and dirt. Random is not the same as natural.
+
+`clumpFill()` smooths a field of random values into soft blobs, then cuts that
+field at quantiles to assign types.
+
+**Not majority-of-neighbours smoothing.** That was the obvious approach, it
+clumps beautifully, and it is quietly destructive: each pass lets the commonest
+type eat the rarer ones. Three passes took the wilderness from 985/652/217
+grass/dirt/sand to 1504/376/57 — 92% neighbour agreement, and a lawn. The
+comment I first wrote claimed the mix was unchanged, which was simply false;
+it took measuring the tile census before and after to see it.
+
+Cutting at quantiles cannot do that: the share of tiles below the Nth
+percentile of a field *is* N percent, whatever shape the blobs are. Measured
+over the wilderness: isolated tiles 20.8% → 3.7%, neighbour agreement 51% →
+79%, and grass/dirt/sand land within a couple of tiles of their original
+counts. More passes cost nothing in accuracy, so tune them purely for blob
+size; past about five the gain flattens.
+
+**Clump the ground, scatter the obstacles.** `TL.STONE` is SOLID and stays a
+per-tile random draw at exactly its old 30%. Clumping it would build walls
+across the wilderness and could seal off whole regions — a visual change that
+silently rewrites the map's navigability is not a visual change.
+
 ## Props taller than a tile
 
 `drawTile` cannot draw them. It paints tiles left-to-right and top-to-bottom,
