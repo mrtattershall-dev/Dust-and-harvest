@@ -79,6 +79,11 @@ and it goes through the asset-inlining shim, which the served build does not.
 - **Fence and gate** drawn from their four neighbours, over whatever ground
   they stand on. **Town wall** on baked stone with staggered courses.
 - **The well** painted properly; **crates** wired to the baked fixtures.
+- **Kit's settlement** built: cabins, drying racks, stores, fires, scrub. It
+  was 400 identical tiles and one campfire.
+- **Town props** scattered against a rule — a prop only goes on a floor tile
+  that touches a wall, so street furniture stands against buildings and the
+  routes stay clear without needing to know where they are.
 - **Tree depth** `drawOverhangProps(cx, cy, late)` runs twice a frame and each
   tree picks its side from the entities near it.
 - **Badlands** its three largest surfaces rebuilt: cracked earth as a
@@ -105,16 +110,14 @@ and it goes through the asset-inlining shim, which the served build does not.
    lattice and only grass softens its edges (`_grassEdges`). A patch of sand in
    dirt ends in right angles. Every terrain pair wants that softening, not just
    grass.
-4. **The town square is empty** — the street texture reads well and there is
-   nothing standing on it. Content, not rendering.
-5. **Ruins interior** is readable now but sparse — no furniture, no rubble
+4. **Ruins interior** is readable now but sparse — no furniture, no rubble
    props, and the torch vignette is the only lighting.
-6. **True y-sorting.** `_treeIsInFront()` decides per tree from the entities
+5. **True y-sorting.** `_treeIsInFront()` decides per tree from the entities
    near it, which is right except when two entities stand either side of one
    tree's root; the tree then goes in front of both. Sorting props and entities
    into one list is the real fix, and means restructuring the NPC, enemy,
    animal and player loops — several of which later slices patch again.
-7. **Unexamined packs**: medieval interior, green village, green dungeon.
+6. **Unexamined packs**: medieval interior, green village, green dungeon.
 
 ## Traps this file exists to stop you re-learning
 
