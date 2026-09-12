@@ -42,8 +42,14 @@ ZONES = {
   "badlands": ("enterBadlands()", "BL", "BL_W", "BL_H", "getBLT", "drawBLTile(TX,TY,SX,SY)"),
   "hobo": ("enterHoboCamp()", "TL", "HC_W", "HC_H", "getHCT", "drawHCTile(V,TX,TY,SX,SY)"),
   "ocean": ("enterOcean()", "OC", "OC_W", "OC_H", "getOCT", "drawOCTile(V,TX,TY,SX,SY)"),
-  "jungle": ("enterJungle()", "JG", "JG_W", "JG_H", "getJGT", "drawJGTile(V,SX,SY,TX,TY)"),
-  "ruins": ("enterRuins()", "JG", "RU_W", "RU_H", "getRUT", "drawJGTile(V,SX,SY,TX,TY)"),
+  "jungle": ("enterJungle(); window.JG_BIOME='jungle'", "JG", "JG_W", "JG_H",
+             "getJGT", "drawJGTile(V,SX,SY,TX,TY)"),
+  # drawJGTile picks its tones from window.JG_BIOME, which the zone's own
+  # renderer sets. Calling the tile function directly skips that, so the sheet
+  # has to set it — without this it drew the ruins in jungle colours and showed
+  # a desert boulder on green grass in an unlit stone hall.
+  "ruins": ("enterRuins(); window.JG_BIOME='ruins'", "JG", "RU_W", "RU_H",
+            "getRUT", "drawJGTile(V,SX,SY,TX,TY)"),
 }
 
 DRAW = """(cfg) => {

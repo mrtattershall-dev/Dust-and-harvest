@@ -24597,7 +24597,11 @@ function drawMineTile(t, sx, sy, tx, ty) {
     drawMineRock(sx, sy, tx, ty);
   } else if (t === TL.COAL_VEIN) {
     drawMineRock(sx, sy, tx, ty);
-    drawOreSeam(sx, sy, tx, ty, '#0e0e0e', '#26262a', '#4e4e4a');
+    // Lifted off the rock. Coal in an unlit mine is genuinely hard to see, but
+    // #26262a against a #241f1b rock face is not "hard to see", it is invisible
+    // — and coal is a resource the player has to spot to mine. Satin black
+    // with a real highlight, which is what a coal seam looks like by lamplight.
+    drawOreSeam(sx, sy, tx, ty, '#0a0a0c', '#34343a', '#6e6e70');
   } else if (t === TL.COPPER_VEIN) {
     drawMineRock(sx, sy, tx, ty);
     drawOreSeam(sx, sy, tx, ty, '#5e2c0e', '#a8571f', '#dd8a3e');
