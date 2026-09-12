@@ -8551,6 +8551,59 @@ function drawTile(tx,ty,sx,sy) {
     [TL.ROAD]: 'road', [TL.PEN_FLOOR]: 'pen', [TL.TOWN_FLOOR]: 'street',
   };
 
+  // Soften the join between two different terrains.
+  //
+  // Only grass did this, and only by laying a translucent band of the
+  // neighbour's flat COLOUR along the edge — which fades the tone step but
+  // leaves the boundary dead straight, so a patch of sand in dirt still ends
+  // in right angles and the regions read as rectangles.
+  //
+  // This interlocks them instead: along each edge where the terrain changes,
+  // the neighbour's BAKED ground is drawn into this tile through a row of
+  // seeded tongues. It samples at this tile's own coordinates, so the intruding
+  // strip is continuous with the neighbour it came from. Both tiles do it to
+  // each other, which is what makes the boundary ragged rather than merely
+  // blurred.
+  //
+  // Seeded off the shared edge in WORLD coordinates, so the tongues stay put.
+  function _terrainEdges() {
+    const here = _owTerrain[t];
+    for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+      const nt = getT(tx + dx, ty + dy);
+      const name = _owTerrain[nt];
+      if (!name || name === here) continue;
+      const vert = dx !== 0;
+      // One seed per shared edge.
+      let h = ((((tx * 2 + (dx > 0 ? 1 : 0)) * 374761393) ^
+                ((ty * 2 + (dy > 0 ? 1 : 0)) * 668265263)) >>> 0) || 1;
+      const rnd = () => { h ^= h << 13; h >>>= 0; h ^= h >> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+      ctx.save();
+      ctx.beginPath();
+      let drew = false;
+      for (let a = 0; a < T; ) {
+        const w = 4 + (rnd() * 7 | 0);
+        if (rnd() < 0.5) { a += w; continue; }       // a gap: the other side's tongue
+        // Shallow. Both tiles intrude into each other, so the transition is
+        // twice this wide; at 8px deep that was a third of a tile either side
+        // and the boundary read as a band of dither rather than as an edge.
+        const d = 2 + (rnd() * 4 | 0);
+        const len = Math.min(w, T - a);
+        if (vert) ctx.rect(dx > 0 ? sx + T - d : sx, sy + a, d, len);
+        else      ctx.rect(sx + a, dy > 0 ? sy + T - d : sy, len, d);
+        drew = true;
+        a += w;
+      }
+      if (drew) {
+        ctx.clip();
+        if (!DHGround.draw(ctx, name, sx, sy, tx, ty)) {
+          ctx.fillStyle = TC[nt] ? TC[nt][0] : '#000';
+          ctx.fillRect(sx, sy, T, T);
+        }
+      }
+      ctx.restore();
+    }
+  }
+
   // Draw the ground an overlay stands on: the nearest neighbour that is not
   // itself an overlay, baked if it can be, its flat colour if not.
   function _owGround() {
@@ -8589,7 +8642,7 @@ function drawTile(tx,ty,sx,sy) {
       if(bE&&nE!==TL.GRASS){ ctx.fillStyle=bE; ctx.globalAlpha=0.18; ctx.fillRect(sx+T-4,sy,4,T); ctx.globalAlpha=1; }
     };
     // Real turf from the farmlands tileset, sampled from one continuous surface.
-    if(DHGround.draw(ctx,'grass',sx,sy,tx,ty)){ _grassEdges(); return; }
+    if(DHGround.draw(ctx,'grass',sx,sy,tx,ty)){ _terrainEdges(); return; }
     const G0='#292129',G1='#426848',G2='#647645',G3='#a8ab5c',G4='#e3f19e';
     ctx.fillStyle=G2; ctx.fillRect(sx,sy,T,T);
     ctx.fillStyle=G3; ctx.fillRect(sx,sy,T,3);
@@ -8679,7 +8732,7 @@ function drawTile(tx,ty,sx,sy) {
     // themselves, but TL.SPRINKLER still indexes _dirtV, so the hazard is
     // live and tools/test_render.py still covers it.
     // Real packed earth from the farm tileset, sampled from one continuous surface.
-    if(DHGround.draw(ctx,'dirt',sx,sy,tx,ty)) return;
+    if(DHGround.draw(ctx,'dirt',sx,sy,tx,ty)){ _terrainEdges(); return; }
     // Smooth value noise: average neighbors so no tile jumps far from adjacent ones
     const n=(x,y)=>((x*374761393+y*668265263+x*y*1234567)>>>0)&255;
     const v=Math.round((n(tx,ty)+n(tx+1,ty)+n(tx,ty+1)+n(tx-1,ty)+n(tx,ty-1))/5/32)&7;
@@ -8818,12 +8871,12 @@ function drawTile(tx,ty,sx,sy) {
     // texture pixel-by-pixel into the page. Cobble is the wrong century and
     // continent for a frontier town, and the data was 48% of all the tile-
     // drawing code in the file.
-    if(DHGround.draw(ctx,'road',sx,sy,tx,ty)) return;
+    if(DHGround.draw(ctx,'road',sx,sy,tx,ty)){ _terrainEdges(); return; }
     ctx.fillStyle=c[0]; ctx.fillRect(sx,sy,T,T);
   }
   else if(t===TL.SAND){
     // Real sand from the desert pack, sampled from one continuous surface.
-    if(DHGround.draw(ctx,'sand',sx,sy,tx,ty)) return;
+    if(DHGround.draw(ctx,'sand',sx,sy,tx,ty)){ _terrainEdges(); return; }
     ctx.fillStyle=c[0]; ctx.fillRect(sx,sy,T,T);
     // Subtle tonal variation across tile
     ctx.fillStyle='#d0b870'; ctx.fillRect(sx,sy,T,T/2);
@@ -9276,14 +9329,14 @@ function drawTile(tx,ty,sx,sy) {
   else if(t===TL.PEN_FLOOR){
     // Churned earth in the animal pens. The painted version aimed for 'not a
     // checkerboard' but its %5 and %4 tests produced one anyway.
-    if(DHGround.draw(ctx,'pen',sx,sy,tx,ty)) return;
+    if(DHGround.draw(ctx,'pen',sx,sy,tx,ty)){ _terrainEdges(); return; }
     ctx.fillStyle=c[0]; ctx.fillRect(sx,sy,T,T);
   }
   else if(t===TL.TOWN_FLOOR){
     // The town street. This was a hard (tx+ty)%2 checkerboard of two flat
     // tans across all 915 town tiles — the most artificial surface in the
     // game. A frontier street is walked-on dust, not paving.
-    if(DHGround.draw(ctx,'street',sx,sy,tx,ty)) return;
+    if(DHGround.draw(ctx,'street',sx,sy,tx,ty)){ _terrainEdges(); return; }
     ctx.fillStyle=c[0]; ctx.fillRect(sx,sy,T,T);
   }
   // ── Farmhouse furniture ───────────────────────────────────────────────────
