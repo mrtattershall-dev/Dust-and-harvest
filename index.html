@@ -10805,8 +10805,12 @@ function _seasonGoods() {
 // ones, with grass tufts at the base. Dry ground keeps the desert pack's,
 // whose bases are a sand disc. Two sets, because the base of each tree is
 // painted for the ground it stands on.
+// tree_fruit is the Free Top-Down Trees pack's apple tree — a farm is where it
+// belongs, and it is the only tree in the game that says "this land is worked"
+// rather than "this land is scrub".
 const OVERHANG_GRASS = ['tree_oak', 'tree_pine', 'tree_gnarled', 'tree_round',
-                        'tree_sapling', 'tree_scrub', 'tree_shrub'];
+                        'tree_sapling', 'tree_scrub', 'tree_shrub',
+                        'tree_fruit', 'tree_broad'];
 const OVERHANG_SAND  = ['tree_sand_big', 'tree_sand_small', 'tree_bush'];
 
 // Whether a given tree has to be drawn IN FRONT of the entities.
@@ -22822,6 +22826,27 @@ function _ocEdges(tx, ty, sx, sy) {
   drawTerrainEdges(tx, ty, sx, sy, OC_T, getOCT, (v) => _OC_TERRAIN[v] || null);
 }
 
+// The beach's palms, after the whole tile pass — same reason the overworld has
+// drawOverhangProps() and the camp has _hcOverhang(): a palm is taller than its
+// tile, so the tiles below and to the right would paint over its crown.
+const OC_PALMS = ['palm', 'palm2', 'palm_young', 'palm', 'palm_sprout', 'palm2'];
+function _ocOverhang(cx, cy) {
+  if (!_fixArt.ok) return;
+  const vw = canvas.width / ZOOM, vh = canvas.height / ZOOM;
+  const x0 = Math.max(0, Math.floor(cx / OC_T) - 2);
+  const x1 = Math.min(OC_W - 1, Math.ceil((cx + vw) / OC_T) + 2);
+  const y0 = Math.max(0, Math.floor(cy / OC_T) - 1);
+  const y1 = Math.min(OC_H - 1, Math.ceil((cy + vh) / OC_T) + 3);
+  for (let ty = y0; ty <= y1; ty++) {          // row by row = the depth sort
+    for (let tx = x0; tx <= x1; tx++) {
+      if (getOCT(tx, ty) !== OC.TREE) continue;
+      const h = ((tx * 374761393) ^ (ty * 668265263)) >>> 0;
+      drawFixture(OC_PALMS[h % OC_PALMS.length],
+                  tx * OC_T + OC_T / 2 - cx, (ty + 1) * OC_T - cy);
+    }
+  }
+}
+
 function drawOCTile(t, tx, ty, sx, sy) {
   const seed = (tx*7919 + ty*6271) & 0xFFFF;
   const rn = (s,m) => ((s*2654435761+1013904223)>>>0)%m;
@@ -23169,22 +23194,15 @@ function drawOCTile(t, tx, ty, sx, sy) {
     }
 
     case OC.TREE: {
-      // Gnarled beach palm
+      // The palm is a baked fixture now, put on by _ocOverhang() after the
+      // whole tile pass — it is two tiles tall, so the rows below would paint
+      // over its crown. The tile draws only the sand it stands in.
+      //
+      // It was painted by hand: a brown trunk with five stroked fronds. The
+      // Free Top-Down Trees pack has palms in three growth stages, native at
+      // this game's pixel density, and has been in the library all along.
       _ocGround(tx, ty, sx, sy, '#b09050');
-      ctx.fillStyle='#3e2410'; ctx.fillRect(sx+OC_T/2-2,sy+OC_T/2,5,OC_T/2+4);
-      ctx.fillStyle='#523018'; ctx.fillRect(sx+OC_T/2-1,sy+OC_T/2,3,OC_T/2+3);
-      // Bark rings
-      ctx.fillStyle='#2e1808'; for(let i=0;i<5;i++) ctx.fillRect(sx+OC_T/2-2,sy+OC_T/2+i*5,5,1);
-      const pt=Date.now()*0.0007+tx;
-      [[-14,-7],[-9,-13],[0,-16],[9,-13],[14,-7]].forEach(([dx,dy])=>{
-        const sw=Math.sin(pt+dx*0.08)*1.8;
-        ctx.strokeStyle='#286018'; ctx.lineWidth=2.5;
-        ctx.beginPath(); ctx.moveTo(sx+OC_T/2,sy+OC_T/2+sw); ctx.lineTo(sx+OC_T/2+dx,sy+OC_T/2+dy+sw); ctx.stroke();
-        ctx.fillStyle='#389840';
-        ctx.beginPath(); ctx.ellipse(sx+OC_T/2+dx,sy+OC_T/2+dy+sw,4,2,Math.atan2(dy,dx),0,Math.PI*2); ctx.fill();
-      });
-      ctx.fillStyle='#44b048';
-      ctx.beginPath(); ctx.ellipse(sx+OC_T/2,sy+OC_T/2-5,5,4,0,0,Math.PI*2); ctx.fill();
+      _ocEdges(tx, ty, sx, sy);
       break;
     }
 
@@ -23457,6 +23475,9 @@ function renderOceanMap() {
     }
   }
 
+  // The beach's palms, after the tile pass and before the people.
+  _ocOverhang(cx, cy);
+
   // NPCs
   OC_NPCS.forEach(npc=>{
     const sx=npc.tx*OC_T+OC_T/2-cx, sy=npc.ty*OC_T+OC_T/2-cy;
@@ -23526,6 +23547,9 @@ function renderBadlandsMap() {
     const sx=tx*T-cx, sy=ty*T-cy;
     drawBLTile(tx,ty,sx,sy);
   }
+  // The dead wood, after the tile pass — it is taller than its tile.
+  _blOverhang(cx, cy);
+
   // Fog of war
   for(let ty=sty;ty<=ety;ty++) for(let tx=stx;tx<=etx;tx++) {
     if(exploredBadlands[ty*BL_W+tx]) continue;
@@ -23923,6 +23947,27 @@ function _blEdges(tx, ty, sx, sy) {
   drawTerrainEdges(tx, ty, sx, sy, T, getBLT, (v) => _BL_TERRAIN[v] || null);
 }
 
+// The badlands' dead wood, after the whole tile pass. Burned trees are the big
+// ones and broken ones the stumps, so a stand of them has some height to it.
+const BL_DEAD = ['dead_burned', 'dead_broken', 'dead_burned2', 'dead_stump',
+                 'dead_broken2', 'dead_burned', 'dead_broken'];
+function _blOverhang(cx, cy) {
+  if (!_fixArt.ok) return;
+  const vw = canvas.width / ZOOM, vh = canvas.height / ZOOM;
+  const x0 = Math.max(0, Math.floor(cx / T) - 2);
+  const x1 = Math.min(BL_W - 1, Math.ceil((cx + vw) / T) + 2);
+  const y0 = Math.max(0, Math.floor(cy / T) - 1);
+  const y1 = Math.min(BL_H - 1, Math.ceil((cy + vh) / T) + 3);
+  for (let ty = y0; ty <= y1; ty++) {          // row by row = the depth sort
+    for (let tx = x0; tx <= x1; tx++) {
+      if (getBLT(tx, ty) !== BL.DEADWOOD) continue;
+      const h = ((tx * 374761393) ^ (ty * 668265263)) >>> 0;
+      drawFixture(BL_DEAD[h % BL_DEAD.length],
+                  tx * T + T / 2 - cx, (ty + 1) * T - cy);
+    }
+  }
+}
+
 function drawBLTile(tx,ty,sx,sy) {
   const t=getBLT(tx,ty);
 
@@ -24108,39 +24153,15 @@ function drawBLTile(tx,ty,sx,sy) {
     if(!cE){ ctx.fillStyle='#3a1408'; ctx.fillRect(sx+T-4,sy,4,T); ctx.fillStyle='#4a1c0c'; ctx.fillRect(sx+T-3,sy,2,T); }
 
   } else if(t===BL.DEADWOOD) {
-    // A dead tree. It was a straight pale post with two straight branches at
-    // right angles to it, which at this size reads as a plus sign; and its
-    // base sat on a flat neighbour COLOUR rather than on the ground.
+    // The ground only — the dead tree itself is a baked fixture, put on by
+    // _blOverhang() after the tile pass, because the burned ones are two tiles
+    // tall and the rows below would paint over their crowns.
+    //
+    // I drew this by hand twice: first as a straight post with two branches at
+    // right angles, which reads as a plus sign, then as a leaning forked one.
+    // The Free Top-Down Trees pack ships seven broken trees and three burned
+    // ones, native at this game's pixel density.
     _blGround(tx, ty, sx, sy, _blBase());
-    {
-      const dh=((tx*2654435761)^(ty*40503))>>>0;
-      const bx=sx+T/2+((dh&3)-1);
-      ctx.fillStyle='rgba(0,0,0,.22)';
-      ctx.beginPath(); ctx.ellipse(bx,sy+T-5,7,3,0,0,Math.PI*2); ctx.fill();
-      // Trunk: leans, and tapers as it rises.
-      const lean=((dh>>2)&3)-1.5;
-      ctx.strokeStyle='#a89878'; ctx.lineCap='round';
-      ctx.lineWidth=4; ctx.beginPath();
-      ctx.moveTo(bx,sy+T-5); ctx.lineTo(bx+lean*2,sy+T*0.42); ctx.stroke();
-      ctx.lineWidth=2; ctx.beginPath();
-      ctx.moveTo(bx+lean*2,sy+T*0.42); ctx.lineTo(bx+lean*4,sy+5); ctx.stroke();
-      // Three broken limbs, at angles, not at right angles.
-      ctx.lineWidth=2; ctx.strokeStyle='#bcac8a';
-      const LIMB=[[-1,0.50,-9,-6],[1,0.38,9,-5],[-1,0.26,-7,-7]];
-      for(let k=0;k<3;k++){
-        if(((dh>>(6+k))&7)===0) continue;             // some are gone
-        const [sgn,fy,ex,ey]=LIMB[k];
-        const ox=bx+lean*(2+fy), oy=sy+T*fy+4;
-        ctx.beginPath(); ctx.moveTo(ox,oy);
-        ctx.lineTo(ox+ex*0.6,oy+ey*0.4);
-        ctx.lineTo(ox+ex,oy+ey); ctx.stroke();
-      }
-      ctx.lineWidth=1; ctx.lineCap='butt';
-      // A split down the trunk.
-      ctx.fillStyle='rgba(96,80,50,.45)';
-      ctx.fillRect(bx-1,sy+T*0.46,1,T*0.34);
-    }
-
   } else if(t===BL.SKULL_ROCK) {
     _blGround(tx, ty, sx, sy, _blBase());
     if(!DHProps.draw(ctx,'skull',sx,sy,tx,ty)){
@@ -27268,8 +27289,9 @@ function renderJungleZone() {
     }
   }
 
-  // The settlement's buildings, after the tile pass and before the people
-  // who live in them.
+  // The trees and then the settlement's buildings, after the tile pass and
+  // before the people who live in them.
+  drawJungleTrees(cx, cy, getJGT, JG_W, JG_H, exploredJungle);
   drawJungleVillage(cx, cy);
 
   // NPCs
@@ -35685,42 +35707,28 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
 
     // ── Trees — the centrepiece ────────────────────────────────────────────
     case JG.TREE: {
-      // Ground shadow. Drawn OVER the turf, not instead of it — the canopy
-      // below leaves the tile's corners visible, and a flat fill there reads
-      // as a dark square cut into the textured grass beside it.
+      // Ground and the shadow the canopy throws. The tree itself is a baked
+      // fixture, put on by _jgOverhang() after the whole tile pass — it is two
+      // tiles tall, and the rows below would paint over its crown.
+      //
+      // This was three stacked ellipses per tile. The Free Top-Down Trees pack
+      // has moss trees and broadleaf, native at this game's pixel density.
       if (!(G && G.drawToned(ctx, 'grass', jgTone('grass'), sx, sy, tx, ty))) {
         ctx.fillStyle = '#1a3410'; ctx.fillRect(sx, sy, T, T);
       }
-      ctx.fillStyle = 'rgba(8,20,4,0.55)'; ctx.fillRect(sx, sy, T, T);
-      // Trunk
-      ctx.fillStyle = '#3a2808';
-      ctx.fillRect(sx + T/2 - 3, sy + T * 0.55, 6, T * 0.45);
-      // Multi-layer canopy — 3 ellipses with depth
-      ctx.fillStyle = '#0e2a08';
-      ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T*0.42, 14, 11, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#183c10';
-      ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T*0.36, 12, 10, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#2a5018';
-      ctx.beginPath(); ctx.ellipse(sx+T/2-1, sy+T*0.30, 10, 8, -0.15, 0, Math.PI*2); ctx.fill();
-      // Highlight — top left catch
-      ctx.fillStyle = 'rgba(80,160,40,0.18)';
-      ctx.beginPath(); ctx.ellipse(sx+T/2-4, sy+T*0.22, 5, 4, -0.3, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(8,20,4,0.34)'; ctx.fillRect(sx, sy, T, T);
       break;
     }
     case JG.DENSE_TREE: {
-      ctx.fillStyle = '#060e04'; ctx.fillRect(sx, sy, T, T);
-      // Impenetrable canopy — overlapping layers
-      ctx.fillStyle = '#081408';
-      ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T*0.5, 16, 13, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#0e2008';
-      ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T*0.38, 14, 11, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#122808';
-      ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T*0.28, 12, 9, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#183210';
-      ctx.beginPath(); ctx.ellipse(sx+T/2-2, sy+T*0.20, 9, 7, -0.2, 0, Math.PI*2); ctx.fill();
-      // Almost no highlight — impenetrable
-      ctx.fillStyle = 'rgba(40,80,20,0.10)';
-      ctx.beginPath(); ctx.ellipse(sx+T/2-5, sy+T*0.14, 4, 3, -0.3, 0, Math.PI*2); ctx.fill();
+      // Impenetrable canopy. The ground under it goes almost black, because
+      // this is a wall the player cannot pass and it has to read as one — the
+      // trees _jgOverhang() puts on top are spaced a tile apart and are wider
+      // than a tile, so they close up, but what shows between them must not
+      // look walkable.
+      if (!(G && G.drawToned(ctx, 'pen', '#16240f', sx, sy, tx, ty))) {
+        ctx.fillStyle = '#0a1406'; ctx.fillRect(sx, sy, T, T);
+      }
+      ctx.fillStyle = 'rgba(2,8,2,0.55)'; ctx.fillRect(sx, sy, T, T);
       break;
     }
     case JG.BUSH: {
@@ -35939,6 +35947,36 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
     }
   }
 };
+
+// The jungle's trees, after the whole tile pass — a tree is two tiles tall and
+// the rows below it would paint over its crown.
+//
+// Dense tree draws the same art dimmed, so a thicket recedes behind the trees
+// at its edge instead of being a flat wall of identical crowns.
+// No fruit trees: an apple tree in a jungle reads as a mistake, and they are
+// wanted on the farm instead.
+const JG_TREES = ['tree_moss', 'tree_broad', 'tree_moss2', 'tree_moss',
+                  'tree_broad', 'tree_moss2', 'tree_moss', 'tree_broad'];
+function drawJungleTrees(cx, cy, getT2, W2, H2, explored, wide) {
+  if (!_fixArt.ok) return;
+  const vw = canvas.width / ZOOM, vh = canvas.height / ZOOM;
+  const x0 = Math.max(0, Math.floor(cx / JG_T) - 2);
+  const x1 = Math.min(W2 - 1, Math.ceil((cx + vw) / JG_T) + 2);
+  const y0 = Math.max(0, Math.floor(cy / JG_T) - 1);
+  const y1 = Math.min(H2 - 1, Math.ceil((cy + vh) / JG_T) + 3);
+  for (let ty = y0; ty <= y1; ty++) {          // row by row = the depth sort
+    for (let tx = x0; tx <= x1; tx++) {
+      const v = getT2(tx, ty);
+      if (v !== JG.TREE && v !== JG.DENSE_TREE) continue;
+      if (explored && !explored[ty * W2 + tx]) continue;
+      const h = ((tx * 374761393) ^ (ty * 668265263)) >>> 0;
+      const piece = JG_TREES[h % JG_TREES.length];
+      const px = tx * JG_T + JG_T / 2 - cx, py = (ty + 1) * JG_T - cy;
+      if (v === JG.DENSE_TREE) drawFixtureDim(piece, px, py, 0.62);
+      else                     drawFixture(piece, px, py);
+    }
+  }
+}
 
 // Kit's settlement. Drawn after the whole tile pass, like the overworld's
 // overhang props: a lodge is four tiles tall, so tiles below and to the right
