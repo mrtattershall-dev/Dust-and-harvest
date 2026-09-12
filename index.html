@@ -9456,21 +9456,28 @@ function drawTile(tx,ty,sx,sy) {
     if(!DHProps.draw(ctx,'bush',sx,sy,tx,ty)) drawBushSprite(sx,sy,tx,ty);
   }
   else if(t===TL.HOBO_PORTAL){
-    // North road that fades into a worn dirt track heading into the camp
-    ctx.fillStyle='#897762'; ctx.fillRect(sx,sy,T,T);
-    ctx.fillStyle='#a38762'; ctx.fillRect(sx,sy,T,2);
-    ctx.fillStyle='#5b4b41'; ctx.fillRect(sx,sy+T-2,T,2);
-    // Worn wheel ruts
-    ctx.fillStyle='#5b4b41'; ctx.fillRect(sx+5,sy,3,T); ctx.fillRect(sx+T-8,sy,3,T);
-    ctx.fillStyle='#766a64'; ctx.fillRect(sx+5,sy,1,T); ctx.fillRect(sx+T-8,sy,1,T);
-    // Pulsing north arrow hint
-    const hp=0.5+0.4*Math.sin(Date.now()*.003+tx);
-    ctx.fillStyle=`rgba(200,220,140,${hp})`;
-    ctx.beginPath();
-    ctx.moveTo(sx+T/2,sy+3);
-    ctx.lineTo(sx+T/2-4,sy+10);
-    ctx.lineTo(sx+T/2+4,sy+10);
-    ctx.closePath(); ctx.fill();
+    // The north road into the camp. The track was fine; the pulsing green
+    // ARROW floating over it was a HUD element lying on the ground, and its
+    // two hard 3px ruts per tile read as rails.
+    _owGround();
+    {
+      ctx.fillStyle = 'rgba(91,75,65,.20)';
+      ctx.fillRect(sx + 6, sy, 3, T); ctx.fillRect(sx + T - 9, sy, 3, T);
+      // A marker post where the track starts, pointing north.
+      if (getT(tx - 1, ty) !== TL.HOBO_PORTAL) {
+        const hp = 0.5 + 0.4 * Math.sin(Date.now() * .003 + tx);
+        ctx.fillStyle = 'rgba(0,0,0,.22)';
+        ctx.beginPath(); ctx.ellipse(sx + T * 0.30, sy + T - 5, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#5a4632'; ctx.fillRect(sx + T * 0.28, sy + 6, 3, T - 11);
+        ctx.fillStyle = '#786250'; ctx.fillRect(sx + T * 0.28, sy + 6, 1, T - 11);
+        ctx.fillStyle = '#6a5946'; ctx.fillRect(sx + T * 0.28, sy + 6, 15, 7);
+        ctx.beginPath();
+        ctx.moveTo(sx + T * 0.28 + 15, sy + 6); ctx.lineTo(sx + T * 0.28 + 15, sy + 13);
+        ctx.lineTo(sx + T * 0.28 + 20, sy + 9.5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(224,232,190,' + (0.20 + 0.16 * hp) + ')';
+        ctx.fillRect(sx + T * 0.28 + 2, sy + 9, 10, 1);
+      }
+    }
   }
   else if(t===TL.OCEAN_PORTAL){
     // Sandy beach approach — warm tan base, wet sand near water edge
@@ -9529,40 +9536,38 @@ function drawTile(tx,ty,sx,sy) {
     ctx.fillStyle='rgba(200,160,80,.7)'; ctx.fillRect(sx+T/2-5,sy+T*.14,10,1); ctx.fillRect(sx+T/2-4,sy+T*.16,8,1);
   }
   else if(t===TL.BADLANDS_PORTAL){
-    ctx.fillStyle='#b87038'; ctx.fillRect(sx,sy,T,T);
-    ctx.fillStyle='#c88040'; ctx.fillRect(sx,sy,T,2);
-    // Cracked dry earth base
-    ctx.fillStyle='#985020'; ctx.fillRect(sx+2,sy+2,T-4,T-4);
-    // Heat shimmer — animated horizontal bands
-    const _pg=Date.now()*.0025+tx+ty;
-    ctx.fillStyle=`rgba(210,130,30,${0.2+0.15*Math.sin(_pg)})`; ctx.fillRect(sx+4,sy+4,T-8,4);
-    ctx.fillStyle=`rgba(230,160,50,${0.15+0.12*Math.sin(_pg+0.8)})`; ctx.fillRect(sx+4,sy+10,T-8,3);
-    ctx.fillStyle=`rgba(200,110,20,${0.18+0.13*Math.sin(_pg+1.6)})`; ctx.fillRect(sx+4,sy+17,T-8,3);
-    // Weathered wooden sign post
-    ctx.fillStyle='#5a3010'; ctx.fillRect(sx+T/2-1,sy+T*.35,3,T*.55);
-    ctx.fillStyle='#4a2408'; ctx.fillRect(sx+T/2-1,sy+T*.35,1,T*.55);
-    // Sign board
-    ctx.fillStyle='#7a4818'; ctx.fillRect(sx+T/2-8,sy+T*.28,16,7);
-    ctx.fillStyle='#6a3c10'; ctx.fillRect(sx+T/2-7,sy+T*.29,14,5);
-    // Text lines on sign
-    ctx.fillStyle='rgba(200,150,60,.85)';
-    ctx.fillRect(sx+T/2-5,sy+T*.30,10,1);
-    ctx.fillRect(sx+T/2-4,sy+T*.32,8,1);
-    // West arrow on sign pointing left
-    ctx.fillStyle='rgba(240,180,60,.7)';
-    ctx.beginPath();
-    ctx.moveTo(sx+T/2-7,sy+T*.31);
-    ctx.lineTo(sx+T/2-4,sy+T*.295);
-    ctx.lineTo(sx+T/2-4,sy+T*.325);
-    ctx.closePath(); ctx.fill();
-    // Red dust devil swirl in corner — save/restore to contain lineWidth leak
-    ctx.save();
-    const sd=Date.now()*.003+tx;
-    ctx.strokeStyle=`rgba(180,80,20,${0.3+0.2*Math.sin(sd)})`; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.arc(sx+5,sy+T-6,3,0,Math.PI*2); ctx.stroke();
-    ctx.strokeStyle=`rgba(180,80,20,${0.2+0.15*Math.sin(sd+0.6)})`;
-    ctx.beginPath(); ctx.arc(sx+5,sy+T-6,5,0,Math.PI*1.5); ctx.stroke();
-    ctx.restore();
+    // The way west. This filled its tile orange and pulsed three horizontal
+    // bands inside it as "heat shimmer", which at this size is a lit orange
+    // panel — the same placeholder the badlands' and the jungle's exits had,
+    // and the signpost it also drew was lost inside it.
+    //
+    // The road runs off the map and the sign stands beside it. The shimmer is
+    // kept, but as a faint wash over the ground rather than as bars.
+    _owGround();
+    {
+      const pg = Date.now() * .0025 + tx + ty;
+      // Ruts, running west, continuous along the run.
+      ctx.fillStyle = 'rgba(112,88,52,.18)';
+      ctx.fillRect(sx, sy + 7, T, 3); ctx.fillRect(sx, sy + T - 10, T, 3);
+      // Heat off the ground: one soft wash, not three bars.
+      ctx.fillStyle = 'rgba(216,140,52,' + (0.05 + 0.04 * Math.sin(pg)) + ')';
+      ctx.fillRect(sx, sy, T, T);
+      // One sign per run, where the run starts.
+      if (getT(tx, ty - 1) !== TL.BADLANDS_PORTAL) {
+        ctx.fillStyle = 'rgba(0,0,0,.24)';
+        ctx.beginPath(); ctx.ellipse(sx + T * 0.5, sy + T - 5, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#5a3010'; ctx.fillRect(sx + T / 2 - 1, sy + 8, 3, T - 13);
+        ctx.fillStyle = '#7a4818'; ctx.fillRect(sx + T / 2 - 1, sy + 8, 1, T - 13);
+        // Board pointing west.
+        ctx.fillStyle = '#7a5730'; ctx.fillRect(sx + T / 2 - 4, sy + 8, 17, 7);
+        ctx.beginPath();
+        ctx.moveTo(sx + T / 2 - 4, sy + 8); ctx.lineTo(sx + T / 2 - 9, sy + 11.5);
+        ctx.lineTo(sx + T / 2 - 4, sy + 15); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(240,220,180,.30)'; ctx.fillRect(sx + T / 2 - 4, sy + 8, 17, 1);
+        ctx.fillStyle = 'rgba(60,40,20,.55)';
+        ctx.fillRect(sx + T / 2 - 1, sy + 11, 11, 1);
+      }
+    }
   }
   else if(t===TL.BARN_CLOSED||t===TL.BARN_OPEN){
     // The barn is twenty tiles and every one of them drew the same panel with
@@ -9591,12 +9596,29 @@ function drawTile(tx,ty,sx,sy) {
     drawFenceTile(tx, ty, sx, sy, true);
   }
   else if(t===TL.FEED_TROUGH){
-    ctx.fillStyle='#5a3810'; ctx.fillRect(sx+2,sy+7,T-4,T-13);
-    ctx.fillStyle='#7a5028'; ctx.fillRect(sx+3,sy+8,T-6,T-15);
-    ctx.fillStyle='#8a6030'; ctx.fillRect(sx+3,sy+8,T-6,2);
-    ctx.fillStyle='#483010'; ctx.fillRect(sx+3,sy+T-6,T-6,2);
-    ctx.fillStyle='#b88030'; ctx.fillRect(sx+5,sy+10,T-10,6);
-    ctx.fillStyle='#c89040'; ctx.fillRect(sx+5,sy+10,T-10,2);
+    // A trough standing in the pen, not a tan rectangle with a lighter
+    // rectangle inside it. Its fill level is what the pen's upkeep is about,
+    // so that is what the art shows.
+    _owGround();
+    ctx.fillStyle='rgba(0,0,0,.24)';
+    ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T-6, 13, 4, 0, 0, Math.PI*2); ctx.fill();
+    // Trestle legs at each end.
+    ctx.fillStyle='#4a3218'; ctx.fillRect(sx+4, sy+T-11, 3, 8); ctx.fillRect(sx+T-7, sy+T-11, 3, 8);
+    // Body: two boards meeting in a V, so it reads as a vessel.
+    ctx.fillStyle='#5a3810'; ctx.fillRect(sx+2, sy+8, T-4, T-17);
+    ctx.fillStyle='#7a5028'; ctx.fillRect(sx+3, sy+9, T-6, T-19);
+    ctx.fillStyle='rgba(210,176,120,.20)'; ctx.fillRect(sx+3, sy+9, T-6, 1);
+    ctx.fillStyle='rgba(0,0,0,.32)'; ctx.fillRect(sx+3, sy+T-11, T-6, 2);
+    // Feed: grain heaped along the bottom, with husks catching the light.
+    ctx.fillStyle='#b88030'; ctx.fillRect(sx+5, sy+12, T-10, T-25);
+    ctx.fillStyle='#c89040';
+    for(let k=0;k<5;k++){
+      const q=((tx*2654435761)^(ty*40503)^(k*97))>>>0;
+      ctx.fillRect(sx+5+(q%(T-12)), sy+12+((q>>5)%4), 3, 2);
+    }
+    ctx.fillStyle='rgba(60,40,10,.30)'; ctx.fillRect(sx+5, sy+12, T-10, 1);
+    // End boards, in front.
+    ctx.fillStyle='#6a4420'; ctx.fillRect(sx+2, sy+8, 3, T-17); ctx.fillRect(sx+T-5, sy+8, 3, T-17);
   }
   else if(t===TL.FISHING_SPOT){
     // Sandy bank dropping into water. The bank is the same sand as the tiles
