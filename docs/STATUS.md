@@ -10,12 +10,23 @@ rejected and why.
 ```
 ./tools/test_render.py              # four viewport SHAPES x eight zones
 ./tools/test_render.py <dir>        # or some other build
+./tools/test_play.py                # does it still play? (non-zero on failure)
 ./tools/audit_seams.py              # does a zone show its own tile grid?
 ```
 Non-zero exit on failure. It draws every overworld tile, enters all eight
 zones, and separately checks the cold-start cache ordering. It was written
 against a real black-screen bug and has been seen to fail on the commit before
 that fix.
+
+`test_play.py` boots a new game, walks about with the real frame loop running,
+opens every modal panel, visits every zone, and fails on any uncaught error. It
+also checks the loop is still ALIVE afterwards, which is not redundant:
+gameLoop() ends with its own requestAnimationFrame, so an uncaught throw stops
+it dead rather than skipping a frame, and only one error is ever emitted — on
+the first frame, during boot. The first version of that test cleared boot noise
+from its error list and so threw away the only report of the fault; it passed
+clean with a deliberate throw wired into every dirt tile. Verified in both
+directions now.
 
 `audit_seams.py` is a SCREENING tool and exits zero — it has a known
 false-positive class (anything deliberately banded: masonry courses, the gap
