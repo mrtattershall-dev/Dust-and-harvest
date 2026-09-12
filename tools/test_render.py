@@ -167,7 +167,11 @@ def serve(directory, port):
 
 
 async def main():
-    root = Path(sys.argv[1]) if len(sys.argv) > 1 else REPO
+    # Accepts a directory, or a single .html file — the standalone build is
+    # dist/dust-and-harvest.html, not dist/index.html, and testing the thing
+    # that actually ships matters more than testing a convenient filename.
+    arg = Path(sys.argv[1]) if len(sys.argv) > 1 else REPO
+    root, page = (arg.parent, arg.name) if arg.suffix == ".html" else (arg, "index.html")
     port = int(os.environ.get("PORT", 8765))
     serve(root, port)
     failures = []
@@ -180,7 +184,7 @@ async def main():
             errs = []
             pg.on("pageerror", lambda e: errs.append(str(e)[:80]))
             await pg.route("**fonts.g**", lambda r: r.abort())
-            await pg.goto(f"http://localhost:{port}/index.html?v={time.time()}")
+            await pg.goto(f"http://localhost:{port}/{page}?v={time.time()}")
             await pg.wait_for_timeout(4500)
             await pg.evaluate(BOOT)
             await pg.wait_for_timeout(1200)

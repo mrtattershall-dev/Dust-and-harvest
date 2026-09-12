@@ -9,8 +9,9 @@ rejected and why.
 
 ```
 ./tools/test_render.py              # four viewport SHAPES x eight zones
-./tools/test_render.py <dir>        # or some other build
+./tools/test_render.py <dir|file>   # or another build, or the standalone
 ./tools/test_play.py                # does it still play? (non-zero on failure)
+./tools/test_play.py dist/dust-and-harvest.html    # ...and does the SHIPPED file?
 ./tools/audit_seams.py              # does a zone show its own tile grid?
 ```
 Non-zero exit on failure. It draws every overworld tile, enters all eight
@@ -52,6 +53,10 @@ change to it in both directions, as that one was.
 ./tools/build_standalone.py         # one runnable .html into dist/ (gitignored)
 ```
 Source zips are not in the repo. `dist/` is a build artifact.
+
+Both tests take a single .html file as well as a directory, so run them against
+`dist/dust-and-harvest.html` before handing it over: that file is what ships,
+and it goes through the asset-inlining shim, which the served build does not.
 
 ## Done
 
