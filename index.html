@@ -33628,6 +33628,14 @@ function _buildAncientCourtZone() {
 
 function _drawDeepJGTile(t, sx, sy, c, timeMs, tx, ty) {
   const T = DJ_T;
+  /* Scatter and phase seeds come from the TILE, not the screen. Screen
+     coordinates move with the camera, so seeding from them reshuffles a tile's
+     detail every frame and the surface visibly churns as you walk — measured at
+     1003 differing pixels of 1024 on a formation tile. Multiplying the tile
+     coordinate back up by T keeps the numbers in the range the art was tuned
+     for, so it looks the same; it just stops moving. */
+  const seedX = (tx !== undefined ? tx * T : sx);
+  const seedY = (ty !== undefined ? ty * T : sy);
   switch (t) {
     case JG.VINE: {
       c.fillStyle = '#1a3010'; c.fillRect(sx, sy, T, T);
@@ -33635,7 +33643,7 @@ function _drawDeepJGTile(t, sx, sy, c, timeMs, tx, ty) {
       c.fillStyle = '#2c5020';
       for (let i = 0; i < 4; i++) {
         const vx = sx + 4 + i * 7;
-        const len = 8 + (((vx * 1301 + sy * 503) & 15));
+        const len = 8 + (((seedX * 1301 + seedY * 503) & 15));
         c.fillRect(vx, sy, 2, Math.min(len, T));
       }
       break;
@@ -33644,7 +33652,7 @@ function _drawDeepJGTile(t, sx, sy, c, timeMs, tx, ty) {
       c.fillStyle = '#1e2410'; c.fillRect(sx, sy, T, T);
       // Root network lines using seeded positions
       c.strokeStyle = '#3a2c10'; c.lineWidth = 2;
-      const rx = ((sx * 1301 + sy * 503) & 0xFF) / 255;
+      const rx = ((seedX * 1301 + seedY * 503) & 0xFF) / 255;
       c.beginPath();
       c.moveTo(sx, sy + T * rx);
       c.bezierCurveTo(sx + T * 0.3, sy + T * (rx + 0.2), sx + T * 0.7, sy + T * (rx - 0.15), sx + T, sy + T * (rx + 0.1));
@@ -33658,11 +33666,11 @@ function _drawDeepJGTile(t, sx, sy, c, timeMs, tx, ty) {
     }
     case JG.BIOLUM: {
       // Bioluminescent ground — base dark earth with animated teal glow
-      const pulse = 0.55 + 0.45 * Math.sin(timeMs * 0.0012 + sx * 0.04 + sy * 0.03);
+      const pulse = 0.55 + 0.45 * Math.sin(timeMs * 0.0012 + seedX * 0.04 + seedY * 0.03);
       c.fillStyle = '#0a1a14'; c.fillRect(sx, sy, T, T);
       // Glow dots — seeded positions
-      const seed1 = (sx * 1301 + sy * 503) & 255;
-      const seed2 = (sx * 503  + sy * 1301) & 255;
+      const seed1 = (seedX * 1301 + seedY * 503) & 255;
+      const seed2 = (seedX * 503  + seedY * 1301) & 255;
       const dotCount = 3 + (seed1 & 3);
       for (let i = 0; i < dotCount; i++) {
         const bx = sx + 3 + ((seed1 * (i+1) * 37) & 0xFF) % (T - 6);
@@ -33684,12 +33692,12 @@ function _drawDeepJGTile(t, sx, sy, c, timeMs, tx, ty) {
     case JG.FORMATION: {
       // Geological formation — deep amber core with pulsing glow
       // This is the singing vein — ancient, geological, slightly wrong
-      const fpulse = 0.6 + 0.4 * Math.sin(timeMs * 0.0008 + sx * 0.02 + sy * 0.015);
+      const fpulse = 0.6 + 0.4 * Math.sin(timeMs * 0.0008 + seedX * 0.02 + seedY * 0.015);
       c.fillStyle = '#1a0e04'; c.fillRect(sx, sy, T, T);
       // Vein striations — diagonal lines of mineral
       c.strokeStyle = '#5c3a0a'; c.lineWidth = 1;
       for (let i = 0; i < 5; i++) {
-        const off = i * 7 + ((sx * 503 + sy * 1301 + i * 137) & 7);
+        const off = i * 7 + ((seedX * 503 + seedY * 1301 + i * 137) & 7);
         c.beginPath();
         c.moveTo(sx + off, sy);
         c.lineTo(sx + off - T * 0.6, sy + T);
@@ -33720,8 +33728,8 @@ function _drawDeepJGTile(t, sx, sy, c, timeMs, tx, ty) {
       // Dapple — scattered bright spots
       c.fillStyle = 'rgba(220, 240, 100, 0.35)';
       for (let i = 0; i < 3; i++) {
-        const dx2 = 3 + ((sx * 1301 + sy * 503 + i * 97) & 0xFF) % (T - 6);
-        const dy2 = 3 + ((sx * 503  + sy * 1301 + i * 53) & 0xFF) % (T - 6);
+        const dx2 = 3 + ((seedX * 1301 + seedY * 503 + i * 97) & 0xFF) % (T - 6);
+        const dy2 = 3 + ((seedX * 503  + seedY * 1301 + i * 53) & 0xFF) % (T - 6);
         c.fillRect(sx + dx2, sy + dy2, 2, 2);
       }
       break;
@@ -33731,15 +33739,15 @@ function _drawDeepJGTile(t, sx, sy, c, timeMs, tx, ty) {
       // Soft texture — scattered dark spots
       c.fillStyle = '#0e2414';
       for (let i = 0; i < 6; i++) {
-        const mx = sx + 2 + ((sx * 1301 + i * 503) & 0xFF) % (T - 4);
-        const my = sy + 2 + ((sy * 503  + i * 1301) & 0xFF) % (T - 4);
+        const mx = sx + 2 + ((seedX * 1301 + i * 503) & 0xFF) % (T - 4);
+        const my = sy + 2 + ((seedY * 503  + i * 1301) & 0xFF) % (T - 4);
         c.fillRect(mx, my, 3, 3);
       }
       break;
     }
     case JG.DARK_WATER: {
       // Still black water — deep pool with subtle ripple
-      const rphase = (timeMs * 0.0006 + sx * 0.1 + sy * 0.07) % (Math.PI * 2);
+      const rphase = (timeMs * 0.0006 + seedX * 0.1 + seedY * 0.07) % (Math.PI * 2);
       c.fillStyle = '#040c08'; c.fillRect(sx, sy, T, T);
       // Barely-visible ripple ring
       c.strokeStyle = `rgba(20, 50, 35, ${0.3 + 0.2 * Math.sin(rphase)})`;
@@ -34394,6 +34402,14 @@ function drawJungleOverlay(ctx, cx, cy, W, H) {
 window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
   const ctx = window.ctx || document.getElementById('gameCanvas').getContext('2d');
   const T = JG_T;
+  /* Scatter and phase seeds come from the TILE, not the screen. Screen
+     coordinates move with the camera, so seeding from them reshuffles a tile's
+     detail every frame and the surface visibly churns as you walk — measured at
+     1003 differing pixels of 1024 on a formation tile. Multiplying the tile
+     coordinate back up by T keeps the numbers in the range the art was tuned
+     for, so it looks the same; it just stops moving. */
+  const seedX = (tx !== undefined ? tx * T : sx);
+  const seedY = (ty !== undefined ? ty * T : sy);
   const now = Date.now();
 
   switch (t) {
@@ -34402,7 +34418,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
     case JG.WATER_DEEP: {
       ctx.fillStyle = '#091e10'; ctx.fillRect(sx, sy, T, T);
       // Shimmer lines
-      const phase = (now * 0.0008 + sx * 0.04 + sy * 0.03) % (Math.PI * 2);
+      const phase = (now * 0.0008 + seedX * 0.04 + seedY * 0.03) % (Math.PI * 2);
       ctx.fillStyle = `rgba(20,80,50,${0.25 + 0.15 * Math.sin(phase)})`;
       ctx.fillRect(sx + 3, sy + T * 0.3, T - 6, 2);
       ctx.fillStyle = `rgba(20,80,50,${0.18 + 0.12 * Math.sin(phase + 1.4)})`;
@@ -34411,7 +34427,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
     }
     case JG.WATER: {
       ctx.fillStyle = '#102818'; ctx.fillRect(sx, sy, T, T);
-      const p2 = (now * 0.001 + sx * 0.05 + sy * 0.04) % (Math.PI * 2);
+      const p2 = (now * 0.001 + seedX * 0.05 + seedY * 0.04) % (Math.PI * 2);
       ctx.fillStyle = `rgba(30,100,60,${0.3 + 0.2 * Math.sin(p2)})`;
       ctx.fillRect(sx + 2, sy + T * 0.35, T - 4, 2);
       ctx.fillStyle = `rgba(40,120,70,${0.2 + 0.15 * Math.sin(p2 + 1)})`;
@@ -34429,8 +34445,8 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       // Grain scatter
       ctx.fillStyle = 'rgba(160,130,90,0.4)';
       for (let i = 0; i < 6; i++) {
-        const gx = sx + 3 + ((sx * 1301 + sy * 503 + i * 97) & 0xFF) % (T - 6);
-        const gy = sy + 3 + ((sx * 503  + sy * 1301 + i * 53) & 0xFF) % (T - 6);
+        const gx = sx + 3 + ((seedX * 1301 + seedY * 503 + i * 97) & 0xFF) % (T - 6);
+        const gy = sy + 3 + ((seedX * 503  + seedY * 1301 + i * 53) & 0xFF) % (T - 6);
         ctx.fillRect(gx, gy, 2, 1);
       }
       break;
@@ -34577,7 +34593,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       ctx.strokeRect(sx + 1, sy + T/3, T - 2, 0);
       ctx.strokeRect(sx + 1, sy + 2*T/3, T - 2, 0);
       // Moss patches (seeded)
-      const mh = ((sx * 1301 + sy * 503) & 0xFF) / 255;
+      const mh = ((seedX * 1301 + seedY * 503) & 0xFF) / 255;
       if (mh < 0.4) {
         ctx.fillStyle = 'rgba(30,60,20,0.4)';
         ctx.fillRect(sx + 2, sy + T - 6, 6, 4);
@@ -34601,7 +34617,7 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       ctx.strokeRect(sx + T/2, sy + 1, 0, T - 2);
       ctx.strokeRect(sx + 1, sy + T/2, T - 2, 0);
       // Stain/wear
-      const fh = ((sx * 503 + sy * 1301) & 0xFF) / 255;
+      const fh = ((seedX * 503 + seedY * 1301) & 0xFF) / 255;
       if (fh < 0.25) {
         ctx.fillStyle = 'rgba(0,0,0,0.15)';
         ctx.fillRect(sx + 4, sy + 4, 8, 8);
@@ -34618,8 +34634,8 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       // Small stones scattered in road
       ctx.fillStyle = 'rgba(80,70,55,0.3)';
       for (let i = 0; i < 3; i++) {
-        const rx = sx + 2 + ((sx * 1301 + i * 97) & 0xFF) % (T - 4);
-        const ry = sy + 2 + ((sy * 503  + i * 53) & 0xFF) % (T - 4);
+        const rx = sx + 2 + ((seedX * 1301 + i * 97) & 0xFF) % (T - 4);
+        const ry = sy + 2 + ((seedY * 503  + i * 53) & 0xFF) % (T - 4);
         ctx.fillRect(rx, ry, 2, 2);
       }
       break;
