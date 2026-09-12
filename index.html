@@ -34833,6 +34833,29 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
 };
 
 // ── Replace _drawJGNPC with per-character pixel art ──────────────────────────
+// Which sprite actor stands in for each jungle character, the same way
+// NPC_SPRITES does for the townsfolk. The painted versions below stay as the
+// fallback, so an actor that fails to load costs nothing.
+//
+// Picked by looking at all fifteen human actors rendered side by side at 2.6x
+// and labelled, not by reading their names — "alchemist" here is a wizard in a
+// magenta pointed hat, which would be badly wrong in a jungle settlement.
+//
+//   Tobias  freight runner at the dock — citizen5's blue coat, practical.
+//   Kit     village leader              — citizen1.
+//   Malu    the Elder                   — citizen2, the one with white hair.
+//   Ren     settlement                  — hunter, conical straw hat, jungle-ready.
+//   Pira    stores                      — folk_bartender's apron reads shopkeeper.
+// Rex and Maya already hold folk_merchant and folk_barmaid, and are half a
+// world away from these five.
+const JG_NPC_SPRITES = {
+  jg_tobias: 'citizen5',
+  jg_kit:    'citizen1',
+  jg_malu:   'citizen2',
+  jg_ren:    'hunter',
+  jg_pira:   'folk_bartender',
+};
+
 window._drawJGNPC = function _drawJGNPC(npc, sx, sy, ctx) {
   const now = Date.now();
   const bob = Math.sin(now * 0.0018 + npc.tx * 0.1) * 1.5;
@@ -34841,6 +34864,19 @@ window._drawJGNPC = function _drawJGNPC(npc, sx, sy, ctx) {
   // Shadow
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
   ctx.beginPath(); ctx.ellipse(sx, sy + 2 + bob, 8, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+  const _sid = JG_NPC_SPRITES[npc.id];
+  if (_sid && window.DHArt && DHArt.ready(_sid)) {
+    DHArt.play(npc, 'idle');
+    // These five stand still in their village, so they face the player once
+    // they are close enough to be spoken to, and face front otherwise.
+    const _dx = player.x - (npc.tx * T + T / 2), _dy = player.y - (npc.ty * T + T / 2);
+    DHArt.face(npc, Math.hypot(_dx, _dy) > 96 ? 'down'
+                  : Math.abs(_dx) > Math.abs(_dy) ? (_dx < 0 ? 'left' : 'right')
+                  : (_dy < 0 ? 'up' : 'down'));
+    if (DHArt.drawActor(ctx, _sid, npc, sx, sy + bob,
+                        { scale: NPC_SPRITE_SCALE, footY: 9 })) return;
+  }
 
   switch (npc.id) {
 
