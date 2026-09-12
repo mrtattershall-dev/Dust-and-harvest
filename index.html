@@ -8422,6 +8422,55 @@ function drawFogTile(sx, sy, seed) {
   const bucket = (seed >>> 0) % 256;
   ctx.drawImage(_fogCache.get(bucket) || _buildFogTile(bucket), sx, sy);
 }
+// Interlock the boundary between two different terrains.
+//
+// Shared by the zones rather than written per zone: along each edge where the
+// terrain changes, the neighbour's BAKED ground is drawn into this tile
+// through a row of seeded tongues. It samples at this tile's own coordinates,
+// so the intruding strip is continuous with the neighbour it came from. Both
+// tiles do it to each other, which is what makes the boundary ragged rather
+// than merely blurred — a translucent band of the neighbour's colour, which is
+// what the grass used to do, fades the tone step but leaves the boundary dead
+// straight and the regions still read as rectangles.
+//
+// Tongues are 2-5px deep. Both sides intrude, so 8px was a third of a tile
+// either way and the boundary read as a band of dither rather than as an edge.
+//
+// `terrainOf(tileType)` returns [baked terrain name, tone] or null; the tone
+// is optional and means drawToned. Seeded off the shared edge in WORLD
+// coordinates, so the tongues stay put as the camera moves.
+function drawTerrainEdges(tx, ty, sx, sy, size, get, terrainOf) {
+  const here = terrainOf(get(tx, ty));
+  for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+    const nb = terrainOf(get(tx + dx, ty + dy));
+    if (!nb) continue;
+    if (here && nb[0] === here[0] && nb[1] === here[1]) continue;
+    const vert = dx !== 0;
+    let h = ((((tx * 2 + (dx > 0 ? 1 : 0)) * 374761393) ^
+              ((ty * 2 + (dy > 0 ? 1 : 0)) * 668265263)) >>> 0) || 1;
+    const rnd = () => { h ^= h << 13; h >>>= 0; h ^= h >> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+    ctx.save();
+    ctx.beginPath();
+    let drew = false;
+    for (let a = 0; a < size; ) {
+      const w = 4 + (rnd() * 7 | 0);
+      if (rnd() < 0.5) { a += w; continue; }        // a gap: the other side's tongue
+      const d = 2 + (rnd() * 4 | 0);
+      const len = Math.min(w, size - a);
+      if (vert) ctx.rect(dx > 0 ? sx + size - d : sx, sy + a, d, len);
+      else      ctx.rect(sx + a, dy > 0 ? sy + size - d : sy, len, d);
+      drew = true;
+      a += w;
+    }
+    if (drew) {
+      ctx.clip();
+      if (nb[1]) DHGround.drawToned(ctx, nb[0], nb[1], sx, sy, tx, ty);
+      else       DHGround.draw(ctx, nb[0], sx, sy, tx, ty);
+    }
+    ctx.restore();
+  }
+}
+
 // Decking: boards laid across a tile, drawn so a RUN of them reads as planks
 // laid side by side rather than as a row of tiles.
 //
@@ -8551,57 +8600,10 @@ function drawTile(tx,ty,sx,sy) {
     [TL.ROAD]: 'road', [TL.PEN_FLOOR]: 'pen', [TL.TOWN_FLOOR]: 'street',
   };
 
-  // Soften the join between two different terrains.
-  //
-  // Only grass did this, and only by laying a translucent band of the
-  // neighbour's flat COLOUR along the edge — which fades the tone step but
-  // leaves the boundary dead straight, so a patch of sand in dirt still ends
-  // in right angles and the regions read as rectangles.
-  //
-  // This interlocks them instead: along each edge where the terrain changes,
-  // the neighbour's BAKED ground is drawn into this tile through a row of
-  // seeded tongues. It samples at this tile's own coordinates, so the intruding
-  // strip is continuous with the neighbour it came from. Both tiles do it to
-  // each other, which is what makes the boundary ragged rather than merely
-  // blurred.
-  //
-  // Seeded off the shared edge in WORLD coordinates, so the tongues stay put.
+  // See drawTerrainEdges(). The overworld's terrains are untoned.
   function _terrainEdges() {
-    const here = _owTerrain[t];
-    for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
-      const nt = getT(tx + dx, ty + dy);
-      const name = _owTerrain[nt];
-      if (!name || name === here) continue;
-      const vert = dx !== 0;
-      // One seed per shared edge.
-      let h = ((((tx * 2 + (dx > 0 ? 1 : 0)) * 374761393) ^
-                ((ty * 2 + (dy > 0 ? 1 : 0)) * 668265263)) >>> 0) || 1;
-      const rnd = () => { h ^= h << 13; h >>>= 0; h ^= h >> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
-      ctx.save();
-      ctx.beginPath();
-      let drew = false;
-      for (let a = 0; a < T; ) {
-        const w = 4 + (rnd() * 7 | 0);
-        if (rnd() < 0.5) { a += w; continue; }       // a gap: the other side's tongue
-        // Shallow. Both tiles intrude into each other, so the transition is
-        // twice this wide; at 8px deep that was a third of a tile either side
-        // and the boundary read as a band of dither rather than as an edge.
-        const d = 2 + (rnd() * 4 | 0);
-        const len = Math.min(w, T - a);
-        if (vert) ctx.rect(dx > 0 ? sx + T - d : sx, sy + a, d, len);
-        else      ctx.rect(sx + a, dy > 0 ? sy + T - d : sy, len, d);
-        drew = true;
-        a += w;
-      }
-      if (drew) {
-        ctx.clip();
-        if (!DHGround.draw(ctx, name, sx, sy, tx, ty)) {
-          ctx.fillStyle = TC[nt] ? TC[nt][0] : '#000';
-          ctx.fillRect(sx, sy, T, T);
-        }
-      }
-      ctx.restore();
-    }
+    drawTerrainEdges(tx, ty, sx, sy, T, getT,
+                     (v) => _owTerrain[v] ? [_owTerrain[v], null] : null);
   }
 
   // Draw the ground an overlay stands on: the nearest neighbour that is not
@@ -8632,6 +8634,9 @@ function drawTile(tx,ty,sx,sy) {
     // Shared by the sprite and painted paths: the sprite turf is one continuous
     // surface, but it still has to meet dirt and sand, and a hard butt-join
     // there is the thing this softens.
+    // The painted fallback's edge softening, used only when the baked texture
+    // is not up: _terrainEdges() interlocks by clipping the neighbour's real
+    // ground into this tile, and without a texture there is nothing to clip.
     const _grassEdges=()=>{
       const nN=getT(tx,ty-1), nS=getT(tx,ty+1), nW=getT(tx-1,ty), nE=getT(tx+1,ty);
       const blendC=(nt)=>TC[nt]?TC[nt][0]:null;
@@ -20701,6 +20706,15 @@ const HC_SOLID_SET = new Set([
 // baked ground the overworld uses. The camp's own tone is kept by retoning it
 // (grass here is meant to be ranker and greyer than the farm's) rather than by
 // painting over it.
+// The camp's terrains and the tone each is retoned to, for drawTerrainEdges.
+const _HC_TERRAIN = {
+  [TL.GRASS]: ['grass', '#5c6b44'], [TL.DIRT]: ['dirt', '#7a6251'],
+  [TL.ROAD]: ['road', '#897762'],   [TL.STONE]: ['minefloor', '#57493f'],
+};
+function _hcEdges(tx, ty, sx, sy) {
+  drawTerrainEdges(tx, ty, sx, sy, HC_T, getHCT, (v) => _HC_TERRAIN[v] || null);
+}
+
 function drawHCTile(t, tx, ty, sx, sy) {
   const seed = tx*7+ty*13;
   const r = (n,m) => ((n*2654435761)>>>0)%m;
@@ -20718,24 +20732,14 @@ function drawHCTile(t, tx, ty, sx, sy) {
       ctx.fillRect(sx+r(seed*5,18)+8,  sy+r(seed*7,12)+7, 1,6);
       ctx.fillStyle='#a8ab5c';
       ctx.fillRect(sx+r(seed*11,14)+13,sy+r(seed*13,10)+8,1,3);
-      // Soften the join where the turf meets bare ground. The overworld does
-      // this for its own grass (_grassEdges); without it a patch of camp grass
-      // ends in square corners against the dirt.
-      {
-        const bare=(v)=>v===TL.DIRT||v===TL.ROAD||v===TL.STONE;
-        ctx.save(); ctx.globalAlpha=0.22; ctx.fillStyle='#7a6251';
-        if(bare(getHCT(tx,ty-1))) ctx.fillRect(sx,sy,HC_T,4);
-        if(bare(getHCT(tx,ty+1))) ctx.fillRect(sx,sy+HC_T-4,HC_T,4);
-        if(bare(getHCT(tx-1,ty))) ctx.fillRect(sx,sy,4,HC_T);
-        if(bare(getHCT(tx+1,ty))) ctx.fillRect(sx+HC_T-4,sy,4,HC_T);
-        ctx.restore();
-      }
+      _hcEdges(tx, ty, sx, sy);
       break;
     }
     case TL.DIRT: {
       if(!DHGround.drawToned(ctx,'dirt','#7a6251',sx,sy,tx,ty)){
         ctx.fillStyle='#7a6251'; ctx.fillRect(sx,sy,HC_T,HC_T);
       }
+      _hcEdges(tx, ty, sx, sy);
       if(seed%5===0){ctx.fillStyle='#5b4b41';ctx.fillRect(sx+r(seed,18)+4,sy+r(seed*3,14)+4,5,3);}
       break;
     }
@@ -20745,6 +20749,7 @@ function drawHCTile(t, tx, ty, sx, sy) {
       if(!DHGround.drawToned(ctx,'road','#897762',sx,sy,tx,ty)){
         ctx.fillStyle='#897762'; ctx.fillRect(sx,sy,HC_T,HC_T);
       }
+      _hcEdges(tx, ty, sx, sy);
       if(seed%4===0){
         ctx.fillStyle='rgba(40,33,41,.22)';
         ctx.fillRect(sx+r(seed*3,20)+4, sy+r(seed*7,20)+4, 4, 2);
