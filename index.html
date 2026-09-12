@@ -20595,44 +20595,76 @@ const HC_SOLID_SET = new Set([
   TL.TREE, TL.BUSH, TL.CRATE, TL.WELL, TL.CAMPFIRE,
 ]);
 
+// The camp uses the overworld's own TL.* tile types at the overworld's tile
+// size, but drew its own flat fills for them: one colour, a bright strip along
+// the top edge and a dark strip along the bottom of EVERY tile. That top-and-
+// bottom banding is what put a hard grid over the whole zone — it outlined all
+// 2457 tiles — and the road drew two dark bars per tile on top of that, which
+// read as railings rather than as a track.
+//
+// Since they are the same tile types at the same size, they can use the same
+// baked ground the overworld uses. The camp's own tone is kept by retoning it
+// (grass here is meant to be ranker and greyer than the farm's) rather than by
+// painting over it.
 function drawHCTile(t, tx, ty, sx, sy) {
-  // Draw a hobo camp tile — same palette as overworld but reads correct map
   const seed = tx*7+ty*13;
   const r = (n,m) => ((n*2654435761)>>>0)%m;
 
   switch(t) {
     case TL.GRASS: {
-      ctx.fillStyle='#647645'; ctx.fillRect(sx,sy,HC_T,HC_T);
-      ctx.fillStyle='#a8ab5c'; ctx.fillRect(sx,sy,HC_T,3);
-      ctx.fillStyle='#426848'; ctx.fillRect(sx,sy+HC_T-4,HC_T,4);
-      ctx.fillStyle='#292129';
+      if(!DHGround.drawToned(ctx,'grass','#5c6b44',sx,sy,tx,ty)){
+        ctx.fillStyle='#647645'; ctx.fillRect(sx,sy,HC_T,HC_T);
+      }
+      // Blades, in a dark green rather than the near-black #292129 they were:
+      // over flat fill that read as texture, over real turf it reads as sticks
+      // lying on the grass.
+      ctx.fillStyle='#33452a';
       ctx.fillRect(sx+r(seed,20)+2,    sy+r(seed*3,14)+5, 1,5);
       ctx.fillRect(sx+r(seed*5,18)+8,  sy+r(seed*7,12)+7, 1,6);
       ctx.fillStyle='#a8ab5c';
       ctx.fillRect(sx+r(seed*11,14)+13,sy+r(seed*13,10)+8,1,3);
+      // Soften the join where the turf meets bare ground. The overworld does
+      // this for its own grass (_grassEdges); without it a patch of camp grass
+      // ends in square corners against the dirt.
+      {
+        const bare=(v)=>v===TL.DIRT||v===TL.ROAD||v===TL.STONE;
+        ctx.save(); ctx.globalAlpha=0.22; ctx.fillStyle='#7a6251';
+        if(bare(getHCT(tx,ty-1))) ctx.fillRect(sx,sy,HC_T,4);
+        if(bare(getHCT(tx,ty+1))) ctx.fillRect(sx,sy+HC_T-4,HC_T,4);
+        if(bare(getHCT(tx-1,ty))) ctx.fillRect(sx,sy,4,HC_T);
+        if(bare(getHCT(tx+1,ty))) ctx.fillRect(sx+HC_T-4,sy,4,HC_T);
+        ctx.restore();
+      }
       break;
     }
     case TL.DIRT: {
-      ctx.fillStyle='#7a6251'; ctx.fillRect(sx,sy,HC_T,HC_T);
-      ctx.fillStyle='#a38762'; ctx.fillRect(sx,sy,HC_T,2);
-      ctx.fillStyle='#544b46'; ctx.fillRect(sx,sy+HC_T-2,HC_T,2);
+      if(!DHGround.drawToned(ctx,'dirt','#7a6251',sx,sy,tx,ty)){
+        ctx.fillStyle='#7a6251'; ctx.fillRect(sx,sy,HC_T,HC_T);
+      }
       if(seed%5===0){ctx.fillStyle='#5b4b41';ctx.fillRect(sx+r(seed,18)+4,sy+r(seed*3,14)+4,5,3);}
       break;
     }
     case TL.ROAD: {
-      ctx.fillStyle='#897762'; ctx.fillRect(sx,sy,HC_T,HC_T);
-      ctx.fillStyle='#a38762'; ctx.fillRect(sx,sy,HC_T,1);
-      ctx.fillStyle='#292129'; ctx.fillRect(sx,sy+HC_T-1,HC_T,1);
-      ctx.fillStyle='#5b4b41'; ctx.fillRect(sx+5,sy,3,HC_T); ctx.fillRect(sx+HC_T-8,sy,3,HC_T);
-      ctx.fillStyle='#766a64'; ctx.fillRect(sx+5,sy,1,HC_T); ctx.fillRect(sx+HC_T-8,sy,1,HC_T);
+      // A trodden path through a camp, not a fenced lane: the two dark bars
+      // per tile were the thing that made it read as railings.
+      if(!DHGround.drawToned(ctx,'road','#897762',sx,sy,tx,ty)){
+        ctx.fillStyle='#897762'; ctx.fillRect(sx,sy,HC_T,HC_T);
+      }
+      if(seed%4===0){
+        ctx.fillStyle='rgba(40,33,41,.22)';
+        ctx.fillRect(sx+r(seed*3,20)+4, sy+r(seed*7,20)+4, 4, 2);
+      }
       break;
     }
     case TL.STONE: {
-      ctx.fillStyle='#5b4b41'; ctx.fillRect(sx,sy,HC_T,HC_T);
-      ctx.fillStyle='#897762'; ctx.fillRect(sx,sy,HC_T,2);
-      ctx.fillStyle='#292129'; ctx.fillRect(sx,sy+HC_T-2,HC_T,2);
-      ctx.fillStyle='#292129'; ctx.fillRect(sx+2,sy+HC_T/2,HC_T-4,1); ctx.fillRect(sx+HC_T/2,sy+2,1,HC_T/2-1);
-      ctx.fillStyle='#cfc7b2'; ctx.fillRect(sx+2,sy+HC_T/2-1,HC_T-4,1);
+      if(!DHGround.drawToned(ctx,'minefloor','#57493f',sx,sy,tx,ty)){
+        ctx.fillStyle='#5b4b41'; ctx.fillRect(sx,sy,HC_T,HC_T);
+      }
+      if(!DHProps.draw(ctx,'stonewall',sx,sy,tx,ty)){
+        ctx.fillStyle='#292129'; ctx.fillRect(sx+2,sy+HC_T/2,HC_T-4,1);
+        ctx.fillRect(sx+HC_T/2,sy+2,1,HC_T/2-1);
+        ctx.fillStyle='#cfc7b2'; ctx.fillRect(sx+2,sy+HC_T/2-1,HC_T-4,1);
+      }
       break;
     }
     case TL.WATER: {
@@ -22169,16 +22201,28 @@ function drawOCTile(t, tx, ty, sx, sy) {
   switch(t) {
 
     case OC.SAND: {
-      // Layered beach sand — warm ochre-tan, varied grain, shells, wet-line shadow
-      // Three base tones cycling by seed so it looks patchy and real
-      const bases=['#be9955','#c8a462','#b89050','#c4a068','#b08848'];
-      ctx.fillStyle=bases[seed%5]; ctx.fillRect(sx,sy,OC_T,OC_T);
-      // Sun crust — thin bright top edge
-      ctx.fillStyle='#d4b870'; ctx.fillRect(sx,sy,OC_T,1);
-      // Wet shadow bottom
-      ctx.fillStyle='#8a6438'; ctx.fillRect(sx,sy+OC_T-3,OC_T,3);
-      // Mid-tone band (damp line)
-      if(seed%3===0){ ctx.fillStyle='rgba(100,60,20,.12)'; ctx.fillRect(sx,sy+OC_T-7,OC_T,4); }
+      // Beach sand. It picked one of five flat tones per tile and then drew a
+      // bright line along the top edge and a dark one along the bottom of every
+      // tile, so the beach came out as a chequerboard with all its tiles
+      // outlined — "patchy and real" in intent, a grid on screen.
+      //
+      // The baked desert sand, warmed, gives the patchiness for free and joins
+      // across tiles. The one band worth keeping is the damp line, and it is
+      // kept only where the tile actually meets the water instead of on every
+      // third tile regardless.
+      if(!DHGround.drawToned(ctx,'sand','#c09a58',sx,sy,tx,ty)){
+        ctx.fillStyle='#be9955'; ctx.fillRect(sx,sy,OC_T,OC_T);
+      }
+      {
+        const wet=(v)=>v===OC.WATER||v===OC.DEEP;
+        if(wet(getOCT(tx,ty+1))){
+          ctx.fillStyle='rgba(100,60,20,.16)'; ctx.fillRect(sx,sy+OC_T-7,OC_T,7);
+          ctx.fillStyle='rgba(120,74,28,.20)'; ctx.fillRect(sx,sy+OC_T-2,OC_T,2);
+        }
+        if(wet(getOCT(tx,ty-1))){ ctx.fillStyle='rgba(100,60,20,.14)'; ctx.fillRect(sx,sy,OC_T,5); }
+        if(wet(getOCT(tx-1,ty))){ ctx.fillStyle='rgba(100,60,20,.14)'; ctx.fillRect(sx,sy,5,OC_T); }
+        if(wet(getOCT(tx+1,ty))){ ctx.fillStyle='rgba(100,60,20,.14)'; ctx.fillRect(sx+OC_T-5,sy,5,OC_T); }
+      }
       // Grit flecks — dark
       ctx.fillStyle='#7a5228';
       ctx.fillRect(sx+rn(seed,OC_T-2),   sy+rn(seed+1,OC_T-4)+2, 2,1);
@@ -22206,8 +22250,11 @@ function drawOCTile(t, tx, ty, sx, sy) {
     }
 
     case OC.GRASS: {
-      // Sparse beach grass — dry, salt-bleached, sandy base
-      ctx.fillStyle='#b09050'; ctx.fillRect(sx,sy,OC_T,OC_T);
+      // Sparse beach grass — dry, salt-bleached, on the same sand as the beach
+      // so a tuft does not sit in a flat square of its own.
+      if(!DHGround.drawToned(ctx,'sand','#b49055',sx,sy,tx,ty)){
+        ctx.fillStyle='#b09050'; ctx.fillRect(sx,sy,OC_T,OC_T);
+      }
       const gt=Date.now()*0.0008+tx*0.4;
       ctx.strokeStyle='#8a9048'; ctx.lineWidth=1.5;
       for(let i=0;i<4;i++){
@@ -22220,32 +22267,63 @@ function drawOCTile(t, tx, ty, sx, sy) {
     }
 
     case OC.WATER: {
-      // Shallow coastal — teal, animated, sandy bottom visible
-      ctx.fillStyle='#1e7090'; ctx.fillRect(sx,sy,OC_T,OC_T);
-      ctx.fillStyle='#186080'; ctx.fillRect(sx,sy+OC_T-4,OC_T,4);
-      // Sandy bottom shimmer
-      ctx.fillStyle='rgba(160,128,60,.14)'; ctx.fillRect(sx+2,sy+6,OC_T-4,9);
-      const rt=Date.now()*0.0014+tx*0.7+ty*0.5;
-      const rA=0.5+0.35*Math.sin(rt), rB=0.4+0.28*Math.sin(rt+1.5);
-      ctx.fillStyle=`rgba(80,190,220,${rA*0.2})`; ctx.fillRect(sx+1,sy+4,OC_T-2,2);
-      ctx.fillStyle=`rgba(80,190,220,${rB*0.15})`; ctx.fillRect(sx+3,sy+13,OC_T-6,2);
-      ctx.fillStyle=`rgba(80,190,220,${rA*0.12})`; ctx.fillRect(sx,sy+22,OC_T-2,1);
-      ctx.fillStyle=`rgba(255,255,255,${0.08+0.06*Math.sin(rt*1.4)})`; ctx.fillRect(sx,sy,OC_T,1);
+      // Shallow coastal water. It filled bright cyan and then drew a darker
+      // band across the bottom of EVERY tile, so the sea came out as rows of
+      // striped cyan boxes; and #1e7090 with rgba(80,190,220) highlights is a
+      // tropical blue that nothing else in this game's palette is near.
+      //
+      // Retinted into the same teal family as the overworld's water, and the
+      // swells run on WORLD y with time, so they cross the whole sea instead of
+      // each tile carrying one of its own.
+      // Bands are drawn one pixel wider than the tile and snapped to whole
+      // pixels: the canvas is scaled by ZOOM, so a band laid exactly on the
+      // tile edge leaves a sub-pixel hairline of the base colour and the sea
+      // shows its tile grid as faint vertical lines. The neighbour redraws
+      // over the overlap.
+      const _bx=Math.round(sx), _bw=OC_T+1;
+      ctx.fillStyle='#3f7c84';
+      ctx.fillRect(_bx,Math.round(sy),_bw,OC_T+1);
+      // Sandy bottom showing through the shallows.
+      ctx.fillStyle='rgba(170,140,74,.13)'; ctx.fillRect(sx,sy+5,OC_T,11);
+      {
+        const ph=Date.now()*0.010;
+        for(let py=0;py<OC_T;py++){
+          const wy=ty*OC_T+py;
+          const m=((wy*3 - ph)%46+46)%46;
+          if(m<2){ ctx.fillStyle='rgba(150,205,205,.17)'; ctx.fillRect(_bx,Math.round(sy+py),_bw,1); }
+          else if(m>=4&&m<6){ ctx.fillStyle='rgba(24,64,74,.20)'; ctx.fillRect(_bx,Math.round(sy+py),_bw,1); }
+        }
+      }
+      // Sparkle, keyed to the tile so it does not crawl.
+      {
+        const g=((tx*374761393 ^ ty*668265263)>>>0);
+        const tw=0.5+0.5*Math.sin(Date.now()*0.0022+(g&15));
+        ctx.fillStyle='rgba(214,236,230,'+(tw*0.22)+')';
+        ctx.fillRect(sx+(g%24)+3, sy+((g>>6)%24)+3, 2,1);
+      }
       break;
     }
 
     case OC.DEEP: {
-      // Open ocean — deep indigo-navy, moving swells, white foam
-      ctx.fillStyle='#0c2e50'; ctx.fillRect(sx,sy,OC_T,OC_T);
-      ctx.fillStyle='#081e38'; ctx.fillRect(sx,sy+OC_T-5,OC_T,5);
-      const wt=Date.now()*0.0008+tx*0.9+ty*0.7;
-      const wa=0.45+0.4*Math.sin(wt);
-      ctx.fillStyle=`rgba(20,70,140,${wa*0.5})`; ctx.fillRect(sx,sy+3,OC_T,3);
-      ctx.fillStyle=`rgba(40,90,160,${(1-wa)*0.4})`; ctx.fillRect(sx+2,sy+14,OC_T-4,2);
-      // Foam
+      // Open ocean. Same two problems as the shallows: a dark band per tile and
+      // a blue the rest of the game does not use.
+      const _dx=Math.round(sx), _dw=OC_T+1;
+      ctx.fillStyle='#22454f';
+      ctx.fillRect(_dx,Math.round(sy),_dw,OC_T+1);
+      {
+        const ph=Date.now()*0.006;
+        for(let py=0;py<OC_T;py++){
+          const wy=ty*OC_T+py;
+          const m=((wy*3 - ph)%70+70)%70;
+          if(m<3){ ctx.fillStyle='rgba(74,124,132,.26)'; ctx.fillRect(_dx,Math.round(sy+py),_dw,1); }
+          else if(m>=5&&m<8){ ctx.fillStyle='rgba(12,32,40,.24)'; ctx.fillRect(_dx,Math.round(sy+py),_dw,1); }
+        }
+      }
+      // Foam on the crests.
       if(seed%4===0){
-        const fw=0.12+0.09*Math.sin(wt*1.9);
-        ctx.fillStyle=`rgba(210,235,255,${fw})`;
+        const wt=Date.now()*0.0008+tx*0.9+ty*0.7;
+        const fw=0.10+0.08*Math.sin(wt*1.9);
+        ctx.fillStyle='rgba(214,236,230,'+fw+')';
         ctx.fillRect(sx+rn(seed,OC_T-5)+2, sy+rn(seed+1,OC_T-8)+3, 4,1);
       }
       if(ty===0){ ctx.fillStyle='rgba(255,190,80,.06)'; ctx.fillRect(sx,sy,OC_T,OC_T/2); }
@@ -22253,13 +22331,28 @@ function drawOCTile(t, tx, ty, sx, sy) {
     }
 
     case OC.DOCK: {
-      // Salt-weathered planks — grey-brown, plank grain, nail heads, shimmer through gaps
-      const pb=(tx+ty)%2===0?'#7e6c52':'#746248';
-      ctx.fillStyle=pb; ctx.fillRect(sx,sy,OC_T,OC_T);
-      // Plank seams
-      ctx.fillStyle='#584c38'; ctx.fillRect(sx,sy,OC_T,1);
-      ctx.fillStyle='#584c38'; ctx.fillRect(sx,sy+OC_T/2,OC_T,1);
-      ctx.fillStyle='#8a7860'; ctx.fillRect(sx,sy+1,OC_T,1);
+      // Salt-weathered decking. The tone was (tx+ty)%2 between two browns, so
+      // the whole dock read as a chequerboard, and the plank seams were two
+      // hard lines at the same two heights on every tile.
+      //
+      // Board tone now varies per BOARD rather than per tile, the same way the
+      // jungle's decking does, so a run reads as planks laid side by side.
+      {
+        const rows=4, bh=OC_T/rows;
+        const bx=Math.round(sx), bw=OC_T+1;
+        for(let i2=0;i2<rows;i2++){
+          const hh=(((ty*rows+i2)*2654435761) ^ (tx*40503))>>>0;
+          const lift=((hh>>>5)&7)-3;
+          ctx.fillStyle='rgb('+(0x7e+lift*4)+','+(0x6c+lift*3)+','+(0x52+lift*2)+')';
+          ctx.fillRect(bx, Math.round(sy+i2*bh), bw, Math.ceil(bh)+1);
+          ctx.fillStyle='rgba(30,22,12,.38)';
+          ctx.fillRect(bx, Math.round(sy+i2*bh), bw, 1);
+          ctx.fillStyle='rgba(190,170,140,.14)';
+          ctx.fillRect(bx, Math.round(sy+i2*bh)+1, bw, 1);
+          ctx.fillStyle='rgba(40,28,16,.16)';
+          ctx.fillRect(bx+((hh>>>9)%(OC_T-9)), Math.round(sy+i2*bh)+2, 7, 1);
+        }
+      }
       // Knot holes / grain
       if(seed%7===0){ ctx.fillStyle='rgba(40,28,16,.3)'; ctx.beginPath(); ctx.ellipse(sx+rn(seed,OC_T-8)+4,sy+rn(seed+1,OC_T-8)+4,3,2,0,0,Math.PI*2); ctx.fill(); }
       // Salt bleach patches
@@ -22267,10 +22360,10 @@ function drawOCTile(t, tx, ty, sx, sy) {
       // Nail heads
       ctx.fillStyle='#3a2c1c'; ctx.fillRect(sx+3,sy+2,2,2); ctx.fillRect(sx+OC_T-5,sy+2,2,2);
       ctx.fillStyle='#6e6050'; ctx.fillRect(sx+3,sy+2,1,1); ctx.fillRect(sx+OC_T-5,sy+2,1,1);
-      // Water glimmer through gaps (dock over water)
+      // Water glimmer through the gaps, where the dock is over water.
       if(tx>=9){
         const shim=0.05+0.04*Math.sin(Date.now()*0.0018+tx+ty);
-        ctx.fillStyle=`rgba(30,100,170,${shim})`; ctx.fillRect(sx,sy+OC_T-2,OC_T,2);
+        ctx.fillStyle='rgba(70,150,160,'+shim+')'; ctx.fillRect(sx,sy+OC_T-2,OC_T,2);
       }
       break;
     }
@@ -22469,19 +22562,31 @@ function drawOCTile(t, tx, ty, sx, sy) {
     }
 
     case OC.ROAD: {
-      ctx.fillStyle='#a89060'; ctx.fillRect(sx,sy,OC_T,OC_T);
-      ctx.fillStyle='#b8a070'; ctx.fillRect(sx,sy,OC_T,1);
-      ctx.fillStyle='#887050'; ctx.fillRect(sx,sy+OC_T-1,OC_T,1);
-      ctx.fillStyle='#887050'; ctx.fillRect(sx+5,sy,3,OC_T); ctx.fillRect(sx+OC_T-8,sy,3,OC_T);
+      // A cart track, not a railed lane. Two hard 3px bars at the same x on
+      // every tile, over a tile outlined top and bottom, drew a striped column
+      // down the map rather than a road.
+      if(!DHGround.drawToned(ctx,'road','#a89060',sx,sy,tx,ty)){
+        ctx.fillStyle='#a89060'; ctx.fillRect(sx,sy,OC_T,OC_T);
+      }
+      // Ruts run ALONG the road, so which way they go comes from where the
+      // road goes, and they are soft enough to read as worn ground.
+      {
+        const road=(v)=>v===OC.ROAD||v===OC.EXIT;
+        const ns=road(getOCT(tx,ty-1))||road(getOCT(tx,ty+1));
+        ctx.fillStyle='rgba(112,88,52,.16)';
+        if(ns){ ctx.fillRect(sx+6,sy,3,OC_T); ctx.fillRect(sx+OC_T-9,sy,3,OC_T); }
+        else  { ctx.fillRect(sx,sy+6,OC_T,3); ctx.fillRect(sx,sy+OC_T-9,OC_T,3); }
+      }
       break;
     }
 
     case OC.EXIT: {
-      ctx.fillStyle='#b09050'; ctx.fillRect(sx,sy,OC_T,OC_T);
-      ctx.fillStyle='#c0a060'; ctx.fillRect(sx,sy,OC_T,2);
-      // Worn cart ruts leading west
-      ctx.fillStyle='#8a7040'; ctx.fillRect(sx+4,sy,3,OC_T); ctx.fillRect(sx+OC_T-7,sy,3,OC_T);
-      ctx.fillStyle='#a08050'; ctx.fillRect(sx+4,sy,1,OC_T); ctx.fillRect(sx+OC_T-7,sy,1,OC_T);
+      if(!DHGround.drawToned(ctx,'road','#a89060',sx,sy,tx,ty)){
+        ctx.fillStyle='#b09050'; ctx.fillRect(sx,sy,OC_T,OC_T);
+      }
+      // Worn cart ruts leading west, softened for the same reason as OC.ROAD's.
+      ctx.fillStyle='rgba(112,88,52,.18)';
+      ctx.fillRect(sx+4,sy,3,OC_T); ctx.fillRect(sx+OC_T-7,sy,3,OC_T);
       // Weathered signpost
       ctx.fillStyle='#5a3810'; ctx.fillRect(sx+OC_T/2-1,sy+4,3,OC_T-10);
       ctx.fillStyle='#6a4818'; ctx.fillRect(sx+OC_T/2-1,sy+4,1,OC_T-10);
