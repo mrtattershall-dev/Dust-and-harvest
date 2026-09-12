@@ -7804,13 +7804,35 @@ function _pumpMsgQueue() {
   msgTimer2 = next.dur;
 }
 
+/* The banner queue drains at one message per its duration, so anything that
+   fires in a burst backs up behind itself: harvesting a forty-plot field queues
+   thirty-nine messages and then narrates them for close to two minutes, long
+   after you have walked away. Measured, not theorised.
+
+   Repeats collapse into a count, which is what a burst actually is — forty
+   identical harvest lines are one fact with a number on it. Beyond that the
+   queue is capped and the OLDEST non-showing entries are dropped, because in a
+   backlog the stale ones are the ones you no longer care about. */
+const MSG_QUEUE_MAX = 6;
+
+function _enqueueMsg(txt, dur, isTip) {
+  const last = _msgQueue[_msgQueue.length - 1];
+  if (last && last.baseTxt === txt && last.isTip === isTip) {
+    last.count++;
+    last.txt = `${txt} ×${last.count}`;
+    return;
+  }
+  _msgQueue.push({ txt, baseTxt: txt, dur, isTip, count: 1 });
+  if (_msgQueue.length > MSG_QUEUE_MAX) _msgQueue.splice(0, _msgQueue.length - MSG_QUEUE_MAX);
+}
+
 function showMsg(txt, dur=2800) {
-  _msgQueue.push({ txt, dur, isTip: false });
+  _enqueueMsg(txt, dur, false);
   if (!_msgShowing) _pumpMsgQueue();
 }
 
 function showTip(txt, dur=4200) {
-  _msgQueue.push({ txt, dur, isTip: true });
+  _enqueueMsg(txt, dur, true);
   if (!_msgShowing) _pumpMsgQueue();
 }
 
