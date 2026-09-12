@@ -1,0 +1,2498 @@
+{
+  "actors": {
+    "chicken": {
+      "anchor": {
+        "h": 17,
+        "w": 14,
+        "x": 9,
+        "y": 11
+      },
+      "bakedShadow": true,
+      "cell": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 6,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 3,
+        "right": 2,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/chicken"
+    },
+    "citizen1": {
+      "anchor": {
+        "h": 26,
+        "w": 17,
+        "x": 8,
+        "y": 2
+      },
+      "cellH": 32,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 12,
+          "loop": true,
+          "rowFrames": [
+            12,
+            12,
+            12,
+            6
+          ]
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/citizen1"
+    },
+    "citizen2": {
+      "anchor": {
+        "h": 24,
+        "w": 16,
+        "x": 6,
+        "y": 4
+      },
+      "cellH": 32,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 12,
+          "loop": true,
+          "rowFrames": [
+            12,
+            12,
+            12,
+            6
+          ]
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/citizen2"
+    },
+    "citizen3": {
+      "anchor": {
+        "h": 26,
+        "w": 19,
+        "x": 5,
+        "y": 2
+      },
+      "cellH": 32,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 12,
+          "loop": true,
+          "rowFrames": [
+            12,
+            12,
+            12,
+            6
+          ]
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/citizen3"
+    },
+    "citizen4": {
+      "anchor": {
+        "h": 24,
+        "w": 17,
+        "x": 7,
+        "y": 4
+      },
+      "cellH": 32,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 12,
+          "loop": true,
+          "rowFrames": [
+            12,
+            12,
+            12,
+            6
+          ]
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/citizen4"
+    },
+    "citizen5": {
+      "anchor": {
+        "h": 25,
+        "w": 16,
+        "x": 7,
+        "y": 3
+      },
+      "cellH": 32,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 12,
+          "loop": true,
+          "rowFrames": [
+            12,
+            12,
+            12,
+            6
+          ]
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/citizen5"
+    },
+    "cow": {
+      "anchor": {
+        "h": 27,
+        "w": 20,
+        "x": 22,
+        "y": 19
+      },
+      "bakedShadow": true,
+      "cell": 64,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 3,
+        "right": 2,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/cow"
+    },
+    "ent_ancient": {
+      "anchor": {
+        "h": 71,
+        "w": 59,
+        "x": 33,
+        "y": 9
+      },
+      "cell": 128,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 7,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 12,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/ent_ancient"
+    },
+    "ent_elder": {
+      "anchor": {
+        "h": 67,
+        "w": 53,
+        "x": 36,
+        "y": 13
+      },
+      "cell": 128,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 7,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 12,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/ent_elder"
+    },
+    "ent_sapling": {
+      "anchor": {
+        "h": 50,
+        "w": 39,
+        "x": 44,
+        "y": 30
+      },
+      "cell": 128,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 7,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 6,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/ent_sapling"
+    },
+    "foal": {
+      "anchor": {
+        "h": 26,
+        "w": 12,
+        "x": 26,
+        "y": 16
+      },
+      "cell": 64,
+      "clips": {
+        "idle": {
+          "file": "sheet.png",
+          "frames": 4,
+          "loop": true,
+          "rowBase": 4
+        },
+        "walk": {
+          "file": "sheet.png",
+          "frames": 6,
+          "loop": true,
+          "rowBase": 0
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 3,
+        "right": 2,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/foal"
+    },
+    "folk_alchemist": {
+      "anchor": {
+        "h": 42,
+        "w": 32,
+        "x": 0,
+        "y": 6
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_alchemist"
+    },
+    "folk_barmaid": {
+      "anchor": {
+        "h": 38,
+        "w": 24,
+        "x": 4,
+        "y": 10
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_barmaid"
+    },
+    "folk_bartender": {
+      "anchor": {
+        "h": 30,
+        "w": 24,
+        "x": 4,
+        "y": 18
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_bartender"
+    },
+    "folk_blacksmith": {
+      "anchor": {
+        "h": 32,
+        "w": 28,
+        "x": 0,
+        "y": 16
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_blacksmith"
+    },
+    "folk_farmer": {
+      "anchor": {
+        "h": 40,
+        "w": 26,
+        "x": 2,
+        "y": 8
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_farmer"
+    },
+    "folk_fisherman": {
+      "anchor": {
+        "h": 36,
+        "w": 28,
+        "x": 0,
+        "y": 12
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_fisherman"
+    },
+    "folk_kid1": {
+      "anchor": {
+        "h": 28,
+        "w": 24,
+        "x": 4,
+        "y": 20
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_kid1"
+    },
+    "folk_kid2": {
+      "anchor": {
+        "h": 28,
+        "w": 24,
+        "x": 4,
+        "y": 20
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_kid2"
+    },
+    "folk_merchant": {
+      "anchor": {
+        "h": 34,
+        "w": 28,
+        "x": 2,
+        "y": 14
+      },
+      "cellH": 48,
+      "cellW": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 4,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 1,
+        "right": 2,
+        "up": 3
+      },
+      "fps": 6.667,
+      "group": "npcs",
+      "path": "npcs/folk_merchant"
+    },
+    "ghost_revenant": {
+      "anchor": {
+        "h": 36,
+        "w": 30,
+        "x": 17,
+        "y": 6
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 12,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 9,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 6,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/ghost_revenant"
+    },
+    "ghost_wisp": {
+      "anchor": {
+        "h": 30,
+        "w": 20,
+        "x": 22,
+        "y": 9
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 12,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 9,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 6,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/ghost_wisp"
+    },
+    "ghost_wraith": {
+      "anchor": {
+        "h": 31,
+        "w": 20,
+        "x": 22,
+        "y": 8
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 12,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 9,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 6,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/ghost_wraith"
+    },
+    "gnoll_alpha": {
+      "anchor": {
+        "h": 34,
+        "w": 37,
+        "x": 14,
+        "y": 9
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 10,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 6,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/gnoll_alpha"
+    },
+    "gnoll_hunter": {
+      "anchor": {
+        "h": 33,
+        "w": 37,
+        "x": 14,
+        "y": 10
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 10,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 6,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/gnoll_hunter"
+    },
+    "gnoll_scav": {
+      "anchor": {
+        "h": 33,
+        "w": 37,
+        "x": 14,
+        "y": 10
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 10,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 6,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/gnoll_scav"
+    },
+    "goat": {
+      "anchor": {
+        "h": 25,
+        "w": 13,
+        "x": 10,
+        "y": 1
+      },
+      "cell": 32,
+      "clips": {
+        "idle": {
+          "file": "sheet.png",
+          "frames": 4,
+          "loop": true,
+          "rowBase": 4
+        },
+        "walk": {
+          "file": "sheet.png",
+          "frames": 6,
+          "loop": true,
+          "rowBase": 0
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 3,
+        "right": 2,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/goat"
+    },
+    "goatling": {
+      "anchor": {
+        "h": 18,
+        "w": 12,
+        "x": 10,
+        "y": 8
+      },
+      "cell": 32,
+      "clips": {
+        "idle": {
+          "file": "sheet.png",
+          "frames": 4,
+          "loop": true,
+          "rowBase": 4
+        },
+        "walk": {
+          "file": "sheet.png",
+          "frames": 6,
+          "loop": true,
+          "rowBase": 0
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 3,
+        "right": 2,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/goatling"
+    },
+    "golem_iron": {
+      "anchor": {
+        "h": 43,
+        "w": 57,
+        "x": 36,
+        "y": 33
+      },
+      "cell": 128,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 9,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 8,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 8,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/golem_iron"
+    },
+    "golem_magma": {
+      "anchor": {
+        "h": 53,
+        "w": 54,
+        "x": 37,
+        "y": 23
+      },
+      "cell": 128,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 9,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 8,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 8,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/golem_magma"
+    },
+    "golem_stone": {
+      "anchor": {
+        "h": 36,
+        "w": 52,
+        "x": 38,
+        "y": 40
+      },
+      "cell": 128,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 9,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 8,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 8,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/golem_stone"
+    },
+    "goose": {
+      "anchor": {
+        "h": 25,
+        "w": 15,
+        "x": 9,
+        "y": 1
+      },
+      "cell": 32,
+      "clips": {
+        "idle": {
+          "file": "sheet.png",
+          "frames": 4,
+          "loop": true,
+          "rowBase": 4
+        },
+        "walk": {
+          "file": "sheet.png",
+          "frames": 6,
+          "loop": true,
+          "rowBase": 0
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 3,
+        "right": 2,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/goose"
+    },
+    "gosling": {
+      "anchor": {
+        "h": 18,
+        "w": 12,
+        "x": 10,
+        "y": 7
+      },
+      "cell": 32,
+      "clips": {
+        "idle": {
+          "file": "sheet.png",
+          "frames": 4,
+          "loop": true,
+          "rowBase": 4
+        },
+        "walk": {
+          "file": "sheet.png",
+          "frames": 6,
+          "loop": true,
+          "rowBase": 0
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 3,
+        "right": 2,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/gosling"
+    },
+    "horse": {
+      "anchor": {
+        "h": 30,
+        "w": 13,
+        "x": 26,
+        "y": 12
+      },
+      "cell": 64,
+      "clips": {
+        "idle": {
+          "file": "sheet.png",
+          "frames": 4,
+          "loop": true,
+          "rowBase": 4
+        },
+        "walk": {
+          "file": "sheet.png",
+          "frames": 6,
+          "loop": true,
+          "rowBase": 0
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 3,
+        "right": 2,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/horse"
+    },
+    "orc_brute": {
+      "anchor": {
+        "h": 31,
+        "w": 40,
+        "x": 7,
+        "y": 11
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 8,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 8,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 6,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "run_attack": {
+          "file": "run_attack.png",
+          "frames": 8,
+          "loop": false
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        },
+        "walk_attack": {
+          "file": "walk_attack.png",
+          "frames": 6,
+          "loop": false
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/orc_brute"
+    },
+    "orc_scout": {
+      "anchor": {
+        "h": 29,
+        "w": 38,
+        "x": 7,
+        "y": 13
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 8,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 8,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 6,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "run_attack": {
+          "file": "run_attack.png",
+          "frames": 8,
+          "loop": false
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        },
+        "walk_attack": {
+          "file": "walk_attack.png",
+          "frames": 6,
+          "loop": false
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/orc_scout"
+    },
+    "orc_warlord": {
+      "anchor": {
+        "h": 36,
+        "w": 38,
+        "x": 8,
+        "y": 6
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 8,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 8,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 6,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "run_attack": {
+          "file": "run_attack.png",
+          "frames": 8,
+          "loop": false
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        },
+        "walk_attack": {
+          "file": "walk_attack.png",
+          "frames": 6,
+          "loop": false
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/orc_warlord"
+    },
+    "pig": {
+      "anchor": {
+        "h": 19,
+        "w": 21,
+        "x": 6,
+        "y": 9
+      },
+      "bakedShadow": true,
+      "cell": 32,
+      "clips": {
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 3,
+        "right": 2,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/pig"
+    },
+    "plant_azure": {
+      "anchor": {
+        "h": 33,
+        "w": 30,
+        "x": 17,
+        "y": 14
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 7,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 10,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 5,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/plant_azure"
+    },
+    "plant_ember": {
+      "anchor": {
+        "h": 35,
+        "w": 29,
+        "x": 17,
+        "y": 14
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 7,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 10,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 5,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/plant_ember"
+    },
+    "plant_orchid": {
+      "anchor": {
+        "h": 33,
+        "w": 29,
+        "x": 17,
+        "y": 14
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 7,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 10,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 5,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/plant_orchid"
+    },
+    "rabbit": {
+      "anchor": {
+        "h": 20,
+        "w": 17,
+        "x": 8,
+        "y": 8
+      },
+      "cell": 32,
+      "clips": {
+        "idle": {
+          "file": "sheet.png",
+          "frames": 4,
+          "loop": true,
+          "rowBase": 4
+        },
+        "walk": {
+          "file": "sheet.png",
+          "frames": 6,
+          "loop": true,
+          "rowBase": 0
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 3,
+        "right": 2,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/rabbit"
+    },
+    "rabbit_cub": {
+      "anchor": {
+        "h": 14,
+        "w": 13,
+        "x": 2,
+        "y": 1
+      },
+      "cell": 16,
+      "clips": {
+        "idle": {
+          "file": "sheet.png",
+          "frames": 4,
+          "loop": true,
+          "rowBase": 4
+        },
+        "walk": {
+          "file": "sheet.png",
+          "frames": 6,
+          "loop": true,
+          "rowBase": 0
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 3,
+        "right": 2,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "farm",
+      "path": "farm/rabbit_cub"
+    },
+    "rat_armored": {
+      "anchor": {
+        "h": 31,
+        "w": 41,
+        "x": 42,
+        "y": 47
+      },
+      "cell": 128,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 8,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 5,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 6,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 6,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/rat_armored"
+    },
+    "rat_crimson": {
+      "anchor": {
+        "h": 33,
+        "w": 33,
+        "x": 42,
+        "y": 45
+      },
+      "cell": 128,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 8,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 5,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 6,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 6,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/rat_crimson"
+    },
+    "rat_grey": {
+      "anchor": {
+        "h": 28,
+        "w": 31,
+        "x": 42,
+        "y": 49
+      },
+      "cell": 128,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 8,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 5,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 6,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 6,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/rat_grey"
+    },
+    "skeleton_bones": {
+      "anchor": {
+        "h": 22,
+        "w": 25,
+        "x": 26,
+        "y": 19
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 9,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 6,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/skeleton_bones"
+    },
+    "skeleton_guard": {
+      "anchor": {
+        "h": 23,
+        "w": 29,
+        "x": 23,
+        "y": 18
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 9,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 6,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/skeleton_guard"
+    },
+    "skeleton_lord": {
+      "anchor": {
+        "h": 27,
+        "w": 28,
+        "x": 23,
+        "y": 14
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 9,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 6,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 4,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 4,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 6,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/skeleton_lord"
+    },
+    "slime_ash": {
+      "anchor": {
+        "h": 33,
+        "w": 21,
+        "x": 23,
+        "y": 7
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 9,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 10,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 5,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 6,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 8,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/slime_ash"
+    },
+    "slime_blue": {
+      "anchor": {
+        "h": 26,
+        "w": 21,
+        "x": 23,
+        "y": 14
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 10,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 10,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 5,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 6,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 8,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/slime_blue"
+    },
+    "slime_bomb": {
+      "anchor": {
+        "h": 22,
+        "w": 24,
+        "x": 23,
+        "y": 18
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 10,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 8,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 5,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 6,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 8,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/slime_bomb"
+    },
+    "slime_bone": {
+      "anchor": {
+        "h": 26,
+        "w": 23,
+        "x": 22,
+        "y": 14
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 11,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 10,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 5,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 6,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 8,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/slime_bone"
+    },
+    "slime_fire": {
+      "anchor": {
+        "h": 39,
+        "w": 25,
+        "x": 20,
+        "y": 1
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 10,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 10,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 5,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 6,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 8,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/slime_fire"
+    },
+    "slime_gold": {
+      "anchor": {
+        "h": 35,
+        "w": 39,
+        "x": 14,
+        "y": 11
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 10,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 10,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 5,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 6,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 8,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/slime_gold"
+    },
+    "slime_imp": {
+      "anchor": {
+        "h": 22,
+        "w": 21,
+        "x": 23,
+        "y": 18
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 10,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 10,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 5,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 6,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 8,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/slime_imp"
+    },
+    "slime_moss": {
+      "anchor": {
+        "h": 22,
+        "w": 21,
+        "x": 23,
+        "y": 18
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 10,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 10,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 5,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 6,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 8,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/slime_moss"
+    },
+    "slime_void": {
+      "anchor": {
+        "h": 22,
+        "w": 23,
+        "x": 21,
+        "y": 18
+      },
+      "cell": 64,
+      "clips": {
+        "attack": {
+          "file": "attack.png",
+          "frames": 9,
+          "loop": false
+        },
+        "death": {
+          "file": "death.png",
+          "frames": 10,
+          "loop": false
+        },
+        "hurt": {
+          "file": "hurt.png",
+          "frames": 5,
+          "loop": false
+        },
+        "idle": {
+          "file": "idle.png",
+          "frames": 6,
+          "loop": true
+        },
+        "run": {
+          "file": "run.png",
+          "frames": 8,
+          "loop": true
+        },
+        "walk": {
+          "file": "walk.png",
+          "frames": 8,
+          "loop": true
+        }
+      },
+      "dirRows": {
+        "down": 0,
+        "left": 2,
+        "right": 3,
+        "up": 1
+      },
+      "fps": 6.667,
+      "group": "enemies",
+      "path": "enemies/slime_void"
+    }
+  },
+  "version": 1
+}

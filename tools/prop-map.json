@@ -1,0 +1,77 @@
+{
+  "_comment": [
+    "Scatter props: named 32x32 PNGs from CraftPix's Desert Tileset, grouped by",
+    "what they stand in for. The game picks a variant per tile deterministically",
+    "from the tile coordinate, so a given rock is always the same rock.",
+    "",
+    "Only 32x32 objects are used. The pack also ships 64x64 and 128x128 pieces",
+    "(large trees, mesas, pyramids, ruins) which would need multi-tile handling;",
+    "those are left for a later pass.",
+    "",
+    "Source: PNG/Objects_separately/ in the desert pack.",
+    "Run tools/build_props.py after editing.",
+    "skull also carries a few rocks: the tile is a 'dangerous-looking rock cluster', and the pack's single-skull pieces are 16x16 so only the two clusters are usable."
+  ],
+  "rock": [
+    "Rock3_1.png",
+    "Rock3_2.png",
+    "Rock3_3.png",
+    "Rock3_4.png",
+    "Rock3_5.png",
+    "Rock3_6.png",
+    "Rock4_1.png",
+    "Rock4_2.png",
+    "Rock4_3.png",
+    "Rock4_4.png",
+    "Rock4_5.png",
+    "Rock4_6.png",
+    "Rock11_1.png",
+    "Rock11_2.png",
+    "Rock11_3.png",
+    "Rock11_4.png",
+    "Rock11_5.png",
+    "Rock11_6.png",
+    "Rock12_1.png",
+    "Rock12_2.png",
+    "Rock12_3.png",
+    "Rock12_4.png",
+    "Rock12_5.png",
+    "Rock12_6.png"
+  ],
+  "bush": [
+    "Small_bush1.png",
+    "Small_bush2.png",
+    "Grass_element1.png",
+    "Grass_element2.png",
+    "Grass_element3_2_grass_shadow.png",
+    "Grass_element4__grass_shadow2.png"
+  ],
+  "tumbleweed": [
+    "Small_bush1.png",
+    "Small_bush2.png",
+    "Grass_element2_1_sand_shadow.png",
+    "Grass_element2_2_sand_shadow.png",
+    "Grass_element3_1_sand_shadow.png",
+    "Sand_element3.png"
+  ],
+  "skull": [
+    "Sculls_sand_shadow.png",
+    "Sculls_grass_shadow.png",
+    "Rock11_1.png",
+    "Rock11_4.png",
+    "Rock12_2.png"
+  ],
+  "bone": [
+    "Bones_sand_shadow5.png",
+    "Bones_grass_shadow5.png",
+    "Bone_sand_shadpw.png",
+    "Bone_grass_shadow.png"
+  ],
+  "cactus": [
+    "Cactus1_sand_shadow2.png",
+    "Cactus2_sand_shadow1.png",
+    "Cactus2_sand_shadow2.png",
+    "Cactus3_ground_shadow2.png",
+    "Cactus3_ground_shadow3.png"
+  ]
+}
