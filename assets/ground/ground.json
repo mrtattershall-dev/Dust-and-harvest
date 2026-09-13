@@ -1,0 +1,38 @@
+{
+ "period": 512,
+ "terrains": {
+  "dirt": {
+   "base": "#8f4f35",
+   "oy": 0
+  },
+  "dust": {
+   "base": "#d89b62",
+   "oy": 512
+  },
+  "grass": {
+   "base": "#598166",
+   "oy": 1024
+  },
+  "minefloor": {
+   "base": "#5f4c3c",
+   "oy": 1536
+  },
+  "pen": {
+   "base": "#8a6840",
+   "oy": 2048
+  },
+  "road": {
+   "base": "#8f7c66",
+   "oy": 2560
+  },
+  "sand": {
+   "base": "#d2b268",
+   "oy": 3072
+  },
+  "street": {
+   "base": "#a38762",
+   "oy": 3584
+  }
+ },
+ "tile": 32
+}
