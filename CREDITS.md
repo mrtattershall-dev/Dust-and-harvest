@@ -86,6 +86,19 @@ Lodge* — actor ids `hunter` and `dog` — along with the camp's tanning rack,
 hide crate, campfire, firewood and trap. The lodge building in that pack is
 not used.
 
+The farm's forge, its workbench and the anvil beside the forge come from
+*Pixel Blacksmith House Interior and Exterior* — the forge is three frames of
+that pack's six-frame coal animation. A warm tint is applied over the sprite at
+draw time to bring its slate-and-steel palette toward this game's; the pixels
+are the pack's.
+
+The ranch barn is the barn from *Top-Down Farm with Animals* (`Houses.png`,
+native 1:1). Its roof is recoloured at bake time from the pack's blue-grey
+slate to barn red by rotating the hue of the roof pixels only — the shading is
+entirely the original artist's. The open-door variant is the same sprite with
+the doors replaced by the darkness the pack already draws inside the hayloft
+opening above them.
+
 The market square's stall furniture — the trestle tables and the shelf — comes
 from *Armor and Weapons Pixel RPG Icons*, whose `Furniture.png` ships each
 fixture bare as well as loaded. The goods laid out on them are this game's own

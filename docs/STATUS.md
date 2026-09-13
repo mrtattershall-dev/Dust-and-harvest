@@ -115,13 +115,12 @@ and it goes through the asset-inlining shim, which the served build does not.
 
 ## Known unfinished, roughly by value
 
-1. **The source packs are not in the repo** and were not in the container this
-   work was done in, so nothing new could be baked — only what is already in
-   `assets/` could be re-used and retoned. Everything below that needs pack art
-   is blocked until the zips are re-delivered.
-2. **Mine props** — the Miner's Cave pack's `!$Metal Ores.png`, pit props,
-   beams, ladders, lanterns and mine carts are still unused. The mine reads
-   well now but every part of it is drawn, not imported.
+1. **Mine props** — the Miner's Cave pack is extracted and unused. The mine
+   reads well now but every part of it is drawn, not imported.
+2. **Feed trough** is still hand-painted, and no pack examined so far ships a
+   trough: the farm pack's barn interior has only an empty bench and an empty
+   rack, both drawn as dark silhouettes for an unlit barn. Left as it is on
+   purpose, not overlooked.
 3. **Terrain regions have square corners.** `clumpFill` cuts them on the tile
    lattice and only grass softens its edges (`_grassEdges`). A patch of sand in
    dirt ends in right angles. Every terrain pair wants that softening, not just
@@ -135,7 +134,32 @@ and it goes through the asset-inlining shim, which the served build does not.
    tree's root; the tree then goes in front of both. Sorting props and entities
    into one list is the real fix, and means restructuring the NPC, enemy,
    animal and player loops — several of which later slices patch again.
-6. **Unexamined packs**: medieval interior, green village, green dungeon.
+6. **Unexamined packs**: medieval interior, green village, green dungeon,
+   tavern, nobles manor, mage tower, herbalist's hut, market square, and —
+   most relevant to this game's setting — `craftpixnet874337deserttilesettopdownpixelart`.
+
+## The source packs ARE here
+
+This section used to say the opposite, in this file, in the commit messages and
+to the person who owns the game, and on that basis a barn, a forge, a
+workbench, a well, five signposts, a dead tree and a palm tree were all painted
+by hand while the art for every one of them sat in the library. I had looked in
+two places, found nothing, and concluded instead of looking.
+
+They are in `/root/.claude/uploads/<session-id>/` as ~70 zips, extracted to
+`.asset-tmp/packs/` (gitignored). `tools/build_fixtures.py` takes that directory
+as its root and resolves each piece by glob, so it runs anywhere the packs are
+extracted:
+
+    python3 tools/build_fixtures.py [PACKS_ROOT]     # default .asset-tmp/packs
+
+**Before using a pack, measure its native scale.** The detector is in
+`.asset-tmp/sheet.py`: a sheet is an N-fold nearest upscale if every NxN block
+is uniform. The farm pack's `Houses.png` is step 1 — native, usable at 1:1.
+The farmlands pack's `32x32.png` is step 2 — a 16px-native sheet doubled, so
+its props at 1:1 are half this game's pixel density and cannot be used beside
+the rest of the art. `size_in_file / native_step` is what you are actually
+getting.
 
 ## Traps this file exists to stop you re-learning
 
