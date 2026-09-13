@@ -51,6 +51,8 @@ SMITH = "*blacksmith*/PNG/"
 TREES = "*freetopdowntrees*/PNG/Assets_separately/Trees/"
 FARM  = "*farmwithanimals*/"
 FISH  = "*fishingvillage*2/PNG/"
+# The 16px sheet: the 32/48/64 files beside it are exact upscales of it.
+GV    = "*greenvillage*/All Tileset/16x16.png"
 
 PIECES = {
     # ── Amos's camp (Hunter's Lodge) ─────────────────────────────────────
@@ -135,6 +137,23 @@ PIECES = {
     "grave4": ("*chapel*/PNG/Exterior.png", (167, 197, 17, 18)),
     "grave5": ("*chapel*/PNG/Exterior.png", (232, 226, 16, 24)),
     "grave6": ("*chapel*/PNG/Exterior.png", (199, 260, 17, 19)),
+
+    # ── Village furniture (Green Village) ────────────────────────────────
+    # Cut from All Tileset/16x16.png, NOT from the 32x32 or 64x64 files in the
+    # same folder: those are exact 2x and 4x upscales of it, and slicing one of
+    # them yields magnified pixels that look right alone and wrong beside every
+    # other piece here. Measured, because it is invisible otherwise.
+    #
+    # This pack is where the well and the signposts were all along, and I
+    # painted both by hand — the well in forty lines of ellipses and rim
+    # stones, the signposts five times over for five different zone exits.
+    "well":        (GV, (3, 112, 28, 32)),   # drum, windlass, bucket on a rope
+    "well_plain":  (GV, (3, 80, 26, 28)),
+    "signpost":    (GV, (78, 86, 17, 21)),   # one board on a post
+    "signpost_arrow": (GV, (98, 78, 16, 29)),# a board pointing the way
+    "minecart":    (GV, (32, 126, 29, 18)),
+    "minecart2":   (GV, (64, 126, 29, 18)),
+    "lantern":     (GV, (3, 64, 14, 16)),
 
     # ── The forge (Pixel Blacksmith House) ───────────────────────────────
     # The anvil ships as its own file. The forge itself is the first frame of

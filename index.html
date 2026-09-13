@@ -8636,61 +8636,29 @@ function drawBarn(bx, by, bw, bh, open) {
 // Everything is mirrored about the join and nothing crosses it, so the halves
 // meet flush.
 function drawWell(sx, sy, T2, left) {
-  const E = left ? 0 : -T2;
-  ctx.save();
-  ctx.beginPath(); ctx.rect(sx, sy, T2, T2); ctx.clip();
-  const X = sx + E, W2 = T2 * 2, cxw = X + T2, cyw = sy + T2 * 0.60;
-  ctx.fillStyle = 'rgba(0,0,0,.28)';
-  ctx.beginPath(); ctx.ellipse(cxw, sy + T2 * 0.88, T2 * 0.92, T2 * 0.26, 0, 0, Math.PI * 2); ctx.fill();
-  // Drum: coursed fieldstone, lit from above.
+  // The well is a baked fixture from the Green Village pack — a stone drum
+  // with a windlass and a bucket on a rope. I painted one by hand first, in
+  // forty lines of ellipses and individually placed rim stones, having told
+  // myself and the user that "no pack in the library ships a well". The pack
+  // was in the library the whole time.
+  //
+  // A well is laid as two tiles side by side because it BLOCKS two tiles; the
+  // art does not have to fill them, and a real well does not fill a 2x1
+  // rectangle. It is drawn once, centred on the join.
+  //
+  // By the RIGHT half, not the left. Drawing it from the left tile put half a
+  // well on screen: tiles are drawn left to right, so the right tile's own
+  // ground then painted over the half that spilled into it.
+  if (left) return;
+  const cx2 = sx;                         // the join between the two tiles
+  ctx.fillStyle = 'rgba(0,0,0,.26)';
+  ctx.beginPath(); ctx.ellipse(cx2, sy + T2 * 0.86, 19, 6, 0, 0, Math.PI * 2); ctx.fill();
+  if (drawFixture('well', cx2, sy + T2 * 0.96)) return;
+  // Painted stand-in, for when the fixtures atlas has not loaded.
   ctx.fillStyle = '#6d6459';
-  ctx.beginPath(); ctx.ellipse(cxw, cyw, T2 * 0.86, T2 * 0.52, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#7e7468';
-  ctx.beginPath(); ctx.ellipse(cxw, cyw - 2, T2 * 0.86, T2 * 0.52, 0, Math.PI, 0); ctx.fill();
-  ctx.fillStyle = 'rgba(0,0,0,.22)';
-  ctx.beginPath(); ctx.ellipse(cxw, cyw + 3, T2 * 0.86, T2 * 0.52, 0, 0, Math.PI); ctx.fill();
-  // Individual stones round the rim, so it is masonry and not a disc.
-  for (let a = 0; a < 14; a++) {
-    const th = Math.PI * (a / 13);
-    const px = cxw - Math.cos(th) * T2 * 0.80, py = cyw + Math.sin(th) * T2 * 0.46;
-    ctx.fillStyle = (a % 2) ? 'rgba(150,142,130,.30)' : 'rgba(40,36,32,.26)';
-    ctx.fillRect(px - 2, py - 2, 4, 4);
-  }
-  // Shaft: dark, with water a long way down.
+  ctx.beginPath(); ctx.ellipse(cx2, sy + T2 * 0.6, T2 * 0.5, T2 * 0.34, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#1a1712';
-  ctx.beginPath(); ctx.ellipse(cxw, cyw, T2 * 0.62, T2 * 0.34, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#243a4e';
-  ctx.beginPath(); ctx.ellipse(cxw, cyw + 2, T2 * 0.40, T2 * 0.20, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(150,190,210,.22)';
-  ctx.beginPath(); ctx.ellipse(cxw - 3, cyw + 1, T2 * 0.16, T2 * 0.07, 0, 0, Math.PI * 2); ctx.fill();
-  // Posts, windlass and roof.
-  ctx.fillStyle = '#6b4a26';
-  ctx.fillRect(X + T2 * 0.28, sy + T2 * 0.12, 3, T2 * 0.52);
-  ctx.fillRect(X + W2 - T2 * 0.28 - 3, sy + T2 * 0.12, 3, T2 * 0.52);
-  ctx.fillStyle = '#4a3218';
-  ctx.fillRect(X + T2 * 0.30, sy + T2 * 0.30, W2 - T2 * 0.60, 5);
-  ctx.fillStyle = 'rgba(190,150,100,.30)';
-  ctx.fillRect(X + T2 * 0.30, sy + T2 * 0.30, W2 - T2 * 0.60, 1);
-  ctx.fillStyle = '#7a5730';
-  ctx.fillRect(X + W2 - T2 * 0.26, sy + T2 * 0.32, 4, 2);
-  ctx.fillStyle = '#5a3c1e';
-  ctx.beginPath();
-  ctx.moveTo(X + T2 * 0.10, sy + T2 * 0.16); ctx.lineTo(cxw, sy);
-  ctx.lineTo(X + W2 - T2 * 0.10, sy + T2 * 0.16); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = 'rgba(0,0,0,.25)';
-  ctx.beginPath();
-  ctx.moveTo(cxw, sy); ctx.lineTo(X + W2 - T2 * 0.10, sy + T2 * 0.16);
-  ctx.lineTo(cxw, sy + T2 * 0.16); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = 'rgba(210,180,140,.22)';
-  ctx.fillRect(X + T2 * 0.10, sy + T2 * 0.15, W2 - T2 * 0.20, 1);
-  // Rope and bucket.
-  ctx.fillStyle = '#c8b48a';
-  ctx.fillRect(cxw + T2 * 0.34, sy + T2 * 0.33, 1, T2 * 0.20);
-  ctx.fillStyle = '#6b4a26';
-  ctx.fillRect(cxw + T2 * 0.30, sy + T2 * 0.52, 8, 7);
-  ctx.fillStyle = '#8a6436'; ctx.fillRect(cxw + T2 * 0.30, sy + T2 * 0.52, 8, 1);
-  ctx.fillStyle = 'rgba(0,0,0,.30)'; ctx.fillRect(cxw + T2 * 0.30, sy + T2 * 0.56, 8, 1);
-  ctx.restore();
+  ctx.beginPath(); ctx.ellipse(cx2, sy + T2 * 0.6, T2 * 0.34, T2 * 0.2, 0, 0, Math.PI * 2); ctx.fill();
 }
 
 // A crack network across dried ground, built on a jittered lattice in WORLD
@@ -9267,7 +9235,7 @@ function drawTile(tx,ty,sx,sy) {
     // Two tiles side by side, each drawing its own half of ONE well. Shared
     // with the camp, which had its own painted copy of the same placeholder.
     _owGround();
-    drawWell(sx, sy, T, getT(tx+1,ty) === TL.WELL);
+    drawWell(sx, sy, T, getT(tx-1,ty) !== TL.WELL);
   }
   else if(t===TL.CRATE){
     _owGround();
@@ -9465,17 +9433,11 @@ function drawTile(tx,ty,sx,sy) {
       ctx.fillRect(sx + 6, sy, 3, T); ctx.fillRect(sx + T - 9, sy, 3, T);
       // A marker post where the track starts, pointing north.
       if (getT(tx - 1, ty) !== TL.HOBO_PORTAL) {
-        const hp = 0.5 + 0.4 * Math.sin(Date.now() * .003 + tx);
+        // The Green Village pack's signpost. I painted this five times over —
+        // once for each zone exit — while the pack sat unread in the library.
         ctx.fillStyle = 'rgba(0,0,0,.22)';
-        ctx.beginPath(); ctx.ellipse(sx + T * 0.30, sy + T - 5, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#5a4632'; ctx.fillRect(sx + T * 0.28, sy + 6, 3, T - 11);
-        ctx.fillStyle = '#786250'; ctx.fillRect(sx + T * 0.28, sy + 6, 1, T - 11);
-        ctx.fillStyle = '#6a5946'; ctx.fillRect(sx + T * 0.28, sy + 6, 15, 7);
-        ctx.beginPath();
-        ctx.moveTo(sx + T * 0.28 + 15, sy + 6); ctx.lineTo(sx + T * 0.28 + 15, sy + 13);
-        ctx.lineTo(sx + T * 0.28 + 20, sy + 9.5); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = 'rgba(224,232,190,' + (0.20 + 0.16 * hp) + ')';
-        ctx.fillRect(sx + T * 0.28 + 2, sy + 9, 10, 1);
+        ctx.beginPath(); ctx.ellipse(sx + T * 0.32, sy + T - 5, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+        drawFixture('signpost', sx + T * 0.32, sy + T - 3);
       }
     }
   }
@@ -9554,18 +9516,11 @@ function drawTile(tx,ty,sx,sy) {
       ctx.fillRect(sx, sy, T, T);
       // One sign per run, where the run starts.
       if (getT(tx, ty - 1) !== TL.BADLANDS_PORTAL) {
+        // The Green Village pack's signpost. I painted this five times over —
+        // once for each zone exit — while the pack sat unread in the library.
         ctx.fillStyle = 'rgba(0,0,0,.24)';
         ctx.beginPath(); ctx.ellipse(sx + T * 0.5, sy + T - 5, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#5a3010'; ctx.fillRect(sx + T / 2 - 1, sy + 8, 3, T - 13);
-        ctx.fillStyle = '#7a4818'; ctx.fillRect(sx + T / 2 - 1, sy + 8, 1, T - 13);
-        // Board pointing west.
-        ctx.fillStyle = '#7a5730'; ctx.fillRect(sx + T / 2 - 4, sy + 8, 17, 7);
-        ctx.beginPath();
-        ctx.moveTo(sx + T / 2 - 4, sy + 8); ctx.lineTo(sx + T / 2 - 9, sy + 11.5);
-        ctx.lineTo(sx + T / 2 - 4, sy + 15); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = 'rgba(240,220,180,.30)'; ctx.fillRect(sx + T / 2 - 4, sy + 8, 17, 1);
-        ctx.fillStyle = 'rgba(60,40,20,.55)';
-        ctx.fillRect(sx + T / 2 - 1, sy + 11, 11, 1);
+        drawFixture('signpost_arrow', sx + T * 0.5, sy + T - 3);
       }
     }
   }
@@ -21452,7 +21407,7 @@ function drawHCTile(t, tx, ty, sx, sy) {
       // Was the camp's own painted well — a grey box with a blue square in it,
       // the same placeholder the overworld's was.
       _hcGround(tx, ty, sx, sy, '#7a6251');
-      drawWell(sx, sy, HC_T, getHCT(tx+1,ty) === TL.WELL);
+      drawWell(sx, sy, HC_T, getHCT(tx-1,ty) !== TL.WELL);
       break;
     }
     default: {
@@ -24368,19 +24323,11 @@ function drawBLTile(tx,ty,sx,sy) {
       ctx.fillRect(sx,sy+7,T,3); ctx.fillRect(sx,sy+T-10,T,3);
       // One post per run, on the tile where the run starts.
       if(getBLT(tx-1,ty)!==BL.BL_EXIT){
-        const pt=Date.now()*.0022+ty*1.1;
+        // The Green Village pack's signpost. I painted this five times over —
+        // once for each zone exit — while the pack sat unread in the library.
         ctx.fillStyle='rgba(0,0,0,.22)';
         ctx.beginPath(); ctx.ellipse(sx+T*0.42,sy+T-5,6,3,0,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#6b4a26'; ctx.fillRect(sx+T*0.40,sy+7,3,T-12);
-        ctx.fillStyle='#8a6436'; ctx.fillRect(sx+T*0.40,sy+7,1,T-12);
-        // The board, pointing east.
-        ctx.fillStyle='#7a5730'; ctx.fillRect(sx+T*0.22,sy+8,17,7);
-        ctx.beginPath();
-        ctx.moveTo(sx+T*0.22+17,sy+8); ctx.lineTo(sx+T*0.22+22,sy+11.5);
-        ctx.lineTo(sx+T*0.22+17,sy+15); ctx.closePath(); ctx.fill();
-        ctx.fillStyle='rgba(240,220,180,.30)'; ctx.fillRect(sx+T*0.22,sy+8,17,1);
-        ctx.fillStyle='rgba(255,240,200,'+(0.20+0.16*Math.sin(pt))+')';
-        ctx.fillRect(sx+T*0.22+3,sy+11,10,1);
+        drawFixture('signpost_arrow', sx+T*0.42, sy+T-3);
       }
     }
 
@@ -35930,15 +35877,11 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       ctx.fillStyle = 'rgba(60,80,40,.22)';
       ctx.fillRect(sx, sy, T, 4); ctx.fillRect(sx, sy + T - 4, T, 4);
       if (getJGT(tx - 1, ty) !== JG.EXIT) {
-        const ep = 0.5 + 0.5 * Math.abs(Math.sin(now * 0.002));
+        // The Green Village pack's signpost. I painted this five times over —
+        // once for each zone exit — while the pack sat unread in the library.
         ctx.fillStyle = 'rgba(0,0,0,.24)';
         ctx.beginPath(); ctx.ellipse(sx+T*0.42, sy+T-5, 6, 3, 0, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#6b4a26'; ctx.fillRect(sx+T*0.40, sy+6, 3, T-11);
-        ctx.fillStyle = '#8a6436'; ctx.fillRect(sx+T*0.40, sy+6, 1, T-11);
-        ctx.fillStyle = '#7a5730'; ctx.fillRect(sx+T*0.20, sy+7, 18, 7);
-        ctx.fillStyle = 'rgba(240,220,180,.30)'; ctx.fillRect(sx+T*0.20, sy+7, 18, 1);
-        ctx.fillStyle = 'rgba(255,244,200,' + (0.18 + 0.18*ep) + ')';
-        ctx.fillRect(sx+T*0.20+3, sy+10, 11, 1);
+        drawFixture('signpost_arrow', sx+T*0.42, sy+T-3);
       }
       break;
     }
