@@ -189,7 +189,68 @@ PIECES = {
     "coal_pile":  (SMITH + "House_interior_objects.png", (181, 136, 53, 40)),
     "barrels":    (SMITH + "House_interior_objects.png", (480, 96, 32, 24)),
     "logpile":    (SMITH + "House_interior_objects.png", (124, 141, 49, 35)),
+
+    # --- The barn.
+    #
+    # The farm's barn was four flat red rectangles with white lines on them and
+    # no roof at all, which from a top-down camera is a wall standing on its
+    # own. This one is drawn in the game's own perspective: shingled roof,
+    # planked walls, a hayloft opening over the doors.
+    #
+    # Houses.png is native at 1:1 (the upscale detector says step 1 and there
+    # is no second scale in the pack), so it is used at 1:1 and the map's barn
+    # footprint moves to fit it — see buildMap(). Scaling the art instead would
+    # need 1.4x, which is not an integer and would smear it against every other
+    # sprite on screen.
+    "barn":      (FARM + "Tiled_files/Houses.png", (403, 12, 91, 83)),
+    "barn_open": (FARM + "Tiled_files/Houses.png", (403, 12, 91, 83)),
 }
+
+# The pack is a northern village: its roofs are blue-grey slate. On this game's
+# red dirt that reads as a sprite from another game, and a barn in this setting
+# is a red barn. Rotating the hue of just the roof pixels keeps every bit of
+# the original shading — the shingle rows, the ridge highlight, the shadow
+# under the eaves — and only moves where they sit on the colour wheel. A flat
+# wash over the top would have crushed all of that into one mud colour.
+#
+# The roof separates cleanly: every roof pixel has blue at least 18 above red,
+# and no plank or door pixel does.
+def _roof_to_red(im):
+    import colorsys
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if a == 0 or b <= r + 18:
+                continue
+            h, l, sat = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
+            # 0.02 is a warm red; the saturation lift stops the darkest
+            # shingles going grey-brown once the blue is gone.
+            nr, ng, nb = colorsys.hls_to_rgb(0.02, l * 0.96, min(1.0, sat * 1.45 + 0.12))
+            px[x, y] = (int(nr * 255), int(ng * 255), int(nb * 255), a)
+    return im
+
+
+# The doors are a solid rectangle in the middle of the south wall. BARN_OPEN
+# shows the inside instead: the same darkness the hayloft opening above them
+# is already drawn with, sampled from the sprite rather than picked by eye, so
+# the two openings match. The door rect is measured from the white trim.
+def _open_doors(im):
+    px = im.load()
+    # The darkest opaque pixel inside the hayloft opening, found rather than
+    # picked: hard-coding a sample point put it in the ROOF, which after
+    # _roof_to_red() ran made the open doorway a flat red rectangle.
+    dark = min((px[x, y] for y in range(42, 52) for x in range(40, 54)
+                if px[x, y][3]), key=lambda p: p[0] + p[1] + p[2])
+    for y in range(58, 80):
+        for x in range(25, 67):
+            if px[x, y][3]:
+                px[x, y] = dark
+    return im
+
+
+POST = {"barn": _roof_to_red,
+        "barn_open": lambda im: _open_doors(_roof_to_red(im))}
 
 PAD = 1   # a transparent gutter, so no piece bleeds into its neighbour
 
@@ -212,6 +273,8 @@ def main():
         sheet = Image.open(find(root, pattern)).convert("RGBA")
         im = sheet if rect is None else sheet.crop(
             (rect[0], rect[1], rect[0] + rect[2], rect[1] + rect[3]))
+        if name in POST:
+            im = POST[name](im.copy())
         bb = im.getbbox()
         if bb is None:
             raise SystemExit(f"'{name}' is empty — the rect is wrong")

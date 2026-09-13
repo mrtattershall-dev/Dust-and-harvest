@@ -6035,8 +6035,15 @@ function buildMap() {
   // Wide grazing field (open pen_floor area)
   for(let y=56;y<70;y++) for(let x=3;x<30;x++) setT(x,y,TL.PEN_FLOOR);
 
-  // Barn structure at x16,y50 — 4 wide x 5 tall
-  for(let y=50;y<55;y++) for(let x=16;x<20;x++) setT(x,y,TL.BARN_CLOSED);
+  // Barn structure at x16,y52 — 3 wide x 3 tall.
+  //
+  // It was 4x5 (128x160 px) when the barn was four flat red rectangles drawn
+  // to fill whatever rect it was handed. The pack's barn is 91x83 native and
+  // the pack ships no second scale, so the footprint moves to the art rather
+  // than the art being smeared to 1.4x. 3x3 is 96x96: the sprite sits inside
+  // it with 2px of ground either side and 13px above, instead of the 45px of
+  // invisible wall that keeping the old footprint would have left.
+  for(let y=52;y<55;y++) for(let x=16;x<19;x++) setT(x,y,TL.BARN_CLOSED);
   // Barn door — south face center, starts closed
   setT(BARN_TX, BARN_TY, TL.BARN_CLOSED); setT(BARN_TX+1, BARN_TY, TL.BARN_CLOSED);
 
@@ -8557,6 +8564,10 @@ function barnBox(tx, ty) {
 // front below it, big doors in the middle. Everything is proportional to the
 // rect, so the barn is still a barn if its footprint changes.
 function drawBarn(bx, by, bw, bh, open) {
+  // This is the fallback now. The pack's barn is drawn in this game's own
+  // top-down perspective — a shingled roof you can actually see, planked
+  // walls, a hayloft opening over the doors — where this one is a flat wall
+  // standing on its own with no roof at all. See drawFarmFixtures().
   const roofH = bh * 0.46;
   const RED = '#7a2f1c', RED_D = '#5c2214', RED_L = '#8d3b24';
   // Shadow on the ground at the foot of the wall.
@@ -9544,6 +9555,13 @@ function drawTile(tx,ty,sx,sy) {
     // origin, so the roof, the trim and the doors line up across tiles without
     // any tile needing to know which piece of the picture it holds.
     _owGround();
+    // With the pack's barn loaded the whole building is ONE 91x83 blit that
+    // fits inside the 3x3 footprint, so it is drawn once by drawFarmFixtures()
+    // after the tile pass. Drawing it per tile under a clip put the sprite's
+    // semi-transparent edge pixels down twice wherever two clips overlapped —
+    // the 1px overlap the clip needs to avoid sub-pixel gaps — which traced a
+    // dark outline around the roof.
+    if (_fixArt.ok && _fixArt.rects && _fixArt.rects.barn) return;
     const bb = barnBox(tx, ty);
     ctx.save();
     // The clip is a pixel wide on each side, because the canvas is scaled by
@@ -10737,6 +10755,37 @@ function _farmArtOK() {
 
 function drawFarmFixtures(cx, cy) {
   if (!_farmArtOK()) return;
+
+  // --- The barn: one blit for the whole building.
+  //
+  // Clipped to the barn tiles the player has actually explored, as ONE path
+  // rather than one clip per tile, so it is still revealed tile by tile
+  // through the fog but the sprite's soft edge pixels are only ever laid down
+  // once. Per-tile clipping drew them twice in the 1px overlap the clip needs
+  // to avoid sub-pixel gaps, which outlined the roof in dark.
+  if (_fixArt.rects.barn && getT(BARN_TX, BARN_TY) !== undefined) {
+    const bb = barnBox(BARN_TX, BARN_TY);
+    let any = false;
+    ctx.save();
+    ctx.beginPath();
+    for (let ty = bb.y0; ty <= bb.y1; ty++) {
+      for (let tx = bb.x0; tx <= bb.x1; tx++) {
+        if (!isExplored(tx, ty)) continue;
+        ctx.rect(tx * T - cx, ty * T - cy, T, T);
+        any = true;
+      }
+    }
+    if (any) {
+      ctx.clip();
+      const w = (bb.x1 - bb.x0 + 1) * T, h = (bb.y1 - bb.y0 + 1) * T;
+      const mx = bb.x0 * T + w / 2 - cx, by = bb.y0 * T + h - cy;
+      ctx.fillStyle = 'rgba(0,0,0,.30)';
+      ctx.beginPath(); ctx.ellipse(mx, by - 3, 44, 7, 0, 0, Math.PI * 2); ctx.fill();
+      drawFixture(getT(BARN_TX, BARN_TY) === TL.BARN_OPEN ? 'barn_open' : 'barn',
+                  mx, by - 1);
+    }
+    ctx.restore();
+  }
 
   // --- Workbench.
   if (getT(WORKBENCH_TX, WORKBENCH_TY) === TL.WORKBENCH &&
