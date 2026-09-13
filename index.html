@@ -9255,11 +9255,16 @@ function drawTile(tx,ty,sx,sy) {
     ctx.fillRect(sx+3,sy+T/2-1,T-6,2);
   }
   else if(t===TL.FORGE){
-    // A forge standing on the yard, not a dark square with a glow in it. It
-    // filled its whole tile and inset a lighter rectangle, which is a box; and
-    // its flicker hashed off sx — the SCREEN x — so the coals pulsed at a
-    // different rate depending on where the camera was.
+    // The stone box with a rectangle of orange in it that used to be here was
+    // painted by hand while the blacksmith pack sat unopened in the library.
+    // The real forge is a six-frame animation of the coals breathing, 48x64,
+    // so it is wider and taller than its tile and is blitted by
+    // drawFarmFixtures() after the tile pass — otherwise the tile to its east
+    // repaints the right 8px of it. The ground under it is still this tile's
+    // job, because the tile pass is what owns the ground.
     _owGround();
+    if (_farmArtOK()) { /* body drawn late */ }
+    else {
     const fk = 0.5 + 0.5 * Math.sin(Date.now()*.008 + tx*1.7 + ty*0.9);
     ctx.fillStyle='rgba(0,0,0,.28)';
     ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T-5, 13, 5, 0, 0, Math.PI*2); ctx.fill();
@@ -9286,12 +9291,16 @@ function drawTile(tx,ty,sx,sy) {
     // The glow it throws on the ground in front of it.
     ctx.fillStyle='rgba(255,150,40,'+(0.07+0.05*fk)+')';
     ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T-3, 14, 5, 0, 0, Math.PI*2); ctx.fill();
+    }
   }
   else if(t===TL.WORKBENCH){
-    // A carpenter's bench. This was a tan rectangle with a 🪚 EMOJI on it —
-    // rendered in the page's serif font, at a size that has nothing to do with
-    // the game's pixel grid, next to art that is all hand-placed pixels.
+    // This was a tan rectangle with a 🪚 EMOJI on it; then it was a bench I
+    // drew plank by plank, with a saw laid on the top pixel by pixel. The
+    // blacksmith pack ships a workbench that comes with its tools already on
+    // it. Late-drawn like the forge: 50px wide on a 32px tile.
     _owGround();
+    if (_farmArtOK()) { /* body drawn late */ }
+    else {
     ctx.fillStyle='rgba(0,0,0,.26)';
     ctx.beginPath(); ctx.ellipse(sx+T/2, sy+T-4, 13, 4, 0, 0, Math.PI*2); ctx.fill();
     // Legs, then the top over them, so the bench has height.
@@ -9320,6 +9329,7 @@ function drawTile(tx,ty,sx,sy) {
     // Shavings on the ground.
     ctx.fillStyle='rgba(214,186,132,.5)';
     ctx.fillRect(sx+7, sy+T-3, 3, 1); ctx.fillRect(sx+T-11, sy+T-2, 4, 1);
+    }
   }
   else if(t===TL.CAMPFIRE){
     // No base was drawn at all, so the tile's own colour showed and the fire
@@ -10656,6 +10666,41 @@ function _fixAtlasDim(mul) {
   return cv;
 }
 
+// A warmed copy of the atlas, for pack pieces whose stone is cool grey-blue.
+// The blacksmith pack is a fantasy palette: its forge is slate and steel, and
+// standing on this game's red farm dirt it reads as a sprite borrowed from a
+// different game. A low-alpha warm wash over it, through 'source-atop' so the
+// transparent pixels stay transparent, pulls the stone toward sandstone
+// without touching what the coals are doing (orange over orange is orange).
+const _fixTintCache = {};
+function _fixAtlasTint(css, a) {
+  if (!_fixArt.ok) return null;
+  const key = css + '|' + a;
+  if (_fixTintCache[key]) return _fixTintCache[key];
+  const cv = document.createElement('canvas');
+  cv.width = _fixArt.img.width; cv.height = _fixArt.img.height;
+  const c = cv.getContext('2d');
+  c.imageSmoothingEnabled = false;
+  c.drawImage(_fixArt.img, 0, 0);
+  c.globalCompositeOperation = 'source-atop';
+  c.globalAlpha = a;
+  c.fillStyle = css;
+  c.fillRect(0, 0, cv.width, cv.height);
+  _fixTintCache[key] = cv;
+  return cv;
+}
+
+function drawFixtureTint(name, sx, sy, css, a) {
+  if (!_fixArt.ok) return false;
+  const r = _fixArt.rects[name];
+  if (!r) return false;
+  const atlas = _fixAtlasTint(css, a);
+  if (!atlas) return false;
+  ctx.drawImage(atlas, r[0], r[1], r[2], r[3],
+                Math.round(sx - r[2] / 2), Math.round(sy - r[3]), r[2], r[3]);
+  return true;
+}
+
 // Like drawFixture, but multiplied down to `mul` of its brightness.
 function drawFixtureDim(name, sx, sy, mul) {
   if (!_fixArt.ok) return false;
@@ -10676,6 +10721,53 @@ function drawFixture(name, sx, sy) {
   ctx.drawImage(_fixArt.img, r[0], r[1], r[2], r[3],
                 Math.round(sx - r[2] / 2), Math.round(sy - r[3]), r[2], r[3]);
   return true;
+}
+
+// § FARM FIXTURES — forge and workbench
+// Both pieces are wider than the 32px tile they stand on, so neither can be
+// blitted from the tile pass: the tile to the east draws after and would
+// repaint the right 8-9px of it. They are drawn here instead, after the whole
+// tile pass, from the same tile coordinates the map was stamped with.
+//
+// The tile branches still paint the ground and fall back to the hand-painted
+// versions when the atlas is missing, which is what _farmArtOK() gates.
+function _farmArtOK() {
+  return _fixArt.ok && !!_fixArt.rects && !!_fixArt.rects.forge0 && !!_fixArt.rects.workbench;
+}
+
+function drawFarmFixtures(cx, cy) {
+  if (!_farmArtOK()) return;
+
+  // --- Workbench.
+  if (getT(WORKBENCH_TX, WORKBENCH_TY) === TL.WORKBENCH &&
+      isExplored(WORKBENCH_TX, WORKBENCH_TY)) {
+    const bx = WORKBENCH_TX * T + T / 2 - cx, by = (WORKBENCH_TY + 1) * T - cy;
+    // A tight shadow. The first one was rx 17 on a 46px piece and read as a
+    // dark puddle sticking out past the legs.
+    ctx.fillStyle = 'rgba(0,0,0,.20)';
+    ctx.beginPath(); ctx.ellipse(bx, by - 2, 14, 4, 0, 0, Math.PI * 2); ctx.fill();
+    drawFixtureTint('workbench', bx, by, '#c07838', 0.12);
+  }
+
+  // --- Forge. Six frames of the coals breathing; three of them is enough to
+  // read as fire. The phase comes off wall-clock time and the TILE, never the
+  // screen x — the old hand-painted flicker hashed off sx, so the coals
+  // pulsed at a different rate depending on where the camera was.
+  if (getT(FORGE_TX, FORGE_TY) === TL.FORGE && isExplored(FORGE_TX, FORGE_TY)) {
+    const fx = FORGE_TX * T + T / 2 - cx, fy = (FORGE_TY + 1) * T - cy;
+    ctx.fillStyle = 'rgba(0,0,0,.28)';
+    ctx.beginPath(); ctx.ellipse(fx, fy - 4, 19, 6, 0, 0, Math.PI * 2); ctx.fill();
+    const fr = Math.floor(Date.now() / 170) % 3;
+    drawFixtureTint('forge' + fr, fx, fy, '#c07834', 0.26);
+    // An anvil beside it, on the ground west of the forge — the pack ships one
+    // and a forge without an anvil is a stove.
+    drawFixtureTint('anvil_block', fx - 38, fy - 2, '#c07834', 0.14);
+    // The light it throws on the ground in front of it, keyed to the frame so
+    // the glow and the coals breathe together.
+    const fk = 0.5 + 0.5 * Math.sin(Date.now() * .006);
+    ctx.fillStyle = 'rgba(255,150,40,' + (0.07 + 0.05 * fk).toFixed(3) + ')';
+    ctx.beginPath(); ctx.ellipse(fx, fy - 2, 17, 6, 0, 0, Math.PI * 2); ctx.fill();
+  }
 }
 
 // Where each piece sits relative to Amos, in world pixels. Drawn before him
@@ -19898,6 +19990,7 @@ function render() {
     }
   }
 
+  drawFarmFixtures(cx, cy);
   for (const npc of npcs) drawNPC(npc);
   drawTownProps(cx, cy);
   drawOverhangProps(cx, cy, false);

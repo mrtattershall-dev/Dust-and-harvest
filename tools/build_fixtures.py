@@ -162,6 +162,33 @@ PIECES = {
     # Anvil.png holds TWO anvils side by side in one 96x48 sheet — taking the
     # whole file put both of them on the tile.
     "anvil": (SMITH + "Smith/Forge/Anvil.png", (48, 0, 48, 48)),
+
+    # The forge is a six-frame animation of the coals breathing, 48x64 each.
+    # Three of them is enough to read as fire. I painted a forge by hand —
+    # a stone box with a rectangle of orange in it — with this in the library.
+    "forge0": (SMITH + "Forge_animation.png", (0, 0, 48, 64)),
+    "forge1": (SMITH + "Forge_animation.png", (96, 0, 48, 64)),
+    "forge2": (SMITH + "Forge_animation.png", (192, 0, 48, 64)),
+
+    # Rects from a connected-component scan of House_interior_objects.png.
+    # The workbench I painted had a saw drawn pixel by pixel on it.
+    #
+    # (439, 5, 50, 43) is a RACK OF SWORDS, which is what I wired in first and
+    # what the screenshot showed standing in the middle of a vegetable farm.
+    # It stays in the atlas under its real name, for the town, and the bench is
+    # now the worktable two rows down: a plank top with a cloth over it and a
+    # blade laid on it, which is a thing you make tools on.
+    #
+    # The two tables in that row touch in the component scan because the
+    # cloth's fringe reaches the right one; the alpha map has a clean 2px gap
+    # at x=494, which is where this rect stops.
+    "weaponrack": (SMITH + "House_interior_objects.png", (439, 5, 50, 43)),
+    "workbench":  (SMITH + "House_interior_objects.png", (448, 133, 46, 26)),
+    "worktable":  (SMITH + "House_interior_objects.png", (496, 135, 48, 24)),
+    "anvil_block":(SMITH + "House_interior_objects.png", (593, 64, 31, 30)),
+    "coal_pile":  (SMITH + "House_interior_objects.png", (181, 136, 53, 40)),
+    "barrels":    (SMITH + "House_interior_objects.png", (480, 96, 32, 24)),
+    "logpile":    (SMITH + "House_interior_objects.png", (124, 141, 49, 35)),
 }
 
 PAD = 1   # a transparent gutter, so no piece bleeds into its neighbour
