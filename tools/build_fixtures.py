@@ -206,6 +206,41 @@ PIECES = {
     "barn_open": (FARM + "Tiled_files/Houses.png", (403, 12, 91, 83)),
 }
 
+# --- Mine ore.
+#
+# The mine's seven veins were drawn: a few grey or orange chips on the rock,
+# which at 32px read as brick, not ore. The Miner's Cave pack ships ore chunks
+# in exactly seven colours with three variants of each, and the colours line up
+# with the game's ores almost one for one — sampled, not guessed:
+#
+#   x=0  (155,171,178) steel grey   -> iron
+#   x=16 (150,108,108) red-brown    -> copper
+#   x=32 (199,220,208) white        -> silver
+#   x=48 (249,194,43)  yellow       -> gold
+#   x=64 (205,223,108) green        -> unused
+#   x=80 (143,211,255) pale blue    -> crystal
+#   x=96 (168,132,243) violet       -> the singing vein
+#
+# There is no black, so coal is the iron chunks taken down to coal at bake
+# time — see _to_coal(). The pack is 16px-native (its 32x32.png is that sheet
+# doubled, which at 1:1 would be half this game's pixel density), so these are
+# used at 1:1 as 16px chunks scattered inside the 32px tile rather than as one
+# tile-filling sprite.
+MC = "*minerscave*/All Tileset/16x16.png"
+_ORE_X = {"iron": 0, "copper": 16, "silver": 32, "gold": 48,
+          "crystal": 80, "singing": 96}
+#
+# TWO variants, not three. The third row down is not a chunk: the alpha map
+# shows chunks in rows 320-333 and 336-349 and then nothing until 358, where
+# the loaded ORE CARTS start — which is what a third (x, 352, 16, 16) rect cut,
+# and the preview sheet showed a row of wooden cart rims among the ore.
+for _name, _x in _ORE_X.items():
+    for _v, _y in enumerate((320, 336)):
+        PIECES[f"ore_{_name}{_v}"] = (MC, (_x, _y, 16, 16))
+    PIECES[f"orecart_{_name}"] = (MC, (_x, 358, 16, 23))
+for _v, _y in enumerate((320, 336)):
+    PIECES[f"ore_coal{_v}"] = (MC, (0, _y, 16, 16))
+
 # The pack is a northern village: its roofs are blue-grey slate. On this game's
 # red dirt that reads as a sprite from another game, and a barn in this setting
 # is a red barn. Rotating the hue of just the roof pixels keeps every bit of
@@ -249,8 +284,48 @@ def _open_doors(im):
     return im
 
 
+# The pack has no black ore, so coal is its steel-grey iron chunks pushed down
+# to coal: desaturated so the blue goes out of the highlights, then darkened on
+# a curve rather than by a flat multiply, which would have taken the outline —
+# already the sheet's darkest colour — to solid black and lost the shape.
+def _to_coal(im):
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            lum = (r * 30 + g * 59 + b * 11) // 100
+            # 2.1/0.62 crushed it: the chunks came out as near-black blobs with
+            # no facets left. This keeps the range the shape is read from.
+            v = int(255 * (lum / 255) ** 1.55 * 0.70)
+            px[x, y] = (min(255, v + 10), min(255, v + 7), min(255, v + 14), a)
+    return im
+
+
+# The pack's "copper" is a dull rose (150,108,108) that beside its steel-grey
+# iron and white silver reads as a third grey, and the mine has all three. Real
+# copper is orange-brown; this moves the hue there and lifts the saturation,
+# keeping the shading exactly as drawn. Same treatment as the barn roof.
+def _to_copper(im):
+    import colorsys
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            h, l, sat = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
+            nr, ng, nb = colorsys.hls_to_rgb(0.055, l, min(1.0, sat * 1.9 + 0.22))
+            px[x, y] = (int(nr * 255), int(ng * 255), int(nb * 255), a)
+    return im
+
+
 POST = {"barn": _roof_to_red,
-        "barn_open": lambda im: _open_doors(_roof_to_red(im))}
+        "barn_open": lambda im: _open_doors(_roof_to_red(im)),
+        "ore_coal0": _to_coal, "ore_coal1": _to_coal,
+        "ore_copper0": _to_copper, "ore_copper1": _to_copper,
+        "orecart_copper": _to_copper}
 
 PAD = 1   # a transparent gutter, so no piece bleeds into its neighbour
 

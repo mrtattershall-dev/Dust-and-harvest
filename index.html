@@ -24417,7 +24417,7 @@ function drawBLTile(tx,ty,sx,sy) {
     if(!DHGround.drawToned(ctx,'dust','#8a5a30',sx,sy,tx,ty)){
       ctx.fillStyle='#8a5a30'; ctx.fillRect(sx,sy,T,T);
     }
-    drawOreSeam(sx, sy, tx, ty, '#5e2c0e', '#a8571f', '#dd8a3e');
+    drawOreSeam(sx, sy, tx, ty, '#5e2c0e', '#a8571f', '#dd8a3e', undefined, 'copper');
 
   } else if(t===BL.BL_IRON) {
     // An ore deposit, cut into the badlands rock the way the mine's are cut
@@ -24426,7 +24426,7 @@ function drawBLTile(tx,ty,sx,sy) {
     if(!DHGround.drawToned(ctx,'dust','#6a6258',sx,sy,tx,ty)){
       ctx.fillStyle='#6a6258'; ctx.fillRect(sx,sy,T,T);
     }
-    drawOreSeam(sx, sy, tx, ty, '#333a46', '#6d7686', '#a6b0c0');
+    drawOreSeam(sx, sy, tx, ty, '#333a46', '#6d7686', '#a6b0c0', undefined, 'iron');
 
   } else if(t===BL.BL_SILVER) {
     // An ore deposit, cut into the badlands rock the way the mine's are cut
@@ -24436,7 +24436,7 @@ function drawBLTile(tx,ty,sx,sy) {
       ctx.fillStyle='#6e6a62'; ctx.fillRect(sx,sy,T,T);
     }
     drawOreSeam(sx, sy, tx, ty, '#464e5c', '#939db0', '#dde4f0',
-                0.74+Math.sin(Date.now()*.002+tx*2.3+ty*1.1)*0.26);
+                0.74+Math.sin(Date.now()*.002+tx*2.3+ty*1.1)*0.26, 'silver');
 
   } else if(t===BL.BL_OBSIDIAN) {
     // An ore deposit, cut into the badlands rock the way the mine's are cut
@@ -24445,7 +24445,7 @@ function drawBLTile(tx,ty,sx,sy) {
     if(!DHGround.drawToned(ctx,'dust','#3a3440',sx,sy,tx,ty)){
       ctx.fillStyle='#3a3440'; ctx.fillRect(sx,sy,T,T);
     }
-    drawOreSeam(sx, sy, tx, ty, '#140f1c', '#2c2338', '#6b5a86');
+    drawOreSeam(sx, sy, tx, ty, '#140f1c', '#2c2338', '#6b5a86', undefined, 'singing');
 
   } else if(t===BL.BL_EXIT) {
     // The way back east. This pulsed a teal rectangle with a white arrow on
@@ -24587,7 +24587,41 @@ const MINE_TILE_COLORS = {
 // The seam runs on a diagonal across the tile, seeded off the MAP position so
 // it stays put, with the chunks lit from the top left like everything else
 // underground. `glow` pulses the bright facets, for the ores that should.
-function drawOreSeam(sx, sy, tx, ty, dark, mid, bright, glow) {
+// The ore chunks the Miner's Cave pack ships, laid into the tile as a seam.
+//
+// The pack is 16px-native, so a chunk is half a tile: two of them along the
+// seam's lean, overlapping slightly, fill it the way the painted chips never
+// did — those were 4-7px rectangles with a 1px highlight, which at this size
+// read as brick rather than as ore.
+//
+// The lean, the offsets and which of the two variants goes where all come off
+// the same tile hash the painted seam used, so a given tile is always the same
+// deposit and the mine does not shimmer as the camera moves.
+function drawOreChunks(sx, sy, tx, ty, ore, glow) {
+  const r0 = _fixArt.rects['ore_' + ore + '0'];
+  if (!r0) return false;
+  const h = ((tx * 374761393 + ty * 668265263) >>> 0);
+  const down = (h & 1) === 0;
+  const a = glow === undefined ? 1 : Math.min(1, 0.55 + glow * 0.45);
+  ctx.globalAlpha = a;
+  for (let i = 0; i < 2; i++) {
+    const r = _fixArt.rects['ore_' + ore + (((h >> (3 + i * 4)) & 1))] || r0;
+    // Chunk 0 high-left and chunk 1 low-right, or the other way up, with a
+    // few px of jitter so the pair is not the same shape in every tile.
+    const t2 = i * (T - r[2] - 4);
+    const jx = ((h >> (7 + i * 3)) & 3) - 1, jy = ((h >> (13 + i * 3)) & 3) - 1;
+    const px = Math.round(sx + 2 + t2 + jx);
+    const py = Math.round(sy + (down ? 3 + i * (T - r[3] - 6)
+                                     : (T - r[3] - 3) - i * (T - r[3] - 6)) + jy);
+    ctx.drawImage(_fixArt.img, r[0], r[1], r[2], r[3], px, py, r[2], r[3]);
+  }
+  ctx.globalAlpha = 1;
+  return true;
+}
+
+function drawOreSeam(sx, sy, tx, ty, dark, mid, bright, glow, ore) {
+  if (ore && _fixArt.ok && _fixArt.rects &&
+      drawOreChunks(sx, sy, tx, ty, ore, glow)) return;
   const h = ((tx * 374761393 + ty * 668265263) >>> 0);
   const down = (h & 1) === 0;                 // which way the seam leans
   const n = 4 + (h >> 3) % 3;                 // 4-6 chunks
@@ -24711,21 +24745,21 @@ function drawMineTile(t, sx, sy, tx, ty) {
     // #26262a against a #241f1b rock face is not "hard to see", it is invisible
     // — and coal is a resource the player has to spot to mine. Satin black
     // with a real highlight, which is what a coal seam looks like by lamplight.
-    drawOreSeam(sx, sy, tx, ty, '#0a0a0c', '#34343a', '#6e6e70');
+    drawOreSeam(sx, sy, tx, ty, '#0a0a0c', '#34343a', '#6e6e70', undefined, 'coal');
   } else if (t === TL.COPPER_VEIN) {
     drawMineRock(sx, sy, tx, ty);
-    drawOreSeam(sx, sy, tx, ty, '#5e2c0e', '#a8571f', '#dd8a3e');
+    drawOreSeam(sx, sy, tx, ty, '#5e2c0e', '#a8571f', '#dd8a3e', undefined, 'copper');
   } else if (t === TL.IRON_VEIN) {
     drawMineRock(sx, sy, tx, ty);
-    drawOreSeam(sx, sy, tx, ty, '#333a46', '#6d7686', '#a6b0c0');
+    drawOreSeam(sx, sy, tx, ty, '#333a46', '#6d7686', '#a6b0c0', undefined, 'iron');
   } else if (t === TL.GOLD_VEIN) {
     drawMineRock(sx, sy, tx, ty);
     drawOreSeam(sx, sy, tx, ty, '#5e4410', '#c29520', '#ffe07a',
-                0.72+Math.sin(Date.now()*.003+tx)*0.28);
+                0.72+Math.sin(Date.now()*.003+tx)*0.28, 'gold');
   } else if (t === TL.CRYSTAL_VEIN) {
     drawMineRock(sx, sy, tx, ty);
     drawOreSeam(sx, sy, tx, ty, '#161e46', '#3a63c4', '#9fc6ff',
-                0.62+Math.sin(Date.now()*.005+tx*1.7+ty*0.9)*0.38);
+                0.62+Math.sin(Date.now()*.005+tx*1.7+ty*0.9)*0.38, 'crystal');
   } else if (t === TL.MINE_EXIT) {
     drawMineRock(sx, sy, tx, ty);
     // The opening: an arch cut back into the face, dark at its edges.
@@ -24794,11 +24828,11 @@ function drawMineTile(t, sx, sy, tx, ty) {
   } else if (t === TL.SILVER_VEIN) {
     drawMineRock(sx, sy, tx, ty);
     drawOreSeam(sx, sy, tx, ty, '#464e5c', '#939db0', '#dde4f0',
-                0.74+Math.sin(Date.now()*.002+tx*2.3+ty*1.1)*0.26);
+                0.74+Math.sin(Date.now()*.002+tx*2.3+ty*1.1)*0.26, 'silver');
   } else if (t === TL.SINGING_VEIN) {
     drawMineRock(sx, sy, tx, ty);
     drawOreSeam(sx, sy, tx, ty, '#2e1442', '#6f38b4', '#c79bf0',
-                0.55+Math.sin(Date.now()*.00085*1000/1000+tx*2.1+ty*3.3)*0.45);
+                0.55+Math.sin(Date.now()*.00085*1000/1000+tx*2.1+ty*3.3)*0.45, 'singing');
 
   }
 }

@@ -115,8 +115,15 @@ and it goes through the asset-inlining shim, which the served build does not.
 
 ## Known unfinished, roughly by value
 
-1. **Mine props** — the Miner's Cave pack is extracted and unused. The mine
-   reads well now but every part of it is drawn, not imported.
+1. **The mine's walls and floor are almost the same colour.** With the ore now
+   readable the next thing you see is that you cannot tell rock from floor
+   without looking for the ore. The Miner's Cave pack cannot help: it is
+   16px-native and its `32x32.png` is that sheet doubled, so its wall tiles at
+   1:1 would be half this game's pixel density. `drawMineRock()` is the place.
+2. **Mine props** — the Miner's Cave pack's pit props, barrels, crates, rails,
+   mine carts, boulders and lanterns are cut-ready at 1:1 (16px props are half
+   a tile, which is the right size for scatter) and still unused. The ore
+   chunks and the loaded ore carts are baked; only the chunks are wired in.
 2. **Feed trough** is still hand-painted, and no pack examined so far ships a
    trough: the farm pack's barn interior has only an empty bench and an empty
    rack, both drawn as dark silhouettes for an unlit barn. Left as it is on
