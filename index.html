@@ -4495,6 +4495,13 @@ function renderSettingsUI() {
       </div>
     </div>
 
+    <div class="set-row">
+      <div><div class="set-label">Player Sprite</div><div class="set-desc">Draw the player as one of the game's drawn characters instead of the customizable one. Customization does nothing while this is set. Mage Tower characters have only one facing, so they look at you whichever way you walk.</div></div>
+      <div class="set-ctrl">${PLAYER_ACTOR_CHOICES.map(([id,label]) =>
+        `<button class="set-btn${(s.playerActor||'')===id?' active':''}" onclick="setPlayerActor('${id}');renderSettingsUI()">${label}</button>`
+      ).join('')}</div>
+    </div>
+
     <div class="set-section">🔊 Audio</div>
     <div class="set-row">
       <div><div class="set-label">Master Volume</div><div class="set-desc">Overall audio level for sounds and music</div></div>
@@ -36629,7 +36636,54 @@ window._dhCharClip = 'idle';
 
 const _DH_CLIP_FPS = { idle: 6, walk: 9, run: 12, hurt: 8, death: 6 };
 
+/* Draw the player as one of the game's drawn actors instead of the mannequin.
+
+   The customizable player is assembled at runtime from region masks, which is
+   why its source art is a featureless 13x22 mannequin — no hair shape, no jaw,
+   no nose, nothing to shade. Measured against the townsfolk it stands beside,
+   that costs it every highlight it might have had. This is the other way round:
+   take art that a person drew and give up the per-part recolouring.
+
+   settings.playerActor holds an actor id from the sprite manifest, or '' for the
+   mannequin. Anything in the manifest works, so this is also the way to try the
+   game's own four-facing townsfolk (citizen1-5, folk_*) in the role.
+
+   An actor marked singleFacing has one row of art — the Mage Tower pack is all
+   like this — so it will face the camera no matter which way it walks. Fine for
+   looking at, not something to ship on. */
+const _dhPlayerActorEnt = {};
+
+/* What the Player Sprite setting offers. '' is the customizable character.
+   The rest are drawn actors already in the manifest — the game's own townsfolk
+   turn four ways, the Mage Tower imports do not. */
+const PLAYER_ACTOR_CHOICES = [
+  ['',                 'Custom'],
+  ['citizen1',         'Townsfolk'],
+  ['folk_farmer',      'Farmer'],
+  ['folk_blacksmith',  'Smith'],
+  ['tower_mage1',      'Mage'],
+  ['tower_reader',     'Reader'],
+];
+
+function playerActorId() {
+  const id = settings.playerActor;
+  if (!id || typeof DHArt === 'undefined' || !DHArt.ready(id)) return null;
+  return id;
+}
+
+function setPlayerActor(id) {
+  setSetting('playerActor', id || '');
+  if (typeof refreshCharPreview === 'function') refreshCharPreview();
+}
+
 drawCharacter = function (ctx, sx, sy, facing, wf, sprinting, cfg) {
+  const actorId = playerActorId();
+  if (actorId) {
+    const clip = window._dhCharClip === 'idle' ? 'idle' : 'walk';
+    DHArt.play(_dhPlayerActorEnt, clip);
+    DHArt.face(_dhPlayerActorEnt, facing || 'down');
+    if (DHArt.drawActor(ctx, actorId, _dhPlayerActorEnt, sx, sy, { size: 24 })) return;
+  }
   if (typeof DHPlayer !== 'undefined' && DHPlayer.isReady() && settings.spriteChar !== false) {
     const clip = window._dhCharClip || 'idle';
     const fps = _DH_CLIP_FPS[clip] || 6;

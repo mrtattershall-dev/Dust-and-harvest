@@ -58,6 +58,15 @@ pack's ground colour and its `spots.png` mottling, re-scattered by
 `tools/build_ground.py` into the seamless surface under `TL.SAND` and the
 badlands dust floor.
 
+Also *Mage Tower Top-Down* — `tower_mage1` `tower_mage2` `tower_reader`,
+imported by `tools/build_tower.py`. These are single-facing: the pack is a scene
+set whose people sit and read, and it contains no up/left/right art at all, so
+they are registered with every facing pointing at the one row and flagged
+`singleFacing` in the manifest. They are in the game as a reference point for
+the player sprite — a drawn character to hold the generated one against — and
+are selectable under Settings > Player Sprite. Only the `_without_shadow`
+sheets are shipped; the game draws its own shadow.
+
 The main map's ground comes from two more CraftPix packs through the same tool:
 the grass from *Top-Down Farmlands Tileset* (with one variant from *Green Forest
 Tileset*) and the packed earth from *Top-Down Farm with Animals*. Both ship 16px
