@@ -59,11 +59,37 @@ SOURCES = {
     "forest":    "All Tileset/16x16.png",
     "farmyard":  "PNG/ground_grass_bricks.png",
     "minecave":  "All Tileset/16x16.png",
+    # The winter pack's mottling. Same shape of sheet as the desert pack's —
+    # loose blobs on transparency — but drawn as snow: rounder clumps, and a
+    # band of fine sparkle at the bottom. Its top half is a TAN set, so only
+    # the snow half is read; see SPOTS_CROP.
+    "snowspots": "Tiled_files/spots.png",
 }
 # Two packs ship a file at the same path, so each is pinned to the pack folder
 # whose name contains this.
+# The winter pack ALSO ships a PNG/spots.png, and without this pin the locator
+# picked it for `spots` — silently rebuilding sand, dust, street, road, dirt and
+# the mine floor out of snow mottling. Every source whose path is not unique
+# across the library has to be pinned.
 SOURCE_PACK = {"farmland": "farmlands", "forest": "greenforest",
-               "minecave": "miners-cave"}
+               "minecave": "miners-cave", "snowspots": "wintertopdown",
+               "spots": "desert"}
+
+# A scatter terrain names which mottling sheet it is built from. Each one
+# carries the crop to take from it and the colour its blobs ALREADY are, which
+# is the reference delta_to() measures the move away from — retinting the snow
+# blobs as if they started at the desert pack's sand would take them somewhere
+# neither sheet ever was.
+SPOTS = {
+    "spots":     {"crop": None,                 "ref": (210, 178, 104)},
+    # (197,218,221) is the winter pack's own snow GROUND, taken off Snow.png
+    # and Ground_ice.png — not the blob colour. The blobs are (215,234,236),
+    # LIGHTER than the ground they sit on, because snow mottling is highlight
+    # where the desert's is shadow. Setting the reference to the blob colour
+    # instead mapped every blob exactly onto the base and the snow baked out
+    # perfectly flat: 262055 of 262144 pixels one value.
+    "snowspots": {"crop": (0, 160, 336, 320),   "ref": (197, 218, 221)},
+}
 
 # The two tones in spots.png, measured off the sheet.
 TONE_DARK = (174, 138, 90)
@@ -134,6 +160,26 @@ TERRAINS = {
     # merely plain.
     "minefloor": {"kind": "scatter", "base": "#5f4c3c",
                   "clusters": 26, "per": 13, "spread": 32, "loose": 95},
+
+    # -- winter --------------------------------------------------------------
+    # Cold Winter is a quarter of the year and was rendered as a BLUE FILTER
+    # over the summer ground with snow particles at 18% alpha on top. These are
+    # the surfaces it lays over the overworld instead, built from the winter
+    # pack's own snow mottling rather than from the desert pack's grains
+    # bleached white — the shapes differ, and snow clumps are not sand grains.
+    #
+    # Three, not one, so a snowy field still reads as a field: settled snow
+    # over grass is the brightest, a trodden path shows the ground through it,
+    # and the farm's worked earth holds the least.
+    # #c5dadd is the pack's own snow, used unchanged; the other two are it
+    # taken down and warmed, because a trodden path and a worked field show
+    # what is under the snow.
+    "snow":     {"kind": "scatter", "base": "#c5dadd", "spots": "snowspots",
+                 "clusters": 24, "per": 14, "spread": 34, "loose": 84},
+    "snowpath": {"kind": "scatter", "base": "#a3adb2", "spots": "snowspots",
+                 "clusters": 30, "per": 15, "spread": 28, "loose": 110},
+    "snowdirt": {"kind": "scatter", "base": "#a99e93", "spots": "snowspots",
+                 "clusters": 28, "per": 15, "spread": 30, "loose": 100},
 }
 
 
@@ -313,14 +359,14 @@ def hex_rgb(h):
     return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
 
 
-def delta_to(base):
-    """The HLS move from the pack's own sand to `base`.
+def delta_to(base, ref=None):
+    """The HLS move from the sheet's own ground colour to `base`.
 
     Applied to every mottling blob as well as the flat ground, so a terrain is
     the same grains under different light rather than a different palette —
     which is what keeps the contrast the artist drew instead of flattening it.
     """
-    h0, l0, s0 = colorsys.rgb_to_hls(*(c / 255 for c in PACK_SAND))
+    h0, l0, s0 = colorsys.rgb_to_hls(*(c / 255 for c in (ref or PACK_SAND)))
     h1, l1, s1 = colorsys.rgb_to_hls(*(c / 255 for c in hex_rgb(base)))
     # Hue and lightness move by addition, saturation by ratio. Subtracting
     # saturation instead drains the mottling to grey long before the flat
@@ -406,14 +452,16 @@ def extract_blobs(sheet):
     return blobs
 
 
-def tone_of(blob):
+def tone_of(blob, dark=None, soft=None):
+    dark = dark or TONE_DARK
+    soft = soft or TONE_SOFT
     px = blob.load()
     for y in range(blob.size[1]):
         for x in range(blob.size[0]):
             p = px[x, y]
             if p[3] >= 8:
-                d = sum((p[i] - TONE_DARK[i]) ** 2 for i in range(3))
-                s = sum((p[i] - TONE_SOFT[i]) ** 2 for i in range(3))
+                d = sum((p[i] - dark[i]) ** 2 for i in range(3))
+                s = sum((p[i] - soft[i]) ** 2 for i in range(3))
                 return "dark" if d <= s else "soft"
     return "soft"
 
@@ -428,7 +476,7 @@ def stamp_wrapped(canvas, blob, x, y):
 
 
 def bake_scatter(name, cfg, pools, rng):
-    d = delta_to(cfg["base"])
+    d = delta_to(cfg["base"], SPOTS[cfg.get("spots", "spots")]["ref"])
     base = hex_rgb(cfg["base"])
     canvas = Image.new("RGBA", (PERIOD, PERIOD), base + (255,))
 
@@ -515,18 +563,31 @@ def main():
     names = sorted(TERRAINS)
 
     # Gather what each terrain needs, skipping any whose pack was not supplied.
-    ready, pools = [], None
+    ready, pools_by_src = [], {}
     for name in names:
         cfg = TERRAINS[name]
         if cfg["kind"] == "scatter":
-            if "spots" not in sheets:
-                log(f"  -- {name}: no spots.png supplied, skipping")
+            src = cfg.get("spots", "spots")
+            if src not in sheets:
+                log(f"  -- {name}: no {SOURCES[src]} supplied, skipping")
                 continue
-            if pools is None:
+            if src not in pools_by_src:
+                spec = SPOTS[src]
+                sheet = sheets[src]
+                if spec["crop"]:
+                    sheet = sheet.crop(spec["crop"])
                 pools = {"dark": [], "soft": []}
-                for b in extract_blobs(sheets["spots"]):
-                    pools[tone_of(b)].append(b)
-                log(f"  spots.png -> {len(pools['dark'])} dark, "
+                for b in extract_blobs(sheet):
+                    pools[tone_of(b, spec.get("dark"), spec.get("soft"))].append(b)
+                # A sheet drawn in one tone puts everything in one pool and the
+                # other comes out empty, which would make drop() a no-op for
+                # 30% of the mottling. Snow IS one tone.
+                if not pools["dark"]:
+                    pools["dark"] = pools["soft"]
+                elif not pools["soft"]:
+                    pools["soft"] = pools["dark"]
+                pools_by_src[src] = pools
+                log(f"  {SOURCES[src]} -> {len(pools['dark'])} dark, "
                     f"{len(pools['soft'])} soft blobs")
             ready.append((name, cfg, None))
         else:
@@ -558,7 +619,12 @@ def main():
     meta = {}
     for i, (name, cfg, tiles) in enumerate(ready):
         if cfg["kind"] == "scatter":
-            img, base = bake_scatter(name, cfg, pools, rng)
+            # From THIS terrain's own mottling sheet. Passing the loose
+            # `pools` from the gather loop above handed every scatter terrain
+            # whichever source happened to be built last — so with snow in the
+            # table, sand and dirt came out with pale blue-green blobs on them.
+            img, base = bake_scatter(
+                name, cfg, pools_by_src[cfg.get("spots", "spots")], rng)
         else:
             img, base = bake_mosaic(name, cfg, tiles, rng)
         sheet.paste(img, (0, i * PERIOD))

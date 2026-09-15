@@ -8826,9 +8826,40 @@ function drawFenceTile(tx, ty, sx, sy, gate) {
   }
 }
 
+// Which baked terrain a tile type is made of. An overlay — a crate, a well,
+// a tree — stands ON the ground, so it has to have the ground under it, and
+// _owBase() only ever gave back a flat colour. Against the baked surfaces
+// that reads as a plain square of the wrong thing with a prop sitting in it.
+//
+// Module scope rather than inside drawTile(), because the underpaint at the
+// top of drawTile() needs it and a const declared below would be in its
+// temporal dead zone there.
+const _owTerrain = {
+  [TL.GRASS]: 'grass', [TL.DIRT]: 'dirt', [TL.SAND]: 'sand',
+  // FLOWERS was missing, and it is turf like any other — its own branch draws
+  // 'grass' under the blooms. Without it, an overlay whose majority neighbour
+  // was a flower tile got no baked ground at all and kept the flat colour:
+  // a green square around the barn, which is how this was noticed.
+  [TL.FLOWERS]: 'grass',
+  [TL.ROAD]: 'road', [TL.PEN_FLOOR]: 'pen', [TL.TOWN_FLOOR]: 'street',
+};
+
+// The colour to lay under a tile before its texture goes on. The baked
+// surface's own mean when there is one — so the sub-pixel hairline the ZOOM
+// scale leaves at a tile edge is the right colour — and the static tile colour
+// otherwise.
+function _tileUnder(t, fallback) {
+  const n = _owTerrain[t];
+  if (n && window.DHGround && DHGround.base) {
+    const b = DHGround.base(n);
+    if (b) return b;
+  }
+  return fallback;
+}
+
 function drawTile(tx,ty,sx,sy) {
   const t=getT(tx,ty), c=TC[t]||TC[TL.GRASS];
-  ctx.fillStyle=c[0]; ctx.fillRect(sx,sy,T,T);
+  ctx.fillStyle=_tileUnder(t, c[0]); ctx.fillRect(sx,sy,T,T);
 
   // Shared helpers
   const seed=tx*7+ty*13;
@@ -8847,15 +8878,6 @@ function drawTile(tx,ty,sx,sy) {
     }
     return TC[TL.GRASS][0]; // fallback
   }
-
-  // Which baked terrain a tile type is made of. An overlay — a crate, a well,
-  // a tree — stands ON the ground, so it has to have the ground under it, and
-  // _owBase() only ever gave back a flat colour. Against the baked surfaces
-  // that reads as a plain square of the wrong thing with a prop sitting in it.
-  const _owTerrain = {
-    [TL.GRASS]: 'grass', [TL.DIRT]: 'dirt', [TL.SAND]: 'sand',
-    [TL.ROAD]: 'road', [TL.PEN_FLOOR]: 'pen', [TL.TOWN_FLOOR]: 'street',
-  };
 
   // See drawTerrainEdges(). The overworld's terrains are untoned.
   function _terrainEdges() {
@@ -8883,7 +8905,7 @@ function drawTile(tx,ty,sx,sy) {
         if(tally[nt]>bestN){ bestN=tally[nt]; best=nt; }
       }
       if(best>=0){
-        ctx.fillStyle=TC[best][0]; ctx.fillRect(sx,sy,T,T);
+        ctx.fillStyle=_tileUnder(best, TC[best][0]); ctx.fillRect(sx,sy,T,T);
         const name=_owTerrain[best];
         if(name) DHGround.draw(ctx,name,sx,sy,tx,ty);
         return;
@@ -9412,6 +9434,9 @@ function drawTile(tx,ty,sx,sy) {
       ctx.fillRect(sx+r(seed,20)+2,sy+r(seed*3,8)+T/2,1,6);
       ctx.fillRect(sx+r(seed*5,18)+8,sy+r(seed*7,6)+T/2,1,5);
     }
+    // Nothing is in bloom in Cold Winter. The blooms used to be drawn over the
+    // snow, so the farm's flower beds were in full colour in a blizzard.
+    if (DHGround.skin && DHGround.skin('grass') !== 'grass') return;
     // Flower A — red/pink, 4 petals + centre
     const fx1=sx+6+r(seed,8), fy1=sy+9+r(seed*3,8);
     const PETAL1='#c84038', PETAL1L='#e06050', CENTRE1='#f0d040';
@@ -20017,8 +20042,39 @@ function updateStaminaFlash() {
 }
 
 
+// Which baked surface stands in for which in Cold Winter.
+//
+// Winter is 10 of the year's 40 days and was drawn as a BLUE FILTER over the
+// summer ground with snow particles over that — a quarter of the game's
+// running time in which the world did not actually change. These are the
+// winter pack's own snow surfaces, baked by build_ground.py the same way sand
+// and dirt are.
+//
+// `dust` and `minefloor` are deliberately absent: the badlands is west and
+// lower, the mine is underground, and the jungle and the ocean are neither
+// (the jungle asks for `grass` through drawToned, which is why this is applied
+// per ZONE rather than globally — see render()).
+const WINTER_GROUND = {
+  // An untended field is UNDER the snow, not showing through it. Mapping dirt
+  // to snowdirt made the farm a grey-brown mud flat with a white lane through
+  // it, which reads as thaw, not winter. Only the animal pen keeps the churned
+  // surface — that is what hooves do to it — and the roads and the street stay
+  // trodden. Tilled plots draw their own soil over this, which is right: you
+  // clear the snow to plant.
+  grass: 'snow',     sand:   'snow',     dirt: 'snow',
+  pen:   'snowdirt', street: 'snowpath', road: 'snowpath',
+};
+function _winterSkin() {
+  return (typeof getCurrentSeason === 'function' &&
+          getCurrentSeason().name === 'Cold Winter') ? WINTER_GROUND : null;
+}
+
 function render() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
+  // Cleared every frame BEFORE the zone dispatch, so a zone that returns early
+  // can never inherit the previous frame's skin. Each zone that wants one sets
+  // it for itself below.
+  if (window.DHGround && DHGround.season) DHGround.season(null);
   if (gameState.inBLMine) {
     renderBLMineMap();
     return;
@@ -20039,6 +20095,7 @@ function render() {
     renderOceanMap();
     return;
   }
+  if (window.DHGround && DHGround.season) DHGround.season(_winterSkin());
   ctx.fillStyle='#0e0c08'; ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.save();
   ctx.scale(ZOOM, ZOOM);

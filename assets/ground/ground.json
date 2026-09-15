@@ -29,9 +29,21 @@
    "base": "#d2b268",
    "oy": 3072
   },
+  "snow": {
+   "base": "#c5dadd",
+   "oy": 3584
+  },
+  "snowdirt": {
+   "base": "#a99e93",
+   "oy": 4096
+  },
+  "snowpath": {
+   "base": "#a3adb2",
+   "oy": 4608
+  },
   "street": {
    "base": "#a38762",
-   "oy": 3584
+   "oy": 5120
   }
  },
  "tile": 32

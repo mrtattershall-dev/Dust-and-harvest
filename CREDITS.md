@@ -99,6 +99,12 @@ entirely the original artist's. The open-door variant is the same sprite with
 the doors replaced by the darkness the pack already draws inside the hayloft
 opening above them.
 
+Cold Winter's ground — the snow over the fields, the trodden snow on the roads
+and streets, and the churned snow in the animal pen — is baked by
+`tools/build_ground.py` from *Winter Top-Down Tileset*: its own `spots.png`
+mottling over its own snow colour, scattered the same way the desert pack's
+sand is.
+
 The badlands' mesa cliff faces and the far wall of its canyons come from
 *Rocky Top-Down Tileset* — 16px tiles, native at 1:1, so a 2x2 block of them is
 exactly one 32px game tile. Its rock is tan for a green valley; the hue is

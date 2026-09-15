@@ -48,7 +48,37 @@ window.DHGround = (function () {
 
   // Draw one map tile of `name` at its top-left. Returns false when the texture
   // is not up yet, so callers can paint their own.
+  // ── Seasonal swap ───────────────────────────────────────────────────────────
+  // Cold Winter is a quarter of the year and used to be a BLUE FILTER over the
+  // summer ground. The winter pack ships its own snow mottling, which
+  // build_ground.py bakes into snow/snowpath/snowdirt exactly as it bakes sand
+  // and dirt, so winter can be the real surface instead.
+  //
+  // Done here rather than at the call sites because a terrain name reaches this
+  // file from dozens of places — tile branches, overlay grounds, the crop
+  // renderer — and swapping them one by one would leave some behind. A caller
+  // that must NOT swap (an interior floor, a zone that is underground or
+  // tropical) passes through `alias` unlisted, so the default is no change.
+  let alias = null;
+  function season(map) { alias = map && Object.keys(map).length ? map : null; }
+  function skin(name) { return (alias && alias[name]) || name; }
+
+  // The baked surface's own mean colour, AFTER any seasonal swap. Callers
+  // underpaint a tile with this before drawing the texture over it: the draw
+  // rounds to whole world pixels and the canvas is then scaled by a
+  // non-integer ZOOM, so a sub-pixel hairline survives at the tile's edge and
+  // shows whatever was underneath. Underpainting with the game's static tile
+  // colour put a 1px SUMMER line down the right edge of every tile — invisible
+  // in summer, a rust grid over the snow in winter.
+  function base(name) {
+    const d = state.data;
+    if (!d) return null;
+    const t = d.terrains[skin(name)];
+    return t ? t.base : null;
+  }
+
   function draw(ctx, name, sx, sy, tx, ty) {
+    name = skin(name);
     if (!ready(name)) return false;
     const d = state.data, n = state.tiles;
     // Modulo that stays positive for negative tile coordinates.
@@ -123,6 +153,7 @@ window.DHGround = (function () {
 
   // Like draw(), but retoned so the surface's mean colour is `css`.
   function drawToned(ctx, name, css, sx, sy, tx, ty) {
+    name = skin(name);
     const cv = toneBand(name, css);
     if (!cv) return false;
     const d = state.data, n = state.tiles;
@@ -140,7 +171,7 @@ window.DHGround = (function () {
     return state.data ? Object.keys(state.data.terrains).length : 0;
   }
 
-  return { init, ready, draw, drawToned, count, _state: state };
+  return { init, ready, draw, drawToned, season, skin, base, count, _state: state };
 })();
 
 DHGround.init();

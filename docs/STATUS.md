@@ -172,6 +172,18 @@ its props at 1:1 are half this game's pixel density and cannot be used beside
 the rest of the art. `size_in_file / native_step` is what you are actually
 getting.
 
+## Winter
+
+Cold Winter is 10 of the year's 40 days and used to be a blue filter over the
+summer ground. `WINTER_GROUND` in index.html maps each terrain to a snow one
+and `DHGround.season()` applies it; `render()` clears the skin every frame
+before the zone dispatch and only the overworld sets it, so the mine, the
+jungle and the ocean are untouched. The badlands is deliberately out too — its
+mesa faces would need retoning to match.
+
+Not done: the jungle and the ocean have no seasonal state at all, and the
+badlands has none either.
+
 ## Traps this file exists to stop you re-learning
 
 - **Temporal dead zone.** Anything `buildMap()` reads must be declared above
