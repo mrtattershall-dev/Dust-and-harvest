@@ -113,39 +113,77 @@ window.DHPlayer = (function () {
     ctx.drawImage(off, 0, 0);
   }
 
-  // Hair styles as coverage rules over the head silhouette.
-  //   crown  how far down the head the hair reaches, as a fraction of head height
-  //   sides  how far down the outer edges hang (0 = same as crown)
-  //   inset  how many px in from the edge still counts as "side"
-  // Index matches CC_HAIR_STYLES_MALE / _FEMALE.
+  /* Hair styles as coverage rules over the head silhouette.
+
+       crown  how far down the head the hair reaches, as a fraction of head height
+       sides  how far down the outer edges hang
+       inset  how many px in from the edge still counts as "side"
+
+     The fractions are written as thirteenths because the head is thirteen
+     pixels tall, and the depth is rounded to whole rows. That is not
+     decoration: two styles a few hundredths apart round to the same row and
+     become the same picture, which is how "Short crop" and "Side part" ended up
+     identical. Spelling each one as a row count makes the spacing checkable by
+     reading it — 3/13 and 4/13 are visibly one row apart, .42 and .46 are not.
+
+     Crowns stay at or below 6/13 because the eyes begin at 7/13, so a fringe
+     never has to be clipped off the face; the eye guard in drawHair is a safety
+     net for odd frames, not the thing doing the shaping. Length is carried by
+     `sides`, which is what actually distinguishes a crop from a shag.
+
+     Index matches CC_HAIR_STYLES_MALE / _FEMALE. */
+  const R = 1 / 13;
   const HAIR_STYLES = {
     male: [
-      { crown: .42, sides: .42, inset: 2 },  // Short crop
-      { crown: .46, sides: .60, inset: 2 },  // Side part
-      { crown: .48, sides: .72, inset: 3 },  // Wavy
-      { crown: .34, sides: .34, inset: 2 },  // Slicked back
-      { crown: .52, sides: .80, inset: 3 },  // Shaggy
-      null,                                   // Bald
+      { crown: 3*R, sides:  3*R, inset: 2 },  // Short crop
+      { crown: 4*R, sides:  6*R, inset: 2 },  // Side part
+      { crown: 5*R, sides:  8*R, inset: 3 },  // Wavy
+      { crown: 2*R, sides:  2*R, inset: 2 },  // Slicked back
+      { crown: 6*R, sides: 10*R, inset: 3 },  // Shaggy
+      null,                                    // Bald
     ],
     female: [
-      { crown: .46, sides: .70, inset: 2 },  // Ponytail
-      { crown: .44, sides: .44, inset: 2 },  // Bun
-      { crown: .50, sides: .95, inset: 3 },  // Long & loose
-      { crown: .48, sides: .66, inset: 3 },  // Bob
-      { crown: .48, sides: .88, inset: 2 },  // Braids
-      { crown: .38, sides: .40, inset: 2 },  // Pixie cut
+      { crown: 4*R, sides:  7*R, inset: 2 },  // Ponytail
+      { crown: 3*R, sides:  4*R, inset: 2 },  // Bun
+      { crown: 6*R, sides: 12*R, inset: 3 },  // Long & loose
+      { crown: 5*R, sides:  9*R, inset: 3 },  // Bob
+      { crown: 6*R, sides: 11*R, inset: 2 },  // Braids
+      { crown: 2*R, sides:  3*R, inset: 2 },  // Pixie cut
     ],
   };
 
-  // Cut hair out of the head mask and tint it. Working on pixels rather than
-  // drawing shapes means the hairline follows the skull in every frame and
-  // facing, including the walk cycle's head bob.
-  function drawHair(ctx, img, gd, heads, ramp, gender, styleIdx, cell) {
+  /* Cut hair out of the head mask and tint it.
+
+     Two things this has to get right, and the first version got neither.
+
+     The hairline follows the skull. Depth is measured down from the topmost
+     head pixel *in that column*, not from a single y for the whole head. The
+     old code picked one crownY per cell and erased everything at or below it,
+     which is a straight horizontal line: every style came out as a flat-bottomed
+     bowl with square corners, sitting on the head rather than growing from it.
+     Measuring per column makes the fringe curve with the crown for free, in
+     every frame and facing, including the walk cycle's bob.
+
+     The fringe stops above the eyes. The detail layer is the eyes and mouth, so
+     its topmost pixel in a cell is the eye line; interior columns are clamped
+     to it. Note this is not about the eyes being hidden — buildSheet draws the
+     detail layer after the hair, so the eyes always survive. It is about the
+     brow: the deeper styles came down to the eye row and left no skin between
+     hairline and eye, which is what made every style read as a helmet with a
+     face painted under it rather than hair growing on a head. The side columns
+     are deliberately not clamped, because hair hanging past the eyes at the
+     temples is what framing the face means, and it is most of what
+     distinguishes the long styles from the short ones.
+
+     Working on pixels rather than drawing shapes is what lets both rules track
+     the art instead of assuming a fixed head position. */
+  function drawHair(ctx, img, gd, heads, ramp, gender, styleIdx, cell, detImg) {
     const styles = HAIR_STYLES[gender] || HAIR_STYLES.male;
     const st = styles[Math.min(styleIdx, styles.length - 1)];
     if (!st) return;   // bald
 
     const w = img.naturalWidth, h = img.naturalHeight;
+    if (!w) return;
     const off = document.createElement('canvas');
     off.width = w; off.height = h;
     const oc = off.getContext('2d');
@@ -154,8 +192,20 @@ window.DHPlayer = (function () {
     const id = oc.getImageData(0, 0, w, h);
     const px = id.data;
 
-    // Per-frame row extents of the head, so "the outer edge" means the edge of
-    // the skull on that row rather than of the bounding box.
+    // The face, read once, so the fringe knows where the eyes are.
+    let det = null;
+    if (detImg && detImg.naturalWidth === w && detImg.naturalHeight === h) {
+      const dcv = document.createElement('canvas');
+      dcv.width = w; dcv.height = h;
+      const dcx = dcv.getContext('2d');
+      dcx.imageSmoothingEnabled = false;
+      dcx.drawImage(detImg, 0, 0);
+      det = dcx.getImageData(0, 0, w, h).data;
+    }
+
+    const rowMin = new Int32Array(cell), rowMax = new Int32Array(cell);
+    const colTop = new Int32Array(cell);
+
     for (const [dir, row] of Object.entries(gd.dirRows)) {
       const boxes = heads[dir] || [];
       // Facing away: the whole head is hair, no face to leave clear.
@@ -165,23 +215,46 @@ window.DHPlayer = (function () {
         if (!bx) continue;
         const ox = f * cell, oy = row * cell;
         const hh = bx[3] - bx[1];
-        const crownY = bx[1] + hh * (back ? 0.97 : st.crown);
-        const sideY  = bx[1] + hh * (back ? 0.97 : st.sides);
+        if (hh <= 0) continue;
 
-        for (let y = oy; y < oy + cell; y++) {
-          // Row extents
-          let minX = 1e9, maxX = -1;
-          for (let x = ox; x < ox + cell; x++) {
-            if (px[(y * w + x) * 4 + 3] > 0) { if (x < minX) minX = x; maxX = x; }
+        rowMin.fill(1e9); rowMax.fill(-1); colTop.fill(-1);
+        for (let ly = 0; ly < cell; ly++) {
+          const base = (oy + ly) * w + ox;
+          for (let lx = 0; lx < cell; lx++) {
+            if (px[(base + lx) * 4 + 3] === 0) continue;
+            if (lx < rowMin[ly]) rowMin[ly] = lx;
+            if (lx > rowMax[ly]) rowMax[ly] = lx;
+            if (colTop[lx] < 0) colTop[lx] = ly;
           }
-          for (let x = ox; x < ox + cell; x++) {
-            const i = (y * w + x) * 4;
+        }
+
+        let eyeTop = -1;
+        if (det && !back) {
+          scan: for (let ly = 0; ly < cell; ly++) {
+            const base = (oy + ly) * w + ox;
+            for (let lx = 0; lx < cell; lx++)
+              if (det[(base + lx) * 4 + 3] > 0) { eyeTop = ly; break scan; }
+          }
+        }
+
+        // 1.2 rather than 1.0 for the back of the head so the depth clears the
+        // skull from every column, including the ones that start lowest.
+        // Whole rows: a hairline lands on a pixel boundary or it is a
+        // different style that happens to look the same.
+        const crownD = back ? hh * 1.2 : Math.round(hh * st.crown);
+        const sideD  = back ? hh * 1.2 : Math.round(hh * st.sides);
+
+        for (let ly = 0; ly < cell; ly++) {
+          if (rowMax[ly] < 0) continue;
+          const base = (oy + ly) * w + ox;
+          for (let lx = 0; lx < cell; lx++) {
+            const i = (base + lx) * 4;
             if (px[i + 3] === 0) continue;
-            const localY = y - oy;
-            const isSide = maxX >= 0 &&
-                           (x - minX < st.inset || maxX - x < st.inset);
-            const limit = isSide ? sideY : crownY;
-            if (localY >= limit) { px[i + 3] = 0; continue; }
+            if (colTop[lx] < 0) continue;
+            const isSide = (lx - rowMin[ly] < st.inset) || (rowMax[ly] - lx < st.inset);
+            let limit = colTop[lx] + (isSide ? sideD : crownD);
+            if (!back && eyeTop >= 0 && !isSide) limit = Math.min(limit, eyeTop);
+            if (ly >= limit) { px[i + 3] = 0; continue; }
             const c = ramp[Math.min(px[i], 5)];
             px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2];
           }
@@ -333,7 +406,8 @@ window.DHPlayer = (function () {
     const cell = gd.cell;
     const hairImg = state.imgs[gender + '/' + clip + '_head'];
     if (hairImg && hairImg.naturalWidth) {
-      drawHair(ctx, hairImg, gd, heads, ramp6(HAIR), gender, hs, cell);
+      drawHair(ctx, hairImg, gd, heads, ramp6(HAIR), gender, hs, cell,
+               state.imgs[gender + '/' + clip + '_detail']);
     }
 
     // Eyes and mouth last and untinted, so the face stays readable at 30px
