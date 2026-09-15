@@ -526,6 +526,15 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
           </div>
         </div>
 
+        <!-- Look options. Hidden when the player is drawn as a townsfolk actor,
+             because none of them do anything then. -->
+        <div id="ccLookNote" style="display:none;font-size:9px;color:rgba(155,115,52,.65);line-height:1.6;border-left:2px solid rgba(155,115,52,.3);padding-left:8px;">
+          You'll be one of the townsfolk — drawn art, so the look is fixed.
+          Switch to the custom character under Settings &gt; Player Sprite to
+          choose skin, hair and clothes.
+        </div>
+        <div id="ccLookOpts" style="display:flex;flex-direction:column;gap:10px;">
+
         <!-- Skin tone -->
         <div>
           <div class="cc-label">SKIN TONE</div>
@@ -567,6 +576,8 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
           <div class="cc-label">HAT</div>
           <div style="display:flex;gap:5px;flex-wrap:wrap;" id="ccHatColorRow"></div>
         </div>
+
+        </div><!-- /ccLookOpts -->
 
       </div>
     </div>
@@ -4058,6 +4069,7 @@ const SETTINGS_DEFAULTS = {
   campfireGlow: true,
   textSize:    'normal',
   spriteChar:  true,
+  playerActor: 'auto',
   zoomSlider:  75,
 };
 let settings = { ...SETTINGS_DEFAULTS };
@@ -35756,6 +35768,16 @@ function _updateCCSelections() {
 function refreshCharPreview() {
   const canvas = document.getElementById('charPreviewCanvas');
   if (!canvas) return;
+  /* The look controls only mean something for the custom character. With a
+     drawn actor they are seven rows of buttons that change nothing, so show
+     them or the note explaining why they are gone, never both. */
+  {
+    const drawn = !!playerActorId(window._ccDraft || {});
+    const opts = document.getElementById('ccLookOpts');
+    const note = document.getElementById('ccLookNote');
+    if (opts) opts.style.display = drawn ? 'none' : 'flex';
+    if (note) note.style.display = drawn ? 'block' : 'none';
+  }
   const ctx2 = canvas.getContext('2d');
   ctx2.clearRect(0,0,96,120);
 
@@ -36653,20 +36675,43 @@ const _DH_CLIP_FPS = { idle: 6, walk: 9, run: 12, hurt: 8, death: 6 };
    looking at, not something to ship on. */
 const _dhPlayerActorEnt = {};
 
-/* What the Player Sprite setting offers. '' is the customizable character.
-   The rest are drawn actors already in the manifest — the game's own townsfolk
-   turn four ways, the Mage Tower imports do not. */
+/* The two townsfolk the player gets by default, one per gender.
+
+   Both are drawn art from the same pack as everyone else in town, both turn all
+   four ways and walk, and — the part that took looking — neither is spoken for.
+   Every other human actor is already somebody: barmaid is Maya and Vera,
+   merchant is Rex and Tobias, farmer is Jed and Simons, blacksmith is Dale,
+   fisherman is Dr. Lena, kid1 is Kit, alchemist is Malu, citizen3 is Ren. That
+   left citizen1, citizen2, citizen4, citizen5, folk_bartender and folk_kid2.
+
+   The bartender and kid2 are out on a defect rather than a preference: their
+   cells have the bar counter and a desk baked into the art, so they drag a
+   piece of furniture around the map with them. kid2 is a child besides.
+   citizen2 reads as an elder and citizen4 is holding a mug in half its frames.
+
+   So citizen1 and citizen5: young, high contrast, and they do not look like
+   each other, which matters more than it sounds when the two of you are stood
+   together in co-op. */
+const PLAYER_ACTOR_BY_GENDER = { male: 'citizen1', female: 'citizen5' };
+
+/* What the Player Sprite setting offers. 'auto' is the pair above, chosen by
+   the character's gender; '' goes back to the customizable one, whose art is a
+   featureless mannequin because every region of it has to be recolourable. The
+   rest are there to compare against — the Mage Tower imports have one facing. */
 const PLAYER_ACTOR_CHOICES = [
+  ['auto',             'Townsfolk'],
   ['',                 'Custom'],
-  ['citizen1',         'Townsfolk'],
   ['folk_farmer',      'Farmer'],
   ['folk_blacksmith',  'Smith'],
   ['tower_mage1',      'Mage'],
   ['tower_reader',     'Reader'],
 ];
 
-function playerActorId() {
-  const id = settings.playerActor;
+function playerActorId(cfg) {
+  let id = settings.playerActor;
+  // Read the gender off the cfg being drawn, not off `player`: in co-op the
+  // partner is drawn through this same seam and may not match you.
+  if (id === 'auto') id = PLAYER_ACTOR_BY_GENDER[(cfg && cfg.gender) === 'female' ? 'female' : 'male'];
   if (!id || typeof DHArt === 'undefined' || !DHArt.ready(id)) return null;
   return id;
 }
@@ -36677,7 +36722,7 @@ function setPlayerActor(id) {
 }
 
 drawCharacter = function (ctx, sx, sy, facing, wf, sprinting, cfg) {
-  const actorId = playerActorId();
+  const actorId = playerActorId(cfg);
   if (actorId) {
     const clip = window._dhCharClip === 'idle' ? 'idle' : 'walk';
     DHArt.play(_dhPlayerActorEnt, clip);
