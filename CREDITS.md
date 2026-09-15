@@ -158,6 +158,9 @@ in the browser from oscillators, and still is.
 - **chop_1, chop_2** — the axe.
 - **Dirt_Walk_1..5** — footsteps. Dirt only: the dock's planks and the mine's
   stone play these too, and want their own.
+- **Dirt_Chain_Walk_1..5** — the same five takes with a chain over them. Played
+  when the pack is over 80% of its weight cap, which is the point the game
+  already slows the player and shows "⚠ HEAVY".
 
 Baked by `tools/build_audio.py` into `assets/audio/*.mp3`. What that tool does
 to them is not cosmetic and is worth knowing if the sources are ever replaced:

@@ -72,6 +72,19 @@ PIECES = {
     "step3":     ("Dirt_Walk_3.wav", "shot", "step", "96k"),
     "step4":     ("Dirt_Walk_4.wav", "shot", "step", "96k"),
     "step5":     ("Dirt_Walk_5.wav", "shot", "step", "96k"),
+
+    # The same five takes with a chain layer over them — their raw peaks match
+    # the plain set to within 0.001, so they are the same recordings re-dressed.
+    # Same FAMILY on purpose: one gain over all ten keeps the loaded walk and
+    # the empty one directly comparable instead of independently normalised to
+    # the same loudness, which would have flattened the difference between
+    # them. 96k rather than 128 because the chain lives above 2kHz, where the
+    # encoder spends its bits anyway.
+    "stepc1":    ("Dirt_Chain_Walk_1.wav", "shot", "step", "96k"),
+    "stepc2":    ("Dirt_Chain_Walk_2.wav", "shot", "step", "96k"),
+    "stepc3":    ("Dirt_Chain_Walk_3.wav", "shot", "step", "96k"),
+    "stepc4":    ("Dirt_Chain_Walk_4.wav", "shot", "step", "96k"),
+    "stepc5":    ("Dirt_Chain_Walk_5.wav", "shot", "step", "96k"),
 }
 
 

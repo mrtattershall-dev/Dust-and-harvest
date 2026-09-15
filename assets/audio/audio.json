@@ -59,6 +59,36 @@
    "kb": 6,
    "kind": "shot",
    "sec": 0.439
+  },
+  "stepc1": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.496
+  },
+  "stepc2": {
+   "family": "step",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.497
+  },
+  "stepc3": {
+   "family": "step",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.496
+  },
+  "stepc4": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.491
+  },
+  "stepc5": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.455
   }
  }
 }

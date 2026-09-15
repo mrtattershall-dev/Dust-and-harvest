@@ -198,6 +198,12 @@ other sound is still an oscillator.
 The footsteps are DIRT everywhere, including the dock's planks and the mine's
 stone. Surface-aware footfalls need recordings per surface.
 
+There are two step sets: plain, and the same takes with a chain over them for
+when the pack is loaded. `isEncumbered()` is the one definition of that state —
+the speed penalty, the "⚠ HEAVY" HUD warning and the footsteps all read it, and
+it was written out inline twice before, which is two chances for them to
+disagree.
+
 ## Trees follow the setting
 
 This is a desert frontier, so the dry country gets PALMS — `OVERHANG_SAND` in

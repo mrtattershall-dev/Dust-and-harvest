@@ -8040,7 +8040,7 @@ function update(dt) {
   const stormPenalty = (gameState.stormActive && !isStormsheltered()) ? (1 - gameState._stormIntensity * 0.6) : 1;
   const _speedBoost = (player._speedMult || 1) * (player._speedBoostTimer > 0 ? 1.3 : 1) * (player._debugSpeed ? 3.0 : 1);
   const _dreadSlow = (gameState._mineDread >= 100) ? 0.65 : 1.0;
-  const spd = player.speed * _speedBoost * _dreadSlow * (player.sprinting?player.sprintMult:1) * (inventory.totalWeight>getEffectiveWeightCap()*0.8 ? 0.72 : 1) * stormPenalty;
+  const spd = player.speed * _speedBoost * _dreadSlow * (player.sprinting?player.sprintMult:1) * (isEncumbered() ? 0.72 : 1) * stormPenalty;
   if (player.sprinting) player.stamina=Math.max(0,player.stamina-18*(player._sprintCostMult||1)*dt);
   else if (!moving)     player.stamina=Math.min(player.maxStamina,player.stamina+player.staminaRegen*getHungerStaminaMult()*getHomeCarpetBonus()*dt);
   else                  player.stamina=Math.min(player.maxStamina,player.stamina+player.staminaRegen*.2*getHungerStaminaMult()*getHomeCarpetBonus()*dt);
@@ -12061,7 +12061,7 @@ function drawPlayer() {
   ctx.font = '13px serif'; ctx.textAlign = 'center';
   ctx.fillText(ti[player.tool] || '', sx, sy - 44 + bob);
 
-  if (inventory.totalWeight > getEffectiveWeightCap() * 0.8) {
+  if (isEncumbered()) {
     ctx.fillStyle = 'rgba(220,80,30,.9)'; ctx.font = '7px sans-serif';
     ctx.fillText('⚠ HEAVY', sx, sy - 52 + bob);
   }
@@ -26217,7 +26217,7 @@ function _unlockAudio() {
   // fetch up front; the sea loops are not and are left to the zone that wants
   // them. Decoding needs the context, so this cannot happen before the gesture.
   if (window.DHSound) {
-    DHSound.preload(['chop1', 'chop2'].concat(STEP_SOUNDS));
+    DHSound.preload(['chop1', 'chop2'].concat(STEP_SOUNDS, STEP_CHAIN));
     DHSound.setVolume();
   }
 }
@@ -26366,6 +26366,14 @@ function dSound(type) {
   } catch(e) {}
 }
 
+// Carrying too much. One definition, because three things key off it: the
+// player slows to 0.72x, the HUD puts '⚠ HEAVY' over their head, and the walk
+// picks up a chain. It was written out twice before, which is two chances for
+// the sound and the warning to disagree about when you are loaded.
+function isEncumbered() {
+  return inventory.totalWeight > getEffectiveWeightCap() * 0.8;
+}
+
 // Step sound: fire every ~0.3s while moving.
 //
 // Five recorded dirt footfalls, one of which is picked at random without
@@ -26378,7 +26386,10 @@ function dSound(type) {
 //
 // They are dirt everywhere, including the dock's planks and the mine's stone.
 // Those want their own recordings; dirt underfoot is closer than a sine was.
-const STEP_SOUNDS = ['step1', 'step2', 'step3', 'step4', 'step5'];
+const STEP_SOUNDS  = ['step1', 'step2', 'step3', 'step4', 'step5'];
+// The same five takes with a chain over them, for when the pack is loaded.
+// You hear that you are overloaded before you read it.
+const STEP_CHAIN   = ['stepc1', 'stepc2', 'stepc3', 'stepc4', 'stepc5'];
 let _stepTimer = 0;
 function tickStepSound(dt, isMoving) {
   if (!isMoving) { _stepTimer = 0; return; }
@@ -26386,7 +26397,8 @@ function tickStepSound(dt, isMoving) {
   if (_stepTimer <= 0) {
     // The beep is the fallback, for the moment before the samples have
     // decoded and for a browser that cannot play them at all.
-    if (!(window.DHSound && DHSound.playOneOf(STEP_SOUNDS, 0.55, 0.09))) {
+    const set = isEncumbered() ? STEP_CHAIN : STEP_SOUNDS;
+    if (!(window.DHSound && DHSound.playOneOf(set, 0.55, 0.09))) {
       dSound('step');
     }
     _stepTimer = player.sprinting ? 0.18 : 0.28;
