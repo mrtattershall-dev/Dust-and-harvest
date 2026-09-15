@@ -60,6 +60,13 @@ pack's ground colour and its `spots.png` mottling, re-scattered by
 `tools/build_ground.py` into the seamless surface under `TL.SAND` and the
 badlands dust floor.
 
+Also *Miner's Cave Top-Down* — the whole of both mines, imported by
+`tools/build_mine.py` into `assets/mine/`. Floors, rubble walls, timber
+supports, rails, barrels, crates, lanterns, minecarts and the seven ore-chunk
+colours that distinguish coal from copper from iron from silver from gold from
+crystal from the singing vein. Its lava pools, water pools, coffins and dragon
+trap are deliberately not mapped — none of them belong in a frontier coal mine.
+
 Also *Mage Tower Top-Down* — `tower_mage1` `tower_mage2` `tower_reader`,
 imported by `tools/build_tower.py`. These are single-facing: the pack is a scene
 set whose people sit and read, and it contains no up/left/right art at all, so

@@ -1,0 +1,68 @@
+{
+ "_comment": [
+  "Mine art sources. Both mines — the overworld Mine and the badlands Company",
+  "Mine — were drawn entirely in flat fillRect colours: a brown rectangle for",
+  "floor, a darker one for wall, a coloured blob for each ore vein. The Miner's",
+  "Cave pack ships a 32x32 master tileset at exactly the game's tile size, so",
+  "this maps its cells onto the TL mine enum and drawMineTile draws real art.",
+  "",
+  "The source is one uniform grid, so cells are addressed as [col, row] rather",
+  "than cut by connected region the way tools/build_jungle.py has to do it.",
+  "",
+  "`tiles` are single 32x32 cells drawn at the tile's top-left with no anchor —",
+  "floors, walls, veins, rails, anything that fills a tile.",
+  "",
+  "`sprites` span several stacked cells and anchor bottom-centre, so the thing",
+  "stands on its tile and overhangs upward. A minecart is 32x64.",
+  "",
+  "Run tools/build_mine.py after editing.",
+  "",
+  "floor deliberately excludes cell [3,2]: it is the pack's flat untextured\n  fill, and mixed one-in-four with the three cobble tiles it read as pale\n  mauve patches rather than as floor.",
+  "",
+  "The pack also ships lava pools, water pools, coffins and a dragon trap. None",
+  "of those belong in a frontier coal mine, so none of them are mapped."
+ ],
+ "source": "All Tileset/32x32.png",
+ "cell": 32,
+
+ "tiles": {
+  "floor":      [[4,2], [5,2], [6,2]],
+  "floorPlank": [[4,3], [5,3], [6,3], [4,4], [5,4]],
+  "wall":       [[0,3], [1,3], [2,3], [0,4], [1,4], [2,4], [0,5], [1,5], [2,5]],
+  "support":    [[0,6], [1,6], [2,6], [3,6], [0,7], [2,7], [3,7], [0,8], [1,8], [2,8], [3,8]],
+
+  "oreDark":    [[0,20]],
+  "oreCopper":  [[1,20]],
+  "oreSilver":  [[2,20]],
+  "oreGold":    [[3,20]],
+  "oreGreen":   [[4,20]],
+  "oreBlue":    [[5,20]],
+  "orePurple":  [[6,20]],
+
+  "veinRed":    [[5,6], [5,7], [5,8]],
+  "veinGreen":  [[6,6], [7,6], [6,7], [7,7], [6,8], [7,8]],
+
+  "railH":      [[0,24], [1,24], [2,24], [0,26], [1,26], [2,26]],
+  "railV":      [[0,25], [2,25]],
+  "railCross":  [[3,24], [3,25]],
+
+  "ladder":     [[3,9], [3,10]],
+  "beam":       [[0,11], [1,11], [2,11]],
+  "post":       [[0,12], [2,12]],
+  "rock":       [[0,14], [1,14], [2,14], [0,15], [1,15]],
+  "barrel":     [[4,13], [5,13]],
+  "crate":      [[4,15], [4,16]],
+  "lantern":    [[1,18], [2,18], [3,18]],
+  "sign":       [[6,10], [6,11]],
+  "oreCart":    [[0,22], [1,22], [2,22], [3,22], [4,22], [5,22], [6,22]]
+ },
+
+ "sprites": {
+  "minecart": [
+   { "cells": [[4,25], [4,26]], "note": "loaded, facing right" },
+   { "cells": [[5,25], [5,26]], "note": "loaded, facing left" },
+   { "cells": [[4,27], [4,28]], "note": "empty" },
+   { "cells": [[5,27], [5,28]], "note": "empty, other side" }
+  ]
+ }
+}

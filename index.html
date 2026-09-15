@@ -1149,6 +1149,7 @@ html.dh-touch .panel-close { min-height: 36px; padding: 8px 12px; }
 <script src="assets/js/props.js"></script>
 <script src="assets/js/ground.js"></script>
 <script src="assets/js/jungle.js"></script>
+<script src="assets/js/mine.js"></script>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -12527,7 +12528,14 @@ function updateMineHUD() {
     const vis = getMineVisibility();
     const visStr = vis < 1 ? ` 👁 ${Math.round(vis * 100)}%` : '';
     const hazStr = _mineHazard ? ` ⚠️ ${(_mineHazard.type).toUpperCase()}` : '';
-    const flLabel = gameState.mineFloor === 3 ? `Floor 4 — The Unmapped` : `Floor ${fl+1}/3 — ${MINE_FLOOR_CFG[fl].name}`;
+    /* The counter already says which floor this is, and every cfg name starts
+       by saying it again — "Floor 1/3 — Floor 1 — Shallow". Keep the counter and
+       take only the part of the name that adds something.
+       Floor 4 keeps its own label and no counter: The Unmapped is not on the
+       map, which is the point of it. */
+    const flLabel = gameState.mineFloor === 3
+      ? `Floor 4 — The Unmapped`
+      : `Floor ${fl+1}/3 — ${MINE_FLOOR_CFG[fl].name.replace(/^Floor\s+\d+\s*—\s*/, '')}`;
     const candleStr = gameState._candleBurnLeft > 0 ? ` 🕯️ ${Math.ceil(gameState._candleBurnLeft)}s` : '';
     el.innerHTML = `⛏ ${flLabel}${visStr}${hazStr}${candleStr}`;
     el.style.color = _mineHazard ? '#e07040' : '#90b0e8';
@@ -14681,6 +14689,13 @@ function enterBadlands() {
 function enterBLMine() {
   gameState.inBadlands = false; // leaving badlands surface to go underground
   gameState.inBLMine = true;
+  /* Heat is a badlands-surface thing, and updateHeatHUD() does hide the meter
+     when you are not up there — but the only things that call it are addHeat,
+     resetHeat and the badlands enemy tick, none of which run down here. So the
+     panel just kept whatever it was last told and sat on screen through all
+     five levels, over the season banner. Tell it once on the way in; on the way
+     out the badlands tick picks it up again. */
+  updateHeatHUD();
   gameState.blMineFloor = 0;
   player.x = BL_MINE_SPAWN[0].x + 32;
   player.y = BL_MINE_SPAWN[0].y;
@@ -23487,7 +23502,119 @@ function _mineFungusHere(tx, ty) {
   return ((((tx * 73856093) ^ (ty * 19349663)) >>> 0) % 9) === 0;
 }
 
+/* Which ore chunk sits in which vein. Seven distinct colours in the pack and
+   seven vein types in the game, so every ore reads as its own thing rather
+   than as "a coloured blob". Iron takes the steel-blue and silver the white,
+   which is the way round they actually look. */
+const MINE_VEIN_ORE = {
+  [TL.COAL_VEIN]:    'oreDark',
+  [TL.COPPER_VEIN]:  'oreCopper',
+  [TL.IRON_VEIN]:    'oreBlue',
+  [TL.SILVER_VEIN]:  'oreSilver',
+  [TL.GOLD_VEIN]:    'oreGold',
+  [TL.CRYSTAL_VEIN]: 'orePurple',
+  [TL.SINGING_VEIN]: 'oreGreen',
+};
+
+// The renderer serves both mines, so ask the one we are actually standing in.
+function _mineTileAt(tx, ty) {
+  return gameState.inBLMine
+    ? getBLMineT(gameState.blMineFloor, tx, ty)
+    : getMineT(gameState.mineFloor, tx, ty);
+}
+
+function _mineTouchesWall(tx, ty) {
+  return _mineTileAt(tx - 1, ty) === TL.MINE_WALL ||
+         _mineTileAt(tx + 1, ty) === TL.MINE_WALL ||
+         _mineTileAt(tx, ty - 1) === TL.MINE_WALL ||
+         _mineTileAt(tx, ty + 1) === TL.MINE_WALL;
+}
+
+/* Draw a mine tile from the Miner's Cave atlas.
+
+   Returns false when the atlas is not up, and the painted tiles below run
+   instead — which is also what happens for the tiles this does not cover, like
+   the hidden shaft.
+
+   Standing props — barrels, crates, a minecart, a lantern — only go on floor
+   that touches a wall. A barrel in the middle of a corridor is something you
+   walk through; against the wall it is scenery. Flat things (rail, loose rock)
+   can go anywhere, because walking over them is what they are for. */
+/* One tint over every atlas tile, at the same strength everywhere.
+
+   The pack is lit for a bright cave; this mine is meant to be oppressive, and
+   its whole difficulty curve is a visibility number falling from 75% to 8%.
+   Dropped in raw, the art read as a well-lit cellar and the deepest floor
+   looked no darker than the first. Tinting per tile-type would put a seam on
+   every boundary — the jungle taught that — so this is uniform, and identical
+   to laying one rectangle over the whole viewport. */
+const MINE_ATLAS_TINT = 'rgba(16,11,8,0.42)';
+
+function _drawMineTileFromAtlas(t, sx, sy, tx, ty) {
+  if (typeof DHMine === 'undefined' || !DHMine.ready('floor')) return false;
+  if (tx === undefined || ty === undefined) return false;
+
+  const ore = MINE_VEIN_ORE[t];
+  const tint = () => { ctx.fillStyle = MINE_ATLAS_TINT; ctx.fillRect(sx, sy, T, T); };
+
+  if (ore) {
+    DHMine.drawTile(ctx, 'wall', sx, sy, tx, ty);
+    DHMine.drawTile(ctx, ore, sx, sy, tx, ty);
+    tint();
+    return true;
+  }
+
+  if (t === TL.MINE_WALL) {
+    if (!DHMine.drawTile(ctx, 'wall', sx, sy, tx, ty)) return false;
+    tint();
+    return true;
+  }
+
+  if (t === TL.MINE_SHAFT_DOWN || t === TL.MINE_SHAFT_UP || t === TL.MINE_EXIT) {
+    DHMine.drawTile(ctx, 'floor', sx, sy, tx, ty);
+    DHMine.drawTile(ctx, 'ladder', sx, sy, tx, ty);
+    tint();
+    return true;
+  }
+
+  if (t !== TL.MINE_FLOOR) return false;
+
+  DHMine.drawTile(ctx, 'floor', sx, sy, tx, ty);
+
+  // Flat, walk-over.
+  if (DHMine.chance(tx, ty, 1, 15))      DHMine.drawTile(ctx, 'railH', sx, sy, tx, ty);
+  else if (DHMine.chance(tx, ty, 2, 17)) DHMine.drawTile(ctx, 'rock', sx, sy, tx, ty);
+
+  // Against the wall only.
+  if (_mineTouchesWall(tx, ty)) {
+    if      (DHMine.chance(tx, ty, 3, 11)) DHMine.drawTile(ctx, 'support', sx, sy, tx, ty);
+    else if (DHMine.chance(tx, ty, 4, 17)) DHMine.drawTile(ctx, 'barrel',  sx, sy, tx, ty);
+    else if (DHMine.chance(tx, ty, 5, 21)) DHMine.drawTile(ctx, 'crate',   sx, sy, tx, ty);
+    else if (DHMine.chance(tx, ty, 6, 29)) DHMine.drawTile(ctx, 'oreCart', sx, sy, tx, ty);
+    else if (DHMine.chance(tx, ty, 7, 33)) DHMine.drawTile(ctx, 'lantern', sx, sy, tx, ty);
+    else if (DHMine.chance(tx, ty, 8, 41)) DHMine.draw(ctx, 'minecart', sx + T / 2, sy + T, tx, ty);
+  }
+
+  tint();
+
+  // The Unmapped grows things. See MINE_UNMAPPED_FLOOR. After the tint, because
+  // the fungus is the one thing down there giving off light rather than taking it.
+  if (_mineFungusHere(tx, ty)) {
+    const gp = 0.34 + 0.16 * Math.sin(Date.now() * 0.0013 + tx + ty);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = gp;
+    ctx.fillStyle = 'rgba(20,150,140,1)';
+    ctx.beginPath(); ctx.ellipse(sx + T/2, sy + T/2, T*0.55, T*0.42, 0, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+    DHJungle.draw(ctx, 'caveFungus', sx, sy, tx, ty, T);
+  }
+  return true;
+}
+
 function drawMineTile(t, sx, sy, tx, ty) {
+  if (_drawMineTileFromAtlas(t, sx, sy, tx, ty)) return;
+
   const c = MINE_TILE_COLORS[t] || MINE_TILE_COLORS[TL.MINE_WALL];
   ctx.fillStyle = c[0]; ctx.fillRect(sx, sy, T, T);
 
@@ -23827,7 +23954,11 @@ function renderBLMineMap() {
   ctx.save();
   for (let ty2=sty;ty2<=ety;ty2++) for (let tx2=stx;tx2<=etx;tx2++) {
     const sx=tx2*T-cx, sy=ty2*T-cy;
-    drawMineTile(getBLMineT(floor,tx2,ty2), sx, sy);
+    // The tile coordinates matter: every deterministic choice in the tile
+    // renderer — which floor variant, which ore, whether a barrel stands here —
+    // is hashed from them. The overworld mine passed them and this did not, so
+    // the Company Mine drew nothing from the atlas at all.
+    drawMineTile(getBLMineT(floor,tx2,ty2), sx, sy, tx2, ty2);
   }
   ctx.restore();
   // Fog of war
