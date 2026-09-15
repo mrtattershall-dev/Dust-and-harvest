@@ -29,6 +29,21 @@ MP3 rather than Ogg Vorbis or Opus, which both sound better per byte: Safari
 does not play either, the game runs in a browser on itch.io, and the one device
 this is tested on is a phone. One format that works everywhere beats two.
 
+Loops are baked MONO at 64k, one-shots stereo. That is measured, not assumed.
+Encoding a forest bed and comparing third-octave bands against the source:
+
+  stereo 112k   782 KB/57s   mean 0.51dB   worst 2.70dB
+  stereo  96k   670 KB/57s   mean 0.79dB   worst 8.06dB  (-8dB at 12.9kHz)
+  stereo  80k   558 KB/57s   mean 1.95dB   worst 29.2dB  (collapses)
+  mono    64k   447 KB/57s   mean 0.44dB   worst 0.66dB  (only >16kHz)
+  mono    48k   335 KB/57s   mean 1.95dB   worst 34.9dB  (collapses)
+
+Mono 64k is BOTH smaller and more accurate than the stereo 112k this shipped
+with: below 16kHz it is within 1dB, where stereo 96k is already losing 8dB at
+12.9kHz — which for a forest bed is exactly where the insects and the leaf
+detail are. The cost is the stereo image, and with seventeen ambience loops
+that image is not worth six megabytes.
+
 Usage:
   ./tools/build_audio.py SRC_DIR [...]        # any dir holding the WAVs
 """
@@ -60,6 +75,8 @@ FAMILY_PEAK = {
     "mine": 0.794,   # Struck stone, same ceiling as the axe.
     "cave":  0.707,  # Ambience, like the sea.
     "river": 0.707,
+    "forest": 0.707,
+    "inside": 0.707,
     "chest": 0.794,  # Lids and a lock: one family, so they match each other.
     "door":  0.794,
     # Walks and runs share this family, and a run is ~7dB heavier in the
@@ -141,6 +158,23 @@ PIECES = {
     "door_open2":   ("Door_Open_2.wav",   "shot", "door", "128k"),
     "door_close1":  ("Door_Close_1.wav",  "shot", "door", "128k"),
     "door_close2":  ("Door_Close_2.wav",  "shot", "door", "128k"),
+
+    # Outdoors, by time of day and weather. Six of them, and every one is a
+    # bed the player can be standing in for a long time, so the day/night pair
+    # matters more here than anywhere else.
+    "forest_day":         ("Forest_Day.wav",         "loop", "forest", "64k"),
+    "forest_day_rain":    ("Forest_Day_Rain.wav",    "loop", "forest", "64k"),
+    "forest_day_storm":   ("Forest_Day_Storm.wav",   "loop", "forest", "64k"),
+    "forest_night":       ("Forest_Night.wav",       "loop", "forest", "64k"),
+    "forest_night_rain":  ("Forest_Night_Rain.wav",  "loop", "forest", "64k"),
+    "forest_night_storm": ("Forest_Night_Storm.wav", "loop", "forest", "64k"),
+
+    # Indoors — the farmhouse. No night variant was delivered, so night indoors
+    # uses the day bed; it is a room, and the difference is what is audible
+    # THROUGH the walls, which the weather variants already carry.
+    "inside_day":       ("Inside_Day.wav",       "loop", "inside", "64k"),
+    "inside_day_rain":  ("Inside_Day_Rain.wav",  "loop", "inside", "64k"),
+    "inside_day_storm": ("Inside_Day_Storm.wav", "loop", "inside", "64k"),
 }
 
 
@@ -208,6 +242,8 @@ def trim_shot(a, sr):
 
 
 def encode(exe, a, sr, ch, bitrate, path):
+    if ch == 1 and a.shape[1] > 1:
+        a = a.mean(axis=1, keepdims=True)
     pcm = np.clip(a, -1.0, 1.0)
     pcm = (pcm * 32767.0).astype("<i2").tobytes()
     cmd = [exe, "-y", "-hide_banner", "-loglevel", "error",
@@ -265,8 +301,9 @@ def main():
         else:
             log(f"  {name:10s} shot  {len(a)/sr:6.2f}s  peak {np.abs(a).max():.3f}  "
                 f"trimmed {extra[0]*1000:.0f}ms lead, {extra[1]*1000:.0f}ms tail")
+        out_ch, out_br = (1, "64k") if kind == "loop" else (ch, br)
         path = OUT / f"{name}.mp3"
-        encode(exe, a, sr, ch, br, path)
+        encode(exe, a, sr, out_ch, out_br, path)
         meta[name] = {"kind": kind, "family": fam, "sec": round(len(a) / sr, 3),
                       "kb": round(path.stat().st_size / 1024)}
 

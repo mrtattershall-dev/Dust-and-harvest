@@ -2,19 +2,19 @@
  "files": {
   "cave": {
    "family": "cave",
-   "kb": 780,
+   "kb": 446,
    "kind": "loop",
    "sec": 57.0
   },
   "cave_rain": {
    "family": "cave",
-   "kb": 780,
+   "kb": 446,
    "kind": "loop",
    "sec": 57.0
   },
   "cave_storm": {
    "family": "cave",
-   "kb": 780,
+   "kb": 446,
    "kind": "loop",
    "sec": 57.0
   },
@@ -90,6 +90,60 @@
    "kind": "shot",
    "sec": 0.972
   },
+  "forest_day": {
+   "family": "forest",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "forest_day_rain": {
+   "family": "forest",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "forest_day_storm": {
+   "family": "forest",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "forest_night": {
+   "family": "forest",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "forest_night_rain": {
+   "family": "forest",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "forest_night_storm": {
+   "family": "forest",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "inside_day": {
+   "family": "inside",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "inside_day_rain": {
+   "family": "inside",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "inside_day_storm": {
+   "family": "inside",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
   "mine1": {
    "family": "mine",
    "kb": 7,
@@ -122,13 +176,13 @@
   },
   "river": {
    "family": "river",
-   "kb": 780,
+   "kb": 446,
    "kind": "loop",
    "sec": 57.0
   },
   "river_stream": {
    "family": "river",
-   "kb": 780,
+   "kb": 446,
    "kind": "loop",
    "sec": 57.0
   },
@@ -164,19 +218,19 @@
   },
   "sea": {
    "family": "sea",
-   "kb": 780,
+   "kb": 446,
    "kind": "loop",
    "sec": 57.0
   },
   "sea_rain": {
    "family": "sea",
-   "kb": 780,
+   "kb": 446,
    "kind": "loop",
    "sec": 57.0
   },
   "sea_storm": {
    "family": "sea",
-   "kb": 780,
+   "kb": 446,
    "kind": "loop",
    "sec": 57.0
   },

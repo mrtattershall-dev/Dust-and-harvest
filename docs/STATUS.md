@@ -192,8 +192,18 @@ Two traps, both already paid for:
   target. Re-scheduling an exponential ramp sixty times a second pins the gain
   wherever it happens to be and it never arrives.
 
-Ambience: the sea in the dock zone, the cave in both mines, and running water
-by PROXIMITY — `_waterNearness()` samples a 17x17 square around the player each
+Ambience runs on two CHANNELS: a BED (what the place sounds like) and a LAYER
+over it (what is near you in it). One slot meant the river REPLACED the forest
+as you walked to the bank.
+
+`_updateAmbience()` is called from `gameLoop()`, NOT from `render()`. render()
+is wrapped further down the file so the jungle can take it over completely, so
+anything called from inside it stops happening in the jungle — the ambience
+froze on whatever had been playing when the player walked in.
+
+Beds: the sea in the dock zone, the cave in both mines, the farmhouse indoors,
+and forest outdoors by day/night. The badlands is deliberately left out — it is
+a dead desert and wants wind, not a forest. Layer: running water by PROXIMITY — `_waterNearness()` samples a 17x17 square around the player each
 frame (289 lookups, nothing) and fades the loop in as they approach, so the
 river is only audible near the river. The sea and the cave both pick a weather
 variant off the storm intensity.

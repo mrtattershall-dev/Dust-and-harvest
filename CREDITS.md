@@ -162,6 +162,12 @@ in the browser from oscillators, and still is.
   coming through from above.
 - **River_Loop, River_Stream_Loop** — running water, played by how close the
   player is to it rather than by which zone they are in.
+- **Forest_Day / Night, each with _Rain and _Storm** — the outdoor bed, on the
+  frontier, in the camp and in the jungle. Not the badlands: a forest bed on a
+  dead desert would be wrong, and it wants wind.
+- **Inside_Day, _Rain, _Storm** — the farmhouse interior. No night variant was
+  delivered and it does not need one: a room sounds like a room, and what
+  changes is the weather through the walls.
 - **Chest_Open_1/2, Chest_Close_1/2** — the storage chest.
 - **Lock_Unlock** — buying an upgrade.
 - **Door_Open_1/2, Door_Close_1/2** — the barn doors.
@@ -183,6 +189,14 @@ to them is not cosmetic and is worth knowing if the sources are ever replaced:
 the ambiences are NOT loops as delivered (the jump from last sample to first is
 about half the amplitude of the material and clicks every time round), they
 peak around -19dBFS, and `chop_1` has 200ms of silence before the axe lands.
+
+Loops are baked MONO at 64k and one-shots stereo, which is measured rather
+than assumed — see the table in `tools/build_audio.py`. Mono 64k is both
+smaller AND more accurate than the stereo 112k this shipped with: below 16kHz
+it stays within 1dB, where stereo 96k is already losing 8dB at 12.9kHz, which
+on a forest bed is exactly where the insects and the leaf detail live. The cost
+is the stereo image, and across seventeen ambience loops that image was not
+worth six megabytes.
 
 Gain is applied per FAMILY, not per file. The five footsteps span 6.6dB between
 the lightest and the heaviest take and a storm is meant to be louder than a calm

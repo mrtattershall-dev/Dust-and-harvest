@@ -28,9 +28,13 @@ window.DHSound = (function () {
     pending: {},                  // name -> Promise, so a file is fetched once
     failed: {},
     bus: null,                    // everything here goes through one gain
-    amb: null,                    // { src, gain, name }
-    want: null,                   // the ambience most recently asked for
-    ambVol: 1,
+    // Ambience runs on CHANNELS, because a bed and a layer over it are two
+    // different things: the forest is what the place sounds like, and the
+    // river is what is near you in it. One slot meant the river REPLACED the
+    // forest as you walked to the bank.
+    amb: [],                      // ch -> { src, gain, name }
+    want: [],                     // ch -> the name most recently asked for
+    ambVol: [],
   };
 
   function ctx() {
@@ -132,24 +136,28 @@ window.DHSound = (function () {
   // Crossfade to `name`, or to silence when it is null. Calling it with the
   // ambience that is already playing does nothing, so a zone can ask on every
   // frame without restarting the loop.
-  function ambient(name, level) {
+  function ambient(name, level, ch) {
+    ch = ch || 0;
     const v = (level === undefined) ? 1 : level;
-    state.want = name;
+    state.want[ch] = name;
 
     // Already playing the right thing. The short-circuit has to test what is
     // PLAYING, not what is wanted: testing `want` meant that once a zone had
     // asked for a loop, every later call agreed there was nothing to do and
     // the loop was never started at all.
-    if (state.amb && state.amb.name === name) {
+    const cur = state.amb[ch];
+    if (cur && cur.name === name) {
       // And only re-ramp when the target actually moves. This is called every
       // frame; re-scheduling an exponential ramp sixty times a second pins the
       // gain wherever it happens to be and it never arrives.
-      if (Math.abs(state.ambVol - v) > 0.01) { state.ambVol = v; rampTo(state.amb.gain, v); }
+      if (Math.abs((state.ambVol[ch] || 0) - v) > 0.01) {
+        state.ambVol[ch] = v; rampTo(cur.gain, v);
+      }
       return true;
     }
-    state.ambVol = v;
-    if (!name) { fadeOutCurrent(); return true; }
-    if (!enabled()) { fadeOutCurrent(); return false; }
+    state.ambVol[ch] = v;
+    if (!name) { fadeOutCurrent(ch); return true; }
+    if (!enabled()) { fadeOutCurrent(ch); return false; }
 
     const buf = state.buffers[name];
     if (!buf) {
@@ -159,8 +167,8 @@ window.DHSound = (function () {
       if (!state.pending[name] && !state.failed[name]) {
         load(name).then(() => {
           // Only if this is STILL what is wanted — the player can leave the
-          // zone while 780KB is in flight.
-          if (state.want === name) ambient(name, state.ambVol);
+          // zone while half a megabyte is in flight.
+          if (state.want[ch] === name) ambient(name, state.ambVol[ch], ch);
         }).catch(() => {});
       }
       return false;
@@ -168,7 +176,7 @@ window.DHSound = (function () {
     const c = ctx(), b = bus();
     if (!c || !b) return false;
 
-    fadeOutCurrent();
+    fadeOutCurrent(ch);
     const g = c.createGain();
     g.gain.value = 0.0001;
     const s = c.createBufferSource();
@@ -176,8 +184,8 @@ window.DHSound = (function () {
     s.loop = true;
     s.connect(g); g.connect(b);
     s.start();
-    rampTo(g, state.ambVol);
-    state.amb = { src: s, gain: g, name: name };
+    rampTo(g, state.ambVol[ch]);
+    state.amb[ch] = { src: s, gain: g, name: name };
     return true;
   }
 
@@ -189,10 +197,11 @@ window.DHSound = (function () {
     g.gain.exponentialRampToValueAtTime(Math.max(0.0001, v), c.currentTime + FADE);
   }
 
-  function fadeOutCurrent() {
-    const cur = state.amb;
+  function fadeOutCurrent(ch) {
+    ch = ch || 0;
+    const cur = state.amb[ch];
     if (!cur) return;
-    state.amb = null;
+    state.amb[ch] = null;
     const c = ctx();
     if (!c) { try { cur.src.stop(); } catch (e) {} return; }
     rampTo(cur.gain, 0.0001);
@@ -202,7 +211,17 @@ window.DHSound = (function () {
     try { cur.src.stop(c.currentTime + FADE + 0.25); } catch (e) {}
   }
 
-  function stopAmbient() { state.want = null; fadeOutCurrent(); }
+  // With no argument, stops every channel — a zone change should silence the
+  // lot, not just the bed.
+  function stopAmbient(ch) {
+    if (ch === undefined) {
+      for (let i = 0; i < Math.max(state.amb.length, state.want.length); i++) {
+        state.want[i] = null; fadeOutCurrent(i);
+      }
+      return;
+    }
+    state.want[ch] = null; fadeOutCurrent(ch);
+  }
 
   // Warm the small one-shots. The ambiences are deliberately NOT preloaded.
   function preload(names) {

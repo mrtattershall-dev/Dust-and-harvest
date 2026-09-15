@@ -20176,49 +20176,70 @@ function _waterNearness(get, wet, tiles) {
   return 1 - best / (R + 1);
 }
 
+// The farmhouse interior, from buildMap(): TOWN_FLOOR walled in at x 3-9,
+// y 24-29 with a door at y=30. Deliberately NOT isStormsheltered(), which
+// counts the whole town street as indoors — correct for weather, wrong for
+// ambience, since you would lose the outdoor bed walking down the street.
+function _isIndoors() {
+  if (gameState.inMine || gameState.inBLMine || gameState.inBadlands ||
+      gameState.inHoboCamp || gameState.inOcean || gameState.inJungle) return false;
+  const tx = Math.floor(player.x / T), ty = Math.floor(player.y / T);
+  return tx >= 3 && tx <= 9 && ty >= 24 && ty <= 29;
+}
+
+// The weather suffix the ambience beds are cut in.
+function _weatherSuffix() {
+  const st = gameState.stormActive ? (gameState._stormIntensity || 0) : 0;
+  return st > 0.45 ? '_storm' : st > 0.05 ? '_rain' : '';
+}
+
 function _updateAmbience() {
   if (!window.DHSound) return;
+  const wx = _weatherSuffix();
 
-  // The sea, in the dock zone.
+  // ── Channel 0: the bed. What the place sounds like.
+  let bed = null, bedVol = 0.6;
   if (gameState.inOcean) {
-    const st = gameState.stormActive ? (gameState._stormIntensity || 0) : 0;
-    const name = st > 0.45 ? 'sea_storm' : st > 0.05 ? 'sea_rain' : 'sea';
-    // The storm is loud on its own; the calm sea sits under everything else.
-    DHSound.ambient(name, st > 0.45 ? 0.85 : 0.6);
-    return;
+    bed = 'sea' + wx;
+    bedVol = wx === '_storm' ? 0.85 : 0.6;
+  } else if (gameState.inMine || gameState.inBLMine) {
+    bed = 'cave' + wx;
+    bedVol = 0.55;
+  } else if (_isIndoors()) {
+    // No night variant was delivered for indoors, and it does not need one:
+    // a room sounds like a room, and what changes is the weather through the
+    // walls, which these three carry.
+    bed = 'inside_day' + wx;
+    bedVol = 0.55;
+  } else if (gameState.inJungle || gameState.inHoboCamp || !gameState.inBadlands) {
+    // The badlands is the one outdoor zone left out: it is a dead desert and
+    // a forest bed would be wrong there. It wants wind.
+    bed = 'forest_' + (gameState.isNight ? 'night' : 'day') + wx;
+    bedVol = 0.5;
   }
+  DHSound.ambient(bed, bedVol, 0);
 
-  // The mine, with the weather coming through from above. Underground and
-  // completely silent until now.
-  if (gameState.inMine || gameState.inBLMine) {
-    const st = gameState.stormActive ? (gameState._stormIntensity || 0) : 0;
-    const name = st > 0.45 ? 'cave_storm' : st > 0.05 ? 'cave_rain' : 'cave';
-    DHSound.ambient(name, 0.55);
-    return;
-  }
-
-  // Running water, by PROXIMITY rather than by zone: the river only covers a
-  // strip of the overworld and there is no reason to hear it from the far side
-  // of the map. A creek on the frontier, a bigger river in the jungle.
-  let near = 0, name = null;
+  // ── Channel 1: running water, OVER the bed rather than instead of it.
+  //
+  // By proximity, not by zone: the river covers a strip of the overworld and
+  // there is no reason to hear it from the far side of the map. A creek on the
+  // frontier, a bigger river in the jungle.
+  let near = 0, water = null;
   if (gameState.inJungle) {
     near = _waterNearness(getJGT, v => v === JG.WATER || v === JG.WATER_DEEP);
-    name = 'river';
+    water = 'river';
   } else if (gameState.inHoboCamp) {
     near = _waterNearness(getHCT, v => v === TL.WATER || v === TL.DEEP_WATER);
-    name = 'river_stream';
-  } else if (!gameState.inBadlands) {
+    water = 'river_stream';
+  } else if (!gameState.inBadlands && !gameState.inOcean &&
+             !gameState.inMine && !gameState.inBLMine && !_isIndoors()) {
     near = _waterNearness(getT, v => v === TL.WATER || v === TL.DEEP_WATER ||
                                      v === TL.FISHING_SPOT);
-    name = 'river_stream';
+    water = 'river_stream';
   }
-  if (near > 0.02 && name) {
-    // Squared, so it falls away rather than sitting at half volume across the
-    // whole search square.
-    DHSound.ambient(name, 0.10 + near * near * 0.55);
-    return;
-  }
-  DHSound.stopAmbient();
+  // Squared, so it falls away rather than sitting at half volume across the
+  // whole search square.
+  DHSound.ambient(near > 0.02 ? water : null, 0.10 + near * near * 0.55, 1);
 }
 
 function render() {
@@ -20227,7 +20248,6 @@ function render() {
   // can never inherit the previous frame's skin. Each zone that wants one sets
   // it for itself below.
   if (window.DHGround && DHGround.season) DHGround.season(null);
-  _updateAmbience();
   if (gameState.inBLMine) {
     renderBLMineMap();
     return;
@@ -25471,6 +25491,12 @@ function gameLoop(ts) {
   const dt = Math.min((ts-lastTime)/1000, .05);
   lastTime = ts;
   update(dt);
+  // Here rather than inside render(). render() is wrapped further down the
+  // file so the jungle can take it over completely — `if (gameState.inJungle)
+  // { renderJungleZone(); return; }` — so anything called from inside render()
+  // simply stops happening in the jungle. The ambience froze on whatever had
+  // been playing when the player walked in.
+  _updateAmbience();
   render();
   requestAnimationFrame(gameLoop);
 }
