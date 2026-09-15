@@ -7357,6 +7357,9 @@ function onNewDay() {
   gameState._noonProductsDespawned = false;
   _hungerWarnedHungry   = false;
   _hungerWarnedStarving = false;
+  // Badlands chests and bounty board are a day's worth — roll them over here so
+  // "comes back around tomorrow" means tomorrow even if you never leave.
+  refreshBLDailies();
   // Bed bonus — full HP restore at dawn if on the farm
   if (homeFurnitureOwned('bed') && isOnOverworld()) {
     player.hp = player.maxHp;
@@ -14564,10 +14567,8 @@ function enterBadlands() {
   blVendorOpen = false;
   blVendorTab = 'sell';
   blFenceNode = 'root';
-  generateBLBounties();
+  refreshBLDailies();
   resetHeat();
-  blChestLooted = false;
-  blDeepChestLooted = false;
   // Enter on right edge, preserve player Y clamped to badlands bounds
   player.x=(BL_W-3)*T;
   player.y=Math.max(2*T, Math.min((BL_H-3)*T, player.y));
@@ -15342,6 +15343,27 @@ const BL_BOUNTY_POOL = [
 let blBounties = [];       // active bounties [{...def, progress:0, complete:false}]
 let blBountyKills = {};    // { enemyType: count } accumulated this badlands visit
 let blBountyBoardOpen = false;
+let blDailyDay = -1;       // in-game day the bounties and chests last rolled over
+
+/* The badlands' two chests say "Comes back around tomorrow" and "Returns
+   tomorrow", and the bounty board is a day's work. None of that was true:
+   enterBadlands() cleared both chest flags and re-rolled the bounties on every
+   single entry, and loadGame() did the same. So walking out the east edge and
+   straight back in refilled both chests — measured at $2,733 and a bag of ore
+   from twenty round trips, in seconds — while wiping whatever bounty progress
+   you had built up. Sleeping, meanwhile, reset nothing at all: onNewDay() never
+   touched these flags, so the one thing the messages promised was the one thing
+   that didn't happen.
+
+   Now the rollover is keyed to the day, and the state is saved, so a reload is
+   not a re-roll either. */
+function refreshBLDailies() {
+  if (blDailyDay === gameState.day && blBounties.length > 0) return;
+  blDailyDay = gameState.day;
+  generateBLBounties();
+  blChestLooted = false;
+  blDeepChestLooted = false;
+}
 
 function generateBLBounties() {
   // Pick 3 unique bounties
@@ -23854,6 +23876,7 @@ function getSaveData() {
     exploredBLMine: exploredBLMine ? exploredBLMine.map(fl => btoa(String.fromCharCode(...fl))) : null,
     hcTalkSeen: [...hcTalkSeen],
     craneSellCount: _craneSellCount,
+    blDailyDay, blBounties, blBountyKills, blChestLooted, blDeepChestLooted,
     reputation: {...REPUTATION},
     stats: stats,
     fog: {
@@ -23947,12 +23970,21 @@ function loadGame() {
     if (!player.name)             player.name      = 'Stranger';
 
     // ── Restore zone state ──────────────────────────────────────────────────
+    // Badlands dailies. Absent in saves from before this was persisted; those
+    // load with blDailyDay -1, so the next entry rolls them over once.
+    if (d.blDailyDay != null) {
+      blDailyDay        = d.blDailyDay;
+      blBounties        = Array.isArray(d.blBounties) ? d.blBounties : [];
+      blBountyKills     = d.blBountyKills || {};
+      blChestLooted     = !!d.blChestLooted;
+      blDeepChestLooted = !!d.blDeepChestLooted;
+    }
+
     // If the save was made in the Badlands, put the player back there.
     // Otherwise make sure inBadlands is cleared (handles old saves with no field).
     if (d.inBadlands) {
       gameState.inBadlands = true;
-      generateBLBounties();
-      blChestLooted = false;
+      refreshBLDailies();
       badlandsEnemies.length = 0;
       blNightSpawnTimer = 3;
     } else {
