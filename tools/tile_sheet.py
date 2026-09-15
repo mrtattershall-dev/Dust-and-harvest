@@ -34,6 +34,22 @@ BOOT = """() => { startNewGame();
   const t=document.getElementById('titleScreen'); t.classList.remove('show'); t.style.display='none';
   const i=document.getElementById('introScreen'); if(i){i.classList.remove('show');i.style.display='none';} }"""
 
+# Tile types whose art is NOT drawn by the tile function.
+#
+# The sheet calls one tile function per cell. Anything drawn in a LATE PASS
+# over the whole viewport — a tree taller than its tile, the barn, the forge,
+# the workbench — therefore does not appear, and the cell shows bare ground.
+# That is the tool under-reporting, not a placeholder, and it has been misread
+# as one: the ocean's TREE draws a palm from _ocOverhang() and looked empty.
+LATE_PASS = {
+  "overworld": {"TREE", "BARN_CLOSED", "BARN_OPEN", "BUILDING", "FORGE",
+                "WORKBENCH"},
+  "ocean":     {"TREE"},
+  "hobo":      {"TREE"},
+  "badlands":  {"DEADWOOD"},
+  "jungle":    {"TREE", "DENSE_TREE", "HUT"},
+}
+
 # zone -> (enter js, tile enum, width, height, getter, draw-one-tile expression)
 ZONES = {
   "overworld": ("0", "TL", "MAP_W", "MAP_H", "getT", "drawTile(TX,TY,SX,SY)"),
@@ -88,7 +104,7 @@ def serve(directory, port):
                      daemon=True).start()
 
 
-def sheet(cells, path):
+def sheet(cells, path, zone):
     COLS, CW, CH = 8, 200, 216
     im = Image.new("RGB", (COLS * CW, max(1, (len(cells) + COLS - 1) // COLS) * CH), (24, 24, 26))
     dr = ImageDraw.Draw(im)
@@ -97,7 +113,10 @@ def sheet(cells, path):
         t = t.crop((0, 0, 96, 96)).resize((192, 192), Image.NEAREST)
         col, row = k % COLS, k // COLS
         im.paste(t, (col * CW + 4, row * CH + 20))
-        dr.text((col * CW + 6, row * CH + 5), n + (" !" + e if e else ""), fill=(230, 220, 205))
+        late = " (late pass)" if n in LATE_PASS.get(zone, ()) else ""
+        dr.text((col * CW + 6, row * CH + 5),
+                n + late + (" !" + e if e else ""),
+                fill=(196, 176, 140) if late else (230, 220, 205))
     im.save(path)
 
 
@@ -126,7 +145,7 @@ async def main():
             cells = [(n, d, e) for n, d, e in rows if d]
             missing = [n for n, d, e in rows if not d]
             threw = [n for n, d, e in rows if d and e]
-            sheet(cells, OUT / f"tiles-{z}.png")
+            sheet(cells, OUT / f"tiles-{z}.png", z)
             print(f"{z:10s} {len(cells):3d} drawn -> dist/tiles-{z}.png"
                   + (f" | THREW: {', '.join(threw)}" if threw else "")
                   + (f" | not on the map: {len(missing)}" if missing else ""))

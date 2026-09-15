@@ -51,6 +51,7 @@ SMITH = "*blacksmith*/PNG/"
 TREES = "*freetopdowntrees*/PNG/Assets_separately/Trees/"
 FARM  = "*farmwithanimals*/"
 FISH  = "*fishingvillage*2/PNG/"
+ROCKY_OBJ = "*rocky*/Tiled_files/Objects.png"
 # The 16px sheet: the 32/48/64 files beside it are exact upscales of it.
 GV    = "*greenvillage*/All Tileset/16x16.png"
 
@@ -204,6 +205,35 @@ PIECES = {
     # sprite on screen.
     "barn":      (FARM + "Tiled_files/Houses.png", (403, 12, 91, 83)),
     "barn_open": (FARM + "Tiled_files/Houses.png", (403, 12, 91, 83)),
+
+    # --- The fishing village.
+    #
+    # The dock zone is 404 sand tiles and 138 of dock, and the only thing
+    # standing on any of them was one crate. Three of this pack's pieces were
+    # already being used for the TOWN's street furniture (crate_tall,
+    # crate_wide, sack) and the rest of the sheet — which is a fishing
+    # village's own gear — was not touched.
+    "fv_rack":      (FISH + "Exterior_objetcs.png", (70, 276, 66, 40)),
+    "fv_fishcrate": (FISH + "Exterior_objetcs.png", (48, 413, 35, 28)),
+    "fv_fishcrate2":(FISH + "Exterior_objetcs.png", (130, 460, 31, 29)),
+    "fv_fishbox":   (FISH + "Exterior_objetcs.png", (110, 412, 66, 29)),
+    "fv_barrel":    (FISH + "Exterior_objetcs.png", (212, 450, 26, 28)),
+    "fv_barrelfish":(FISH + "Exterior_objetcs.png", (180, 460, 26, 28)),
+    "fv_barrels":   (FISH + "Exterior_objetcs.png", (211, 488, 28, 33)),
+    "fv_sacks":     (FISH + "Exterior_objetcs.png", (0, 551, 32, 19)),
+    "fv_net":       (FISH + "Exterior_objetcs.png", (3, 403, 41, 39)),
+    "fv_crates":    (FISH + "Exterior_objetcs.png", (8, 287, 49, 54)),
+    # One of these, on the dock. A landed shark is a thing a fishing village
+    # would have out, and nothing else in the game is 72px of fish.
+    "fv_shark":     (FISH + "Exterior_objetcs.png", (116, 362, 72, 31)),
+
+    # Sea rocks. The Rocky pack ships its boulders in a mossy variant and a
+    # plain drop-shadow one; these are the plain ones, which need no moss
+    # removing, and the four that fit inside a 32px tile.
+    "searock0": (ROCKY_OBJ, (17, 224, 31, 32)),
+    "searock1": (ROCKY_OBJ, (144, 224, 32, 32)),
+    "searock2": (ROCKY_OBJ, (179, 227, 26, 27)),
+    "searock3": (ROCKY_OBJ, (322, 226, 25, 28)),
 }
 
 # --- Mine ore.

@@ -106,6 +106,16 @@ wrap-seamless overlay per frame. It is baked NEUTRAL, in white and black on
 transparency, so each zone keeps its own water colour and takes the pack's
 motion; the colours themselves are the game's own.
 
+The dock zone's fishing gear — the fish crates, the nets, the barrels, the
+drying rack and the landed shark — is from *2D Pixel Fishing Village Pack*,
+which also supplies the town's crates and sacks. The sea rocks are the plain
+drop-shadow boulders from *Rocky Top-Down Tileset*, cooled toward wet stone at
+draw time.
+
+The cook fires on the beach, at the farm, in the hobo camp and at the jungle
+settlement are the *Fantasy RPG Hunter's Lodge* fire — the same piece Amos's
+camp has always used.
+
 The surf where the sea meets the beach is the foam from the same pack's coast
 tiles, masked out of them — only the two bright foam tones are taken, because
 the land in those tiles is the pack's own sand and this game's shore is the

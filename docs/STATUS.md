@@ -172,6 +172,14 @@ its props at 1:1 are half this game's pixel density and cannot be used beside
 the rest of the art. `size_in_file / native_step` is what you are actually
 getting.
 
+## tile_sheet.py under-reports
+
+It calls ONE TILE FUNCTION per cell, so anything drawn in a late pass over the
+whole viewport does not appear and the cell shows bare ground. The ocean's TREE
+looked empty in an audit and is a palm from `_ocOverhang()`. The types this
+affects are listed in `LATE_PASS` in the tool and are now labelled in the sheet;
+add to that list when you move something to a late pass.
+
 ## Water
 
 `build_ground.py` emits `assets/ground/water.png` — six wrap-seamless frames of
