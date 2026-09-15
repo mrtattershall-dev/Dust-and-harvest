@@ -14400,10 +14400,25 @@ function spawnBadlandsEnemyNear() {
   }
 
   const typeKey = pool[Math.floor(Math.random()*pool.length)];
-  const angle=Math.random()*Math.PI*2, dist=280+Math.random()*180;
-  const sx=Math.max(T,Math.min((BL_W-1)*T, player.x+Math.cos(angle)*dist));
-  const sy=Math.max(T,Math.min((BL_H-1)*T, player.y+Math.sin(angle)*dist));
-  spawnBadlandsEnemy(typeKey,sx,sy);
+
+  /* Pick a ring position that isn't inside a mesa or a canyon.
+     This used to take the first point it drew. Enemy movement only checks the
+     tile it is moving *into*, so anything that landed inside solid rock could
+     never step out of it — and the deep badlands is mostly rock. Measured
+     there: 10 of 14 spawns inside rock, 7 of them still frozen in the same
+     pixel 90 seconds later. They never reach you and you can never reach them,
+     and because they sit inside the 14-enemy cap and only cull past 700px, they
+     crowd out the enemies that would have worked. Half the deep badlands was
+     furniture. */
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const angle=Math.random()*Math.PI*2, dist=280+Math.random()*180;
+    const sx=Math.max(T,Math.min((BL_W-1)*T, player.x+Math.cos(angle)*dist));
+    const sy=Math.max(T,Math.min((BL_H-1)*T, player.y+Math.sin(angle)*dist));
+    if (BL_SOLID.has(getBLT(Math.floor(sx/T), Math.floor(sy/T)))) continue;
+    spawnBadlandsEnemy(typeKey,sx,sy);
+    return;
+  }
+  // Ringed in by rock — skip this spawn rather than bury one in a cliff.
 }
 
 function updateBadlandsEnemies(dt) {
@@ -17598,6 +17613,38 @@ function spawnNightEnemies(dt) {
 }
 
 // ── Enemy AI & Update ────────────────
+/* Is this world point solid for THIS enemy, in whatever zone we're in?
+
+   updateEnemies had `SOLID.has(getT(...))` written into it in four places —
+   the farm's tilemap, unconditionally. Enemies exist in the ocean and the hobo
+   camp too, and those maps are separate arrays whose tiles happen to occupy the
+   same coordinate range, so an ocean enemy was being blocked by farm buildings
+   that aren't there and walked straight through the sea wall that is. The
+   jungle already works around this by replacing the whole AI loop; the other
+   zones had nothing.
+
+   Pirate skiffs get the inverse rule, because a skiff is a boat: water is where
+   it belongs and land is what stops it. Note this deliberately does not call
+   getOCSolid — that one answers for the player, and reads player._onBoat and
+   hasBoat() to decide. */
+function enemyTileBlocked(e, wx, wy) {
+  if (gameState.inOcean) {
+    const t = getOCT(Math.floor(wx / OC_T), Math.floor(wy / OC_T));
+    if (e && e.type === 'pirateSkiff')
+      return !(t === OC.WATER || t === OC.DEEP || t === OC.SEAGRASS);
+    return t === OC.WALL || t === OC.ROCK  || t === OC.POST ||
+           t === OC.CRATE || t === OC.TREE || t === OC.BOAT_HULL ||
+           t === OC.DEEP;   // shallow water is wadeable, same as for the player
+  }
+  if (gameState.inHoboCamp)
+    return HC_SOLID_SET.has(getHCT(Math.floor(wx / HC_T), Math.floor(wy / HC_T)));
+  if (gameState.inMine)
+    return getMineT(gameState.mineFloor, Math.floor(wx / T), Math.floor(wy / T)) === TL.MINE_WALL;
+  if (gameState.inBLMine)
+    return getBLMineT(gameState.blMineFloor, Math.floor(wx / T), Math.floor(wy / T)) === TL.MINE_WALL;
+  return SOLID.has(getT(Math.floor(wx / T), Math.floor(wy / T)));
+}
+
 function updateEnemies(dt) {
   const px = player.x, py = player.y;
   const safeZone = gameState.zone === 'Farm' || gameState.zone === 'Town' || gameState.zone === 'Ranch';
@@ -17654,7 +17701,7 @@ function updateEnemies(dt) {
             const angle = Math.atan2(pcy - e.y, pcx - e.x);
             const nx = e.x + Math.cos(angle)*e.def.speed*dt;
             const ny = e.y + Math.sin(angle)*e.def.speed*dt;
-            if (!SOLID.has(getT(Math.floor(nx/T),Math.floor(ny/T)))) { e.x=nx; e.y=ny; }
+            if (!enemyTileBlocked(e, nx, ny)) { e.x=nx; e.y=ny; }
             if (nearestPenDist < T*1.5 && e.attackTimer <= 0) {
               // Lanterns reduce wolf attack chance at night
               if (player._hasLanterns && gameState.isNight && Math.random() < 0.4) { e.attackTimer=1.1; continue; }
@@ -17726,14 +17773,14 @@ function updateEnemies(dt) {
       const nx = e.x + Math.cos(angle) * spd * dt;
       const ny = e.y + Math.sin(angle) * spd * dt;
       // Basic tile collision for enemies
-      if (!SOLID.has(getT(Math.floor(nx/T), Math.floor(ny/T)))) {
+      if (!enemyTileBlocked(e, nx, ny)) {
         e.x = nx; e.y = ny;
       } else {
         // Try sliding
         const nxa = e.x + Math.cos(angle) * spd * dt;
-        if (!SOLID.has(getT(Math.floor(nxa/T), Math.floor(e.y/T)))) e.x = nxa;
+        if (!enemyTileBlocked(e, nxa, e.y)) e.x = nxa;
         const nya = e.y + Math.sin(angle) * spd * dt;
-        if (!SOLID.has(getT(Math.floor(e.x/T), Math.floor(nya/T)))) e.y = nya;
+        if (!enemyTileBlocked(e, e.x, nya)) e.y = nya;
       }
     }
 
