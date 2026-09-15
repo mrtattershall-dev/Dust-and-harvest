@@ -24959,9 +24959,16 @@ function renderMineMap() {
       ctx.arc(hsx, hsy, 28+Math.sin(Date.now()*.006)*5, 0, Math.PI*2);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.font = '18px serif'; ctx.textAlign = 'center';
+      // A drawn warning mark inside the ring. This was the hazard's EMOJI
+      // (💥 💨 ✨ 🪬) at 18px serif, sitting on the mine floor — the only
+      // colour emoji left anywhere in the world after the rest were taken
+      // out, and the most visible of them, because the ring pulses under it.
       ctx.fillStyle = _mineHazard.type==='cavein' ? '#ff6030' : '#e0c030';
-      ctx.fillText(MINE_HAZARDS[_mineHazard.type]?.icon || '⚠', hsx, hsy+6);
+      ctx.fillRect(hsx-2, hsy-9, 4, 10);      // the bar of the !
+      ctx.fillRect(hsx-2, hsy+3, 4, 4);       // its dot
+      ctx.fillStyle = 'rgba(0,0,0,.55)';
+      ctx.fillRect(hsx-3, hsy-10, 1, 12); ctx.fillRect(hsx+2, hsy-10, 1, 12);
+      ctx.fillRect(hsx-3, hsy+2,  1, 6);  ctx.fillRect(hsx+2, hsy+2,  1, 6);
       ctx.globalAlpha = 1;
       ctx.restore();
     }
