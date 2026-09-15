@@ -36634,10 +36634,11 @@ drawCharacter = function (ctx, sx, sy, facing, wf, sprinting, cfg) {
     const clip = window._dhCharClip || 'idle';
     const fps = _DH_CLIP_FPS[clip] || 6;
     const frame = Math.floor(performance.now() / 1000 * fps);
-    // Measured against the painted character it replaces: that stands 40px tall
-    // with its feet exactly on the anchor, so match both or the player appears
-    // to shrink and float when the setting is toggled.
-    if (DHPlayer.draw(ctx, sx, sy, facing, clip, frame, cfg, { size: 38 })) return;
+    // Measured against the painted character it replaces, so the player does not
+    // change size when the setting is toggled. The number went up when the head
+    // re-cut went in: shrinking everything above the neck takes roughly 5px off
+    // the figure, and this puts it back.
+    if (DHPlayer.draw(ctx, sx, sy, facing, clip, frame, cfg, { size: 43 })) return;
   }
   return _paintedDrawCharacter.apply(this, arguments);
 };

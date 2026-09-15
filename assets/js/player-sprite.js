@@ -26,7 +26,23 @@ window.DHPlayer = (function () {
     ok: false,
     sheets: new Map(),   // cacheKey -> canvas
     warned: false,
+    /* How much of the source pack's head to keep. 1 = the art as drawn.
+
+       0.85 and not lower, for a measured reason. The hair styles differ from
+       one another by a single row of coverage on a 13px head, so once the
+       downscale quantises hard enough those rows land on the same output
+       pixel and separate styles become the same picture. At 0.80 that merges
+       male "Short crop" with "Slicked back" and "Wavy" with "Shaggy", and
+       female "Bun" with "Pixie cut" — six choices collapsing to four. At 0.85
+       and 0.90 all twelve stay distinct. Anything below 0.85 needs re-checking
+       against that test before it ships. */
+    headScale: 0.85,
   };
+
+  function setHeadScale(k) {
+    state.headScale = k;
+    state.sheets.clear();
+  }
 
   function init() {
     fetch(BASE + 'player.json', { cache: 'no-cache' })
@@ -347,7 +363,55 @@ window.DHPlayer = (function () {
         }
       }
     }
+
+    shrinkHeads(ctx, cv, gd, heads, cell);
     return cv;
+  }
+
+  /* Re-cut the head.
+
+     The source pack is drawn big-headed: measured on the idle down frame, the
+     head occupies 13px of a 22px character — 59% of its height — where the
+     game's townsfolk sit nearer 40%. Standing the player next to a citizen made
+     that obvious even after the overall height was matched.
+
+     This shrinks everything above the neck toward the neck itself, so the head,
+     the hair cut from its silhouette and the hat all scale together and the
+     join stays put. It runs last, on the composed cell, which is why the hair
+     and hat passes above can keep working in the original art's coordinates and
+     need no adjustment — whatever they drew gets carried along.
+
+     Nearest-neighbour, because this is pixel art and a smoothed 13px head turns
+     to soup. The cut line is the head box's own bottom edge rather than a fixed
+     row, so it tracks the head through the walk cycle's bob. */
+  function shrinkHeads(ctx, cv, gd, heads, cell) {
+    const k = state.headScale;
+    if (!(k > 0) || k >= 1) return;
+    const src = document.createElement('canvas');
+    src.width = cv.width; src.height = cv.height;
+    const sc = src.getContext('2d');
+    sc.imageSmoothingEnabled = false;
+    sc.drawImage(cv, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    for (const [dir, row] of Object.entries(gd.dirRows)) {
+      const boxes = heads[dir] || [];
+      for (let f = 0; f < boxes.length; f++) {
+        const bx = boxes[f];
+        if (!bx) continue;
+        const ox = f * cell, oy = row * cell;
+        const neckY = bx[3];              // cell-local bottom of the head
+        const cx = (bx[0] + bx[2]) / 2;   // cell-local centre of the head
+        if (neckY <= 0) continue;
+        ctx.clearRect(ox, oy, cell, neckY);
+        ctx.save();
+        ctx.beginPath(); ctx.rect(ox, oy, cell, neckY); ctx.clip();
+        ctx.translate(ox + cx, oy + neckY);
+        ctx.scale(k, k);
+        ctx.translate(-(ox + cx), -(oy + neckY));
+        ctx.drawImage(src, ox, oy, cell, neckY, ox, oy, cell, neckY);
+        ctx.restore();
+      }
+    }
   }
 
   function sheetFor(cfg, clip) {
@@ -408,7 +472,7 @@ window.DHPlayer = (function () {
     return true;
   }
 
-  return { init, isReady, draw, invalidate, info, _state: state };
+  return { init, isReady, draw, invalidate, info, setHeadScale, _state: state };
 })();
 
 DHPlayer.init();
