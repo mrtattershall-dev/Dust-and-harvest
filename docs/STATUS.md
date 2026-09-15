@@ -142,8 +142,12 @@ and it goes through the asset-inlining shim, which the served build does not.
    into one list is the real fix, and means restructuring the NPC, enemy,
    animal and player loops — several of which later slices patch again.
 6. **Unexamined packs**: medieval interior, green village, green dungeon,
-   tavern, nobles manor, mage tower, herbalist's hut, market square, and —
-   most relevant to this game's setting — `craftpixnet874337deserttilesettopdownpixelart`.
+   tavern, nobles manor, mage tower, herbalist's hut, market square. The
+   *Rocky* pack's `Objects.png` has boulder clusters in three rock colours and
+   four sizes, each in a mossy and a plain-shadow variant, and crystal
+   formations — all native at 1:1 and still unused. The desert tileset is
+   already in use (sand, badlands dust, and the rock/bush/skull/cactus
+   scatter).
 
 ## The source packs ARE here
 

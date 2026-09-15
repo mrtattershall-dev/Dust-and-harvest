@@ -226,6 +226,8 @@ PIECES = {
 # doubled, which at 1:1 would be half this game's pixel density), so these are
 # used at 1:1 as 16px chunks scattered inside the 32px tile rather than as one
 # tile-filling sprite.
+ROCKY = "*rocky*/Tiled_files/Ground_moss.png"
+
 MC = "*minerscave*/All Tileset/16x16.png"
 _ORE_X = {"iron": 0, "copper": 16, "silver": 32, "gold": 48,
           "crystal": 80, "singing": 96}
@@ -240,6 +242,27 @@ for _name, _x in _ORE_X.items():
     PIECES[f"orecart_{_name}"] = (MC, (_x, 358, 16, 23))
 for _v, _y in enumerate((320, 336)):
     PIECES[f"ore_coal{_v}"] = (MC, (0, _y, 16, 16))
+
+# --- The badlands mesa's exposed south face.
+#
+# It was a 6px band of rgba(0,0,0,.45) with a 2px dark line over it: a drop
+# shadow, not a cliff. The Rocky tileset is 16px tiles, native at 1:1 (the .tmx
+# declares tilewidth 16 and the upscale detector says step 1), so a 2x2 block
+# of its cells is exactly one 32px game tile, and the cliff-face block at
+# (16,80)-(64,128) has the body rows above and the ragged bottom below.
+#
+# Four windows, each 22px tall so the mesa's top surface still shows above the
+# lip. Chosen by SCANNING for the properties a repeating face needs — opaque
+# right across the top row, content in all 32 columns, and a ragged bottom —
+# rather than by eye: the four I picked by eye were end pieces with rounded or
+# notched silhouettes, one only 16px wide, and a mesa edge drawn with them came
+# out as a row of separate chunks with gaps between them.
+#
+# The pack's rock is tan for a green valley; _to_redrock() takes it to this
+# zone's rock at bake time, darker than the plateau top because a south face is
+# the side the sun is not on.
+for _v, _xy in enumerate(((176, 96), (128, 106), (336, 106), (384, 106))):
+    PIECES[f"mesaface{_v}"] = (ROCKY, (_xy[0], _xy[1], 32, 22))
 
 # The pack is a northern village: its roofs are blue-grey slate. On this game's
 # red dirt that reads as a sprite from another game, and a barn in this setting
@@ -321,11 +344,30 @@ def _to_copper(im):
     return im
 
 
+# The Rocky pack's tan cliff rock, taken to the badlands' red. Same hue-rotate
+# as the barn roof, and for the same reason: a flat wash would lose the facets,
+# and those facets are the whole point of using real rock here.
+def _to_redrock(im):
+    import colorsys
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            h, l, sat = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
+            nr, ng, nb = colorsys.hls_to_rgb(0.03, min(1.0, l * 0.90),
+                                             min(1.0, sat * 1.25 + 0.18))
+            px[x, y] = (int(nr * 255), int(ng * 255), int(nb * 255), a)
+    return im
+
+
 POST = {"barn": _roof_to_red,
         "barn_open": lambda im: _open_doors(_roof_to_red(im)),
         "ore_coal0": _to_coal, "ore_coal1": _to_coal,
         "ore_copper0": _to_copper, "ore_copper1": _to_copper,
-        "orecart_copper": _to_copper}
+        "orecart_copper": _to_copper,
+        **{f"mesaface{v}": _to_redrock for v in range(4)}}
 
 PAD = 1   # a transparent gutter, so no piece bleeds into its neighbour
 
