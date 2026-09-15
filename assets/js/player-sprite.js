@@ -87,10 +87,35 @@ window.DHPlayer = (function () {
     h = String(h).replace('#', '');
     return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
   }
+  /* The art has six shading levels; the palette gives three stops. How those
+     six map onto the three decides whether the character reads at 24px.
+
+     The first mapping ran D*0.55, D, mix(D,M), M, mix(M,L), L — every level at
+     or below the palette's own highlight. Measured against the townsfolk it
+     stands next to, that left the player with no highlights at all: brightest
+     pixel luminance 132, where citizen1 reaches 219, citizen2 244 and the
+     barmaid and blacksmith 205. Two thirds of the body sat between 89 and 105.
+     A figure with no value above mid-tone is a silhouette, which is exactly
+     what it looked like — a brown blob on brown ground.
+
+     So each level moves up one stop and the top gets a real highlight, mixed
+     toward white rather than stopping at the palette's lightest stop. Level 0
+     stays the outline — measured on the source art, 27% of a cell is level 0
+     and almost all of it (54 of 64 pixels) sits on the silhouette edge, which
+     is what a 1px outline on a 13px-wide character costs — but lifted off
+     near-black, because the player's edge was darker than any NPC's. */
   function ramp6(three) {
     const D = hex(three[0]), M = hex(three[1]), L = hex(three[2]);
     const mix = (a, b, t) => [0, 1, 2].map(i => Math.round(a[i] + (b[i] - a[i]) * t));
-    return [D.map(c => Math.round(c * 0.55)), D, mix(D, M, .5), M, mix(M, L, .5), L];
+    const WHITE = [255, 255, 255];
+    return [
+      D.map(c => Math.round(c * 0.75)),  // outline
+      D,                                 // deepest shadow
+      M,                                 // shadow
+      mix(M, L, 0.5),                    // mid
+      L,                                 // light
+      mix(L, WHITE, 0.45),               // highlight — above the palette's own
+    ];
   }
 
   // Draw one level-encoded layer, recoloured, onto ctx.
