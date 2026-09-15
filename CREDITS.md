@@ -106,6 +106,11 @@ wrap-seamless overlay per frame. It is baked NEUTRAL, in white and black on
 transparency, so each zone keeps its own water colour and takes the pack's
 motion; the colours themselves are the game's own.
 
+The surf where the sea meets the beach is the foam from the same pack's coast
+tiles, masked out of them — only the two bright foam tones are taken, because
+the land in those tiles is the pack's own sand and this game's shore is the
+desert pack's.
+
 Cold Winter's ground — the snow over the fields, the trodden snow on the roads
 and streets, and the churned snow in the animal pen — is baked by
 `tools/build_ground.py` from *Winter Top-Down Tileset*: its own `spots.png`

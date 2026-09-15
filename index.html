@@ -9118,6 +9118,14 @@ function drawTile(tx,ty,sx,sy) {
       if(!wet(getT(tx+1,ty))) ctx.fillRect(sx+T-4,sy,4,T);
     }
 
+    // The bank interlocks with the water rather than butting against it on a
+    // straight tile edge — the land's own baked terrain, clipped into this
+    // tile in ragged tongues, the same way two land terrains already meet.
+    _terrainEdges();
+    // No foam here. Surf was tried along the bank and taken out again: a
+    // slow river does not break, and one crest per tile down a long straight
+    // bank reads as a rhythm at the tile pitch even jittered. The sea keeps
+    // it — see _ocFoam().
     // The pack's swell, over the depth shelving. What follows is the sparkle
     // lattice it replaces: 22 hand-placed pixels in a 16px cell, mirrored into
     // each quadrant of the tile, which at any distance reads as speckle rather
@@ -23042,6 +23050,24 @@ function _ocOverhang(cx, cy) {
   }
 }
 
+// Surf on a water tile, on whichever sides the beach is.
+//
+// Only against SAND: a dock post or a wall is not a shore, and foam breaking
+// on the side of a plank would be wrong. Drawn after the sand has been clipped
+// into the tile, so the crest sits on the interlocked edge rather than on the
+// straight one underneath it.
+function _ocFoam(tx, ty, sx, sy) {
+  if (!DHGround.drawFoam) return;
+  const DIRS = [[0, -1, 0], [0, 1, 1], [-1, 0, 2], [1, 0, 3]];
+  for (const [dx, dy, dir] of DIRS) {
+    if (getOCT(tx + dx, ty + dy) !== OC.SAND) continue;
+    // Broken, not one crest on every tile of the shore. A quarter of them sit
+    // out, chosen by the tile so a given stretch always breaks the same way.
+    if ((((tx * 2654435761) ^ (ty * 40503) ^ (dir * 97)) >>> 0) % 4 === 0) continue;
+    DHGround.drawFoam(ctx, sx, sy, tx, ty, dir, 0.75);
+  }
+}
+
 function drawOCTile(t, tx, ty, sx, sy) {
   const seed = (tx*7919 + ty*6271) & 0xFFFF;
   const rn = (s,m) => ((s*2654435761+1013904223)>>>0)%m;
@@ -23151,6 +23177,15 @@ function drawOCTile(t, tx, ty, sx, sy) {
           else if(m>=4&&m<6){ ctx.fillStyle='rgba(24,64,74,.20)'; ctx.fillRect(_bx,Math.round(sy+py),_bw,1); }
         }
       }
+      // The beach interlocks with the sea instead of butting against it on a
+      // dead-straight tile edge — the same ragged-tongue clip the overworld's
+      // terrains use, with the sand clipped INTO the water tile. Only one side
+      // of the join: water is not a baked terrain, so the sand tile cannot
+      // clip water back, and one side is enough to break the line.
+      drawTerrainEdges(tx, ty, sx, sy, OC_T, getOCT,
+                       (v) => v === OC.SAND ? ['sand', '#c09a58'] : null);
+      // Surf, on whichever sides the beach is.
+      _ocFoam(tx, ty, sx, sy);
       // Sparkle, keyed to the tile so it does not crawl.
       {
         const g=((tx*374761393 ^ ty*668265263)>>>0);
@@ -23325,15 +23360,23 @@ function drawOCTile(t, tx, ty, sx, sy) {
       // Weed growing in the shallows. It filled its tile with the old bright
       // cyan — which the water itself no longer uses — so a bed of it was a
       // row of blue squares in a retinted sea.
+      // The same shallows the surrounding water draws, not a copy of the old
+      // banded version of it — once the sea had real swell, a weed bed stood
+      // out as a rectangle of the previous surface. It also carried the same
+      // 11px bed band at a fixed offset that the shallows themselves had.
       {
         const bx2 = Math.round(sx), bw2 = OC_T + 1;
         ctx.fillStyle = '#3f7c84'; ctx.fillRect(bx2, Math.round(sy), bw2, OC_T + 1);
-        ctx.fillStyle = 'rgba(170,140,74,.13)'; ctx.fillRect(bx2, Math.round(sy) + 5, bw2, 11);
-        const ph2 = Date.now() * 0.010;
-        for (let py = 0; py < OC_T; py++) {
-          const wy = ty * OC_T + py, m = ((wy * 3 - ph2) % 46 + 46) % 46;
-          if (m < 2) { ctx.fillStyle = 'rgba(150,205,205,.17)'; ctx.fillRect(bx2, Math.round(sy+py), bw2, 1); }
+        ctx.fillStyle = 'rgba(170,140,74,.10)'; ctx.fillRect(bx2, Math.round(sy), bw2, OC_T + 1);
+        if (!DHGround.drawSwell(ctx, sx, sy, tx, ty, 0.85)) {
+          const ph2 = Date.now() * 0.010;
+          for (let py = 0; py < OC_T; py++) {
+            const wy = ty * OC_T + py, m = ((wy * 3 - ph2) % 46 + 46) % 46;
+            if (m < 2) { ctx.fillStyle = 'rgba(150,205,205,.17)'; ctx.fillRect(bx2, Math.round(sy+py), bw2, 1); }
+          }
         }
+        drawTerrainEdges(tx, ty, sx, sy, OC_T, getOCT,
+                         (v) => v === OC.SAND ? ['sand', '#c09a58'] : null);
       }
       const sgt=Date.now()*0.0009+tx*0.5;
       for(let i=0;i<5;i++){

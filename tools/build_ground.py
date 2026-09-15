@@ -67,6 +67,10 @@ SOURCES = {
     # The fishing village pack's ripple animation: six frames of loose swell
     # decals on transparency, stacked vertically. See bake_water().
     "ripples":   "PNG/Water_detailization1.png",
+    # The same pack's coast tiles. Only the FOAM is taken from them — see
+    # bake_foam() — because the land in them is the pack's own sand and grass
+    # and this game's shore is the desert pack's.
+    "coasts":    "PNG/Water_coasts.png",
 }
 # Two packs ship a file at the same path, so each is pinned to the pack folder
 # whose name contains this.
@@ -76,7 +80,8 @@ SOURCES = {
 # across the library has to be pinned.
 SOURCE_PACK = {"farmland": "farmlands", "forest": "greenforest",
                "minecave": "miners-cave", "snowspots": "wintertopdown",
-               "spots": "desert", "ripples": "fishingvillage"}
+               "spots": "desert", "ripples": "fishingvillage",
+               "coasts": "fishingvillage"}
 
 # ── water ───────────────────────────────────────────────────────────────────
 # Every zone that has water drew a flat teal with white speckles and a few
@@ -103,6 +108,13 @@ WATER_LIGHT = (56, 88, 128)
 WATER_DARK = (43, 65, 103)
 WATER_LIGHT_A = 54
 WATER_DARK_A = 34
+
+# The surf. The coast sheet is 6 frames of 480x128 and its foam is drawn in two
+# bright tones over the land's edge; everything else in those tiles is the
+# pack's own sand and grass, which this game does not use.
+FOAM_ROWS = 128
+FOAM_TONES = [(78, 159, 190), (86, 205, 220), (85, 200, 217)]
+FOAM_CELL = (40, 12)      # the largest decal is 37x11
 
 # A scatter terrain names which mottling sheet it is built from. Each one
 # carries the crop to take from it and the colour its blobs ALREADY are, which
@@ -529,6 +541,93 @@ def water_decals(sheet):
     return out
 
 
+def _is_foam(p):
+    return p[3] > 8 and any(sum((p[i] - c[i]) ** 2 for i in range(3)) < 900
+                            for c in FOAM_TONES)
+
+
+def bake_foam(sheet):
+    """The surf crescents, one cell per decal per frame.
+
+    Found on the union of all six frames, like the swell: a crest that breaks
+    only in the later frames is one decal that starts empty.
+
+    Normalised so every decal curves the same way — the sheet has both, because
+    a coast tile's foam sits under the land on a north shore and over it on a
+    south one, and the runtime needs one orientation it can flip and rotate
+    from.
+
+    Which way a decal curves is decided by comparing the MIDDLE third's mean y
+    against the outer thirds'. Counting pixels in the top row against the
+    bottom row does not tell an arch from a bowl — both have their two ends in
+    one row and their apex in the other, so the count is the same shape either
+    way up, and the preview came out with arches and bowls mixed.
+    """
+    px = sheet.load()
+    W = sheet.width
+    F = WATER_FRAMES
+
+    def anyfoam(x, y):
+        return any(_is_foam(px[x, f * FOAM_ROWS + y]) for f in range(F))
+
+    seen = bytearray(W * FOAM_ROWS)
+    boxes = []
+    for y0 in range(FOAM_ROWS):
+        for x0 in range(W):
+            if seen[y0 * W + x0] or not anyfoam(x0, y0):
+                continue
+            q = deque([(x0, y0)])
+            seen[y0 * W + x0] = 1
+            cells = []
+            while q:
+                x, y = q.popleft()
+                cells.append((x, y))
+                for dy in (-1, 0, 1):
+                    for dx in (-1, 0, 1):
+                        nx, ny = x + dx, y + dy
+                        if (0 <= nx < W and 0 <= ny < FOAM_ROWS
+                                and not seen[ny * W + nx] and anyfoam(nx, ny)):
+                            seen[ny * W + nx] = 1
+                            q.append((nx, ny))
+            xs = [c[0] for c in cells]
+            ys = [c[1] for c in cells]
+            w, h = max(xs) - min(xs) + 1, max(ys) - min(ys) + 1
+            # 16 wide, not 8: on a 32px tile the shorter streaks left big
+            # gaps in the surf line, so the shore read as a few marks rather
+            # than as breaking water.
+            if len(cells) >= 8 and 16 <= w <= FOAM_CELL[0] and h <= FOAM_CELL[1]:
+                boxes.append((min(xs), min(ys), w, h))
+
+    cw, ch = FOAM_CELL
+    strip = Image.new("RGBA", (cw * len(boxes), ch * F), (0, 0, 0, 0))
+    for i, (bx, by, w, h) in enumerate(boxes):
+        # Orientation, decided once on the union so every frame of a decal is
+        # flipped the same way. Normalised to a BOWL: ends up, middle down,
+        # which is how surf sits below a shore that is above it.
+        mid, out = [], []
+        for x in range(w):
+            ys = [y for y in range(h) if anyfoam(bx + x, by + y)]
+            if not ys:
+                continue
+            (mid if w // 3 <= x < 2 * w // 3 else out).append(sum(ys) / len(ys))
+        flip = bool(mid and out and (sum(mid) / len(mid) < sum(out) / len(out)))
+        for f in range(F):
+            crop = sheet.crop((bx, f * FOAM_ROWS + by, bx + w, f * FOAM_ROWS + by + h))
+            cp = crop.load()
+            for y in range(h):
+                for x in range(w):
+                    if not _is_foam(cp[x, y]):
+                        cp[x, y] = (0, 0, 0, 0)
+            if flip:
+                crop = crop.transpose(Image.FLIP_TOP_BOTTOM)
+            # Centred in the cell, and pushed to its BOTTOM so the runtime can
+            # sit the cell's bottom edge on the waterline whatever the decal's
+            # own height is.
+            strip.alpha_composite(crop, (i * cw + (cw - w) // 2, f * ch + (ch - h)))
+    log(f"  foam   {len(boxes)} decals x {WATER_FRAMES} frames")
+    return strip, len(boxes)
+
+
 def _neutralise(im):
     """The two decal tones as white and black at a fixed alpha."""
     out = im.copy()
@@ -760,6 +859,12 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     sheet.convert("RGB").save(OUT / "ground.png", optimize=True)
 
+    if "coasts" in sheets:
+        fstrip, fcount = bake_foam(sheets["coasts"])
+        fstrip.save(OUT / "foam.png", optimize=True)
+    else:
+        fcount = 0
+
     # Its own file, because ground.png is saved as RGB — the swell is mostly
     # transparent and has to stay that way.
     wmeta = None
@@ -775,6 +880,9 @@ def main():
     doc = {"period": PERIOD, "tile": TILE, "terrains": meta}
     if wmeta:
         doc["water"] = wmeta
+    if fcount:
+        doc["foam"] = {"frames": WATER_FRAMES, "ms": 150,
+                       "cw": FOAM_CELL[0], "ch": FOAM_CELL[1], "count": fcount}
     (OUT / "ground.json").write_text(json.dumps(doc, indent=1, sort_keys=True) + "\n")
 
     kb = (OUT / "ground.png").stat().st_size / 1024

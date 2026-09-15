@@ -1,4 +1,11 @@
 {
+ "foam": {
+  "ch": 12,
+  "count": 7,
+  "cw": 40,
+  "frames": 6,
+  "ms": 150
+ },
  "period": 512,
  "terrains": {
   "dirt": {

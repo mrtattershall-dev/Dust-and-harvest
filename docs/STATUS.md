@@ -180,10 +180,20 @@ whatever base colour the caller filled. Neutral rather than toned because six
 512px frames retoned per zone would be a 1MB offscreen canvas each, up to 42 of
 them, on a game whose only test device is a phone.
 
-Not done: the shoreline. The fishing village pack ships animated foam coast
-tiles (`Water_coasts.png`, native 1:1) and water still meets land on a hard
-tile edge. The jungle's shallow/deep boundary is a square-cornered rectangle
-for the same reason terrain regions are — see above.
+The shoreline: the sea and the river both interlock with the land now, through
+the same `drawTerrainEdges()` the land terrains use, with the land clipped INTO
+the water tile. One side only — water is not a baked terrain, so the land tile
+cannot clip water back — which is enough to break the straight edge.
+
+`assets/ground/foam.png` is the surf, cut from the pack's coast tiles by
+masking to their two foam tones. Used only on the SEA. It was tried on the
+river bank and removed: a slow river does not break, and one crest per tile
+down a long straight bank reads as a rhythm at the tile pitch even with the
+jitter that fixed it on the coast.
+
+Not done: the jungle's water still meets land on a hard edge, and its
+shallow/deep boundary is a square-cornered rectangle for the same reason
+terrain regions are — see above.
 
 ## Winter
 

@@ -22,7 +22,9 @@ window.DHGround = (function () {
   const state = { data: null, img: new Image(), ok: false, tiles: 0,
                   // The swell: its own image because it is transparent between
                   // the decals and ground.png is saved as RGB.
-                  wimg: new Image(), wok: false };
+                  wimg: new Image(), wok: false,
+                  // The surf, cut from the same pack's coast tiles.
+                  fimg: new Image(), fok: false };
 
   function init() {
     fetch(BASE + 'ground.json', { cache: 'no-cache' })
@@ -42,6 +44,11 @@ window.DHGround = (function () {
           state.wimg.onload = () => { state.wok = true; };
           state.wimg.onerror = () => console.warn('[DHGround] swell failed to load');
           state.wimg.src = BASE + 'water.png';
+        }
+        if (d.foam) {
+          state.fimg.onload = () => { state.fok = true; };
+          state.fimg.onerror = () => console.warn('[DHGround] foam failed to load');
+          state.fimg.src = BASE + 'foam.png';
         }
       })
       .catch(err => {
@@ -115,6 +122,40 @@ window.DHGround = (function () {
     if (alpha !== undefined) ctx.globalAlpha = alpha;
     ctx.drawImage(state.wimg, ox, swellFrame() * d.period + oy, d.tile, d.tile,
                   Math.round(sx), Math.round(sy), d.tile, d.tile);
+    ctx.restore();
+    return true;
+  }
+
+  // Surf along one edge of a water tile, on the side the land is.
+  //
+  // `dir` is where the LAND is: 0 north, 1 south, 2 west, 3 east. The decals
+  // are all baked as bowls — ends up, middle down — and the tile is rotated
+  // about its centre rather than four sets being baked. The cell is wider than
+  // a tile on purpose, so a crest spills into its neighbours and the surf does
+  // not break at every tile edge.
+  const FOAM_ROT = [0, Math.PI, -Math.PI / 2, Math.PI / 2];
+
+  function drawFoam(ctx, sx, sy, tx, ty, dir, alpha) {
+    const f = state.data && state.data.foam;
+    if (!state.fok || !f) return false;
+    const t = state.data.tile;
+    // Hashed on the tile AND the direction, so a corner tile with land on two
+    // sides does not get the same crest twice.
+    const h = ((tx * 374761393) ^ (ty * 668265263) ^ (dir * 2246822519)) >>> 0;
+    const k = h % f.count;
+    const fr = Math.floor(Date.now() / f.ms) % f.frames;
+    // Slid along the edge by a hashed amount. Centred on every tile, seven
+    // decals over a long straight shore read as one crest repeated at the tile
+    // pitch — which is the same lattice every other part of this game has had
+    // to be talked out of.
+    const jx = ((h >>> 9) % 19) - 9;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    if (alpha !== undefined) ctx.globalAlpha = alpha;
+    ctx.translate(Math.round(sx) + t / 2, Math.round(sy) + t / 2);
+    if (FOAM_ROT[dir]) ctx.rotate(FOAM_ROT[dir]);
+    ctx.drawImage(state.fimg, k * f.cw, fr * f.ch, f.cw, f.ch,
+                  -f.cw / 2 + jx, -t / 2, f.cw, f.ch);
     ctx.restore();
     return true;
   }
@@ -213,7 +254,7 @@ window.DHGround = (function () {
     return state.data ? Object.keys(state.data.terrains).length : 0;
   }
 
-  return { init, ready, draw, drawToned, drawSwell, season, skin, base, count, _state: state };
+  return { init, ready, draw, drawToned, drawSwell, drawFoam, season, skin, base, count, _state: state };
 })();
 
 DHGround.init();
