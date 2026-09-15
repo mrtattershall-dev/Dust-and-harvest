@@ -1,0 +1,304 @@
+{
+ "files": {
+  "cave": {
+   "family": "cave",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "cave_rain": {
+   "family": "cave",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "cave_storm": {
+   "family": "cave",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "chest_close1": {
+   "family": "chest",
+   "kb": 12,
+   "kind": "shot",
+   "sec": 0.693
+  },
+  "chest_close2": {
+   "family": "chest",
+   "kb": 13,
+   "kind": "shot",
+   "sec": 0.742
+  },
+  "chest_open1": {
+   "family": "chest",
+   "kb": 18,
+   "kind": "shot",
+   "sec": 1.065
+  },
+  "chest_open2": {
+   "family": "chest",
+   "kb": 20,
+   "kind": "shot",
+   "sec": 1.251
+  },
+  "chop1": {
+   "family": "chop",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.369
+  },
+  "chop2": {
+   "family": "chop",
+   "kb": 4,
+   "kind": "shot",
+   "sec": 0.163
+  },
+  "chop3": {
+   "family": "chop",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.349
+  },
+  "chop4": {
+   "family": "chop",
+   "kb": 5,
+   "kind": "shot",
+   "sec": 0.254
+  },
+  "door_close1": {
+   "family": "door",
+   "kb": 9,
+   "kind": "shot",
+   "sec": 0.542
+  },
+  "door_close2": {
+   "family": "door",
+   "kb": 12,
+   "kind": "shot",
+   "sec": 0.713
+  },
+  "door_open1": {
+   "family": "door",
+   "kb": 18,
+   "kind": "shot",
+   "sec": 1.082
+  },
+  "door_open2": {
+   "family": "door",
+   "kb": 16,
+   "kind": "shot",
+   "sec": 0.972
+  },
+  "forest_day": {
+   "family": "forest",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "forest_day_rain": {
+   "family": "forest",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "forest_day_storm": {
+   "family": "forest",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "forest_night": {
+   "family": "forest",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "forest_night_rain": {
+   "family": "forest",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "forest_night_storm": {
+   "family": "forest",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "inside_day": {
+   "family": "inside",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "inside_day_rain": {
+   "family": "inside",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "inside_day_storm": {
+   "family": "inside",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "mine1": {
+   "family": "mine",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.354
+  },
+  "mine2": {
+   "family": "mine",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.316
+  },
+  "mine3": {
+   "family": "mine",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.316
+  },
+  "mine4": {
+   "family": "mine",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.309
+  },
+  "mine5": {
+   "family": "mine",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.386
+  },
+  "river": {
+   "family": "river",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "river_stream": {
+   "family": "river",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "run1": {
+   "family": "step",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.497
+  },
+  "run2": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.46
+  },
+  "run3": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.494
+  },
+  "run4": {
+   "family": "step",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.497
+  },
+  "run5": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.435
+  },
+  "sea": {
+   "family": "sea",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "sea_rain": {
+   "family": "sea",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "sea_storm": {
+   "family": "sea",
+   "kb": 446,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "step1": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.496
+  },
+  "step2": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.457
+  },
+  "step3": {
+   "family": "step",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.496
+  },
+  "step4": {
+   "family": "step",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.499
+  },
+  "step5": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.439
+  },
+  "stepc1": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.496
+  },
+  "stepc2": {
+   "family": "step",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.497
+  },
+  "stepc3": {
+   "family": "step",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.496
+  },
+  "stepc4": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.491
+  },
+  "stepc5": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.455
+  },
+  "unlock": {
+   "family": "chest",
+   "kb": 16,
+   "kind": "shot",
+   "sec": 0.965
+  }
+ }
+}

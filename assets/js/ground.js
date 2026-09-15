@@ -1,0 +1,260 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+//  DUST & HARVEST — GROUND SURFACES
+//  Sand is drawn from the desert pack's own art instead of canvas paths.
+//
+//  Not a tile set. The pack's ground is a flat colour with loose mottling strewn
+//  over it, so tools/build_ground.py re-scatters that mottling onto one large
+//  wrap-seamless texture. Each map tile samples the window at
+//  (tx*T mod period, ty*T mod period), which means neighbouring tiles show
+//  neighbouring pieces of a single continuous surface — the desert reads as one
+//  expanse rather than a grid of stamps, and there is no repeated cell to spot.
+//
+//  The period is a whole number of tiles, so a tile never straddles the texture
+//  edge and every draw is one blit.
+//
+//  Fails soft: if the texture does not load, draw() returns false and the caller
+//  falls back to the painted tile.
+// ═══════════════════════════════════════════════════════════════════════════════
+window.DHGround = (function () {
+  'use strict';
+
+  const BASE = 'assets/ground/';
+  const state = { data: null, img: new Image(), ok: false, tiles: 0,
+                  // The swell: its own image because it is transparent between
+                  // the decals and ground.png is saved as RGB.
+                  wimg: new Image(), wok: false,
+                  // The surf, cut from the same pack's coast tiles.
+                  fimg: new Image(), fok: false };
+
+  function init() {
+    fetch(BASE + 'ground.json', { cache: 'no-cache' })
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(d => {
+        // The texture is baked for one tile size. Drawing it at another would
+        // resample the pixel art, so refuse rather than blur it.
+        if (typeof T === 'number' && d.tile !== T) {
+          throw new Error('baked for ' + d.tile + 'px tiles, game uses ' + T);
+        }
+        state.data = d;
+        state.tiles = d.period / d.tile;
+        state.img.onload = () => { state.ok = true; };
+        state.img.onerror = () => console.warn('[DHGround] texture failed to load');
+        state.img.src = BASE + 'ground.png';
+        if (d.water) {
+          state.wimg.onload = () => { state.wok = true; };
+          state.wimg.onerror = () => console.warn('[DHGround] swell failed to load');
+          state.wimg.src = BASE + 'water.png';
+        }
+        if (d.foam) {
+          state.fimg.onload = () => { state.fok = true; };
+          state.fimg.onerror = () => console.warn('[DHGround] foam failed to load');
+          state.fimg.src = BASE + 'foam.png';
+        }
+      })
+      .catch(err => {
+        console.warn('[DHGround] no ground texture (' + err.message +
+                     ') — using the painted tiles.');
+      });
+  }
+
+  function ready(name) {
+    return !!(state.ok && state.data && state.data.terrains[name]);
+  }
+
+  // Draw one map tile of `name` at its top-left. Returns false when the texture
+  // is not up yet, so callers can paint their own.
+  // ── Seasonal swap ───────────────────────────────────────────────────────────
+  // Cold Winter is a quarter of the year and used to be a BLUE FILTER over the
+  // summer ground. The winter pack ships its own snow mottling, which
+  // build_ground.py bakes into snow/snowpath/snowdirt exactly as it bakes sand
+  // and dirt, so winter can be the real surface instead.
+  //
+  // Done here rather than at the call sites because a terrain name reaches this
+  // file from dozens of places — tile branches, overlay grounds, the crop
+  // renderer — and swapping them one by one would leave some behind. A caller
+  // that must NOT swap (an interior floor, a zone that is underground or
+  // tropical) passes through `alias` unlisted, so the default is no change.
+  let alias = null;
+  function season(map) { alias = map && Object.keys(map).length ? map : null; }
+  function skin(name) { return (alias && alias[name]) || name; }
+
+  // The baked surface's own mean colour, AFTER any seasonal swap. Callers
+  // underpaint a tile with this before drawing the texture over it: the draw
+  // rounds to whole world pixels and the canvas is then scaled by a
+  // non-integer ZOOM, so a sub-pixel hairline survives at the tile's edge and
+  // shows whatever was underneath. Underpainting with the game's static tile
+  // colour put a 1px SUMMER line down the right edge of every tile — invisible
+  // in summer, a rust grid over the snow in winter.
+  function base(name) {
+    const d = state.data;
+    if (!d) return null;
+    const t = d.terrains[skin(name)];
+    return t ? t.base : null;
+  }
+
+  // ── The swell ───────────────────────────────────────────────────────────────
+  // Every zone with water drew a flat fill with white speckles on it and a
+  // couple of horizontal bands — the same surface in the overworld, the hobo
+  // camp, the ocean and the jungle.
+  //
+  // This is the fishing village pack's six-frame swell, baked by
+  // build_ground.py into one wrap-seamless overlay per frame, NEUTRAL: white
+  // highlights and black shadows on transparency. The caller fills its own
+  // water colour and lays this over it, so each zone keeps the colour it was
+  // designed with and no retoned copy has to be cached — six 512px frames
+  // times seven zone tones would have been 42MB of offscreen canvas.
+  //
+  // The frame comes off wall-clock time alone, never the screen position, or
+  // the sea would ripple at a different rate depending on where the camera is.
+  function swellFrame() {
+    const w = state.data && state.data.water;
+    if (!w) return 0;
+    return Math.floor(Date.now() / w.ms) % w.frames;
+  }
+
+  function drawSwell(ctx, sx, sy, tx, ty, alpha) {
+    if (!state.wok || !state.data || !state.data.water) return false;
+    const d = state.data, n = state.tiles;
+    const ox = (((tx % n) + n) % n) * d.tile;
+    const oy = (((ty % n) + n) % n) * d.tile;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    if (alpha !== undefined) ctx.globalAlpha = alpha;
+    ctx.drawImage(state.wimg, ox, swellFrame() * d.period + oy, d.tile, d.tile,
+                  Math.round(sx), Math.round(sy), d.tile, d.tile);
+    ctx.restore();
+    return true;
+  }
+
+  // Surf along one edge of a water tile, on the side the land is.
+  //
+  // `dir` is where the LAND is: 0 north, 1 south, 2 west, 3 east. The decals
+  // are all baked as bowls — ends up, middle down — and the tile is rotated
+  // about its centre rather than four sets being baked. The cell is wider than
+  // a tile on purpose, so a crest spills into its neighbours and the surf does
+  // not break at every tile edge.
+  const FOAM_ROT = [0, Math.PI, -Math.PI / 2, Math.PI / 2];
+
+  function drawFoam(ctx, sx, sy, tx, ty, dir, alpha) {
+    const f = state.data && state.data.foam;
+    if (!state.fok || !f) return false;
+    const t = state.data.tile;
+    // Hashed on the tile AND the direction, so a corner tile with land on two
+    // sides does not get the same crest twice.
+    const h = ((tx * 374761393) ^ (ty * 668265263) ^ (dir * 2246822519)) >>> 0;
+    const k = h % f.count;
+    const fr = Math.floor(Date.now() / f.ms) % f.frames;
+    // Slid along the edge by a hashed amount. Centred on every tile, seven
+    // decals over a long straight shore read as one crest repeated at the tile
+    // pitch — which is the same lattice every other part of this game has had
+    // to be talked out of.
+    const jx = ((h >>> 9) % 19) - 9;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    if (alpha !== undefined) ctx.globalAlpha = alpha;
+    ctx.translate(Math.round(sx) + t / 2, Math.round(sy) + t / 2);
+    if (FOAM_ROT[dir]) ctx.rotate(FOAM_ROT[dir]);
+    ctx.drawImage(state.fimg, k * f.cw, fr * f.ch, f.cw, f.ch,
+                  -f.cw / 2 + jx, -t / 2, f.cw, f.ch);
+    ctx.restore();
+    return true;
+  }
+
+  function draw(ctx, name, sx, sy, tx, ty) {
+    name = skin(name);
+    if (!ready(name)) return false;
+    const d = state.data, n = state.tiles;
+    // Modulo that stays positive for negative tile coordinates.
+    const ox = (((tx % n) + n) % n) * d.tile;
+    const oy = (((ty % n) + n) % n) * d.tile;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(state.img, ox, d.terrains[name].oy + oy, d.tile, d.tile,
+                  Math.round(sx), Math.round(sy), d.tile, d.tile);
+    ctx.restore();
+    return true;
+  }
+
+  // ── Retoning ────────────────────────────────────────────────────────────────
+  // One turf has to serve several biomes. The whole library holds exactly one
+  // outdoor grass (see build_ground.py), and the jungle needs that same surface
+  // under a canopy: darker and greener than a farmland field. Rather than
+  // blending over every tile every frame, a terrain band is recoloured once
+  // into an offscreen canvas the first time it is asked for, and drawn from
+  // there — after that a jungle tile costs exactly what a farm tile costs.
+  //
+  // The caller names the MEAN COLOUR it wants, not a blend: the band's own mean
+  // is measured and each channel scaled to land on it. That way the artist's
+  // contrast carries over, and if the texture is ever rebaked to a different
+  // tone the tinted version follows it instead of drifting.
+  //
+  // Per-channel scaling in JS rather than a 'multiply' fill because a target
+  // can be BRIGHTER than the source in some channel (jungle sand is bluer than
+  // desert sand), and multiply cannot brighten. Done once, so the cost is moot.
+  const toned = {};
+
+  function toneBand(name, css) {
+    const key = name + css;
+    if (key in toned) return toned[key];
+    toned[key] = null;                      // remember failures; don't retry
+    if (!ready(name)) { delete toned[key]; return null; }   // may load later
+    const P = state.data.period, oy = state.data.terrains[name].oy;
+    const m = /^#?([0-9a-f]{6})$/i.exec(css);
+    if (!m) { console.warn('[DHGround] bad tone ' + css); return null; }
+    const n = parseInt(m[1], 16);
+    const want = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = P;
+    const c = cv.getContext('2d', { willReadFrequently: true });
+    c.imageSmoothingEnabled = false;
+    c.drawImage(state.img, 0, oy, P, P, 0, 0, P, P);
+    let px;
+    try { px = c.getImageData(0, 0, P, P); }
+    catch (e) {                              // tainted canvas: keep the original
+      console.warn('[DHGround] cannot retone (' + e.message + ')');
+      return null;
+    }
+    const d = px.data, N = d.length;
+    const sum = [0, 0, 0];
+    for (let i = 0; i < N; i += 4) { sum[0] += d[i]; sum[1] += d[i+1]; sum[2] += d[i+2]; }
+    const count4 = N / 4;
+    const gain = [0, 1, 2].map(k => {
+      const mean = sum[k] / count4;
+      return mean < 1 ? 1 : want[k] / mean;   // a black channel cannot be scaled
+    });
+    for (let i = 0; i < N; i += 4) {
+      const r = d[i] * gain[0], g = d[i+1] * gain[1], b = d[i+2] * gain[2];
+      d[i]   = r > 255 ? 255 : r;
+      d[i+1] = g > 255 ? 255 : g;
+      d[i+2] = b > 255 ? 255 : b;
+    }
+    c.putImageData(px, 0, 0);
+    toned[key] = cv;
+    return cv;
+  }
+
+  // Like draw(), but retoned so the surface's mean colour is `css`.
+  function drawToned(ctx, name, css, sx, sy, tx, ty) {
+    name = skin(name);
+    const cv = toneBand(name, css);
+    if (!cv) return false;
+    const d = state.data, n = state.tiles;
+    const ox = (((tx % n) + n) % n) * d.tile;
+    const oy = (((ty % n) + n) % n) * d.tile;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(cv, ox, oy, d.tile, d.tile,
+                  Math.round(sx), Math.round(sy), d.tile, d.tile);
+    ctx.restore();
+    return true;
+  }
+
+  function count() {
+    return state.data ? Object.keys(state.data.terrains).length : 0;
+  }
+
+  return { init, ready, draw, drawToned, drawSwell, drawFoam, season, skin, base, count, _state: state };
+})();
+
+DHGround.init();
