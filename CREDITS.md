@@ -99,6 +99,13 @@ entirely the original artist's. The open-door variant is the same sprite with
 the doors replaced by the darkness the pack already draws inside the hayloft
 opening above them.
 
+The water in every zone — the river, the hobo camp's creek, the sea and the
+jungle's river — is the swell animation from *2D Pixel Fishing Village Pack*,
+six frames of loose decals which `tools/build_ground.py` re-scatters into one
+wrap-seamless overlay per frame. It is baked NEUTRAL, in white and black on
+transparency, so each zone keeps its own water colour and takes the pack's
+motion; the colours themselves are the game's own.
+
 Cold Winter's ground — the snow over the fields, the trodden snow on the roads
 and streets, and the churned snow in the animal pen — is baked by
 `tools/build_ground.py` from *Winter Top-Down Tileset*: its own `spots.png`

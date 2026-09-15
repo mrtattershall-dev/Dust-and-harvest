@@ -172,6 +172,19 @@ its props at 1:1 are half this game's pixel density and cannot be used beside
 the rest of the art. `size_in_file / native_step` is what you are actually
 getting.
 
+## Water
+
+`build_ground.py` emits `assets/ground/water.png` — six wrap-seamless frames of
+swell, white and black on transparency — and `DHGround.drawSwell()` lays it over
+whatever base colour the caller filled. Neutral rather than toned because six
+512px frames retoned per zone would be a 1MB offscreen canvas each, up to 42 of
+them, on a game whose only test device is a phone.
+
+Not done: the shoreline. The fishing village pack ships animated foam coast
+tiles (`Water_coasts.png`, native 1:1) and water still meets land on a hard
+tile edge. The jungle's shallow/deep boundary is a square-cornered rectangle
+for the same reason terrain regions are — see above.
+
 ## Winter
 
 Cold Winter is 10 of the year's 40 days and used to be a blue filter over the

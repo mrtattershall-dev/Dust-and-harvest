@@ -19,7 +19,10 @@ window.DHGround = (function () {
   'use strict';
 
   const BASE = 'assets/ground/';
-  const state = { data: null, img: new Image(), ok: false, tiles: 0 };
+  const state = { data: null, img: new Image(), ok: false, tiles: 0,
+                  // The swell: its own image because it is transparent between
+                  // the decals and ground.png is saved as RGB.
+                  wimg: new Image(), wok: false };
 
   function init() {
     fetch(BASE + 'ground.json', { cache: 'no-cache' })
@@ -35,6 +38,11 @@ window.DHGround = (function () {
         state.img.onload = () => { state.ok = true; };
         state.img.onerror = () => console.warn('[DHGround] texture failed to load');
         state.img.src = BASE + 'ground.png';
+        if (d.water) {
+          state.wimg.onload = () => { state.wok = true; };
+          state.wimg.onerror = () => console.warn('[DHGround] swell failed to load');
+          state.wimg.src = BASE + 'water.png';
+        }
       })
       .catch(err => {
         console.warn('[DHGround] no ground texture (' + err.message +
@@ -75,6 +83,40 @@ window.DHGround = (function () {
     if (!d) return null;
     const t = d.terrains[skin(name)];
     return t ? t.base : null;
+  }
+
+  // ── The swell ───────────────────────────────────────────────────────────────
+  // Every zone with water drew a flat fill with white speckles on it and a
+  // couple of horizontal bands — the same surface in the overworld, the hobo
+  // camp, the ocean and the jungle.
+  //
+  // This is the fishing village pack's six-frame swell, baked by
+  // build_ground.py into one wrap-seamless overlay per frame, NEUTRAL: white
+  // highlights and black shadows on transparency. The caller fills its own
+  // water colour and lays this over it, so each zone keeps the colour it was
+  // designed with and no retoned copy has to be cached — six 512px frames
+  // times seven zone tones would have been 42MB of offscreen canvas.
+  //
+  // The frame comes off wall-clock time alone, never the screen position, or
+  // the sea would ripple at a different rate depending on where the camera is.
+  function swellFrame() {
+    const w = state.data && state.data.water;
+    if (!w) return 0;
+    return Math.floor(Date.now() / w.ms) % w.frames;
+  }
+
+  function drawSwell(ctx, sx, sy, tx, ty, alpha) {
+    if (!state.wok || !state.data || !state.data.water) return false;
+    const d = state.data, n = state.tiles;
+    const ox = (((tx % n) + n) % n) * d.tile;
+    const oy = (((ty % n) + n) % n) * d.tile;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    if (alpha !== undefined) ctx.globalAlpha = alpha;
+    ctx.drawImage(state.wimg, ox, swellFrame() * d.period + oy, d.tile, d.tile,
+                  Math.round(sx), Math.round(sy), d.tile, d.tile);
+    ctx.restore();
+    return true;
   }
 
   function draw(ctx, name, sx, sy, tx, ty) {
@@ -171,7 +213,7 @@ window.DHGround = (function () {
     return state.data ? Object.keys(state.data.terrains).length : 0;
   }
 
-  return { init, ready, draw, drawToned, season, skin, base, count, _state: state };
+  return { init, ready, draw, drawToned, drawSwell, season, skin, base, count, _state: state };
 })();
 
 DHGround.init();

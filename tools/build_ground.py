@@ -64,6 +64,9 @@ SOURCES = {
     # band of fine sparkle at the bottom. Its top half is a TAN set, so only
     # the snow half is read; see SPOTS_CROP.
     "snowspots": "Tiled_files/spots.png",
+    # The fishing village pack's ripple animation: six frames of loose swell
+    # decals on transparency, stacked vertically. See bake_water().
+    "ripples":   "PNG/Water_detailization1.png",
 }
 # Two packs ship a file at the same path, so each is pinned to the pack folder
 # whose name contains this.
@@ -73,7 +76,33 @@ SOURCES = {
 # across the library has to be pinned.
 SOURCE_PACK = {"farmland": "farmlands", "forest": "greenforest",
                "minecave": "miners-cave", "snowspots": "wintertopdown",
-               "spots": "desert"}
+               "spots": "desert", "ripples": "fishingvillage"}
+
+# ── water ───────────────────────────────────────────────────────────────────
+# Every zone that has water drew a flat teal with white speckles and a few
+# horizontal bands across it — the same surface in the overworld, the hobo
+# camp, the ocean and the jungle, and the flattest thing left in the game.
+#
+# The fishing village pack ships the swell as six animation frames of loose
+# decals on transparency, exactly the shape of sheet the scatter path already
+# eats. They are scattered ONCE and stamped into all six output frames, so a
+# given swell stays where it is and moves in place rather than jumping about.
+WATER_FRAMES = 6
+WATER_ROWS = 112          # the sheet is 6 x 352x112; measured off its alpha
+# The decals are drawn in exactly two tones, both taken off Water_coasts.png:
+# (56,88,128) is the highlight and (43,65,103) the shadow.
+#
+# They are baked as a TRANSPARENT overlay in neutral white and black rather
+# than in the pack's blues, because every zone has its own water colour — the
+# overworld's river is a deliberate slate-teal chosen to sit in a western
+# palette, the jungle's is green, the ocean's is deep. Retoning six 512px
+# frames per zone would have meant a 1MB offscreen canvas for each: up to 42 of
+# them, on a game whose only test device is a phone. A neutral overlay takes
+# the hue of whatever it is drawn over and costs nothing.
+WATER_LIGHT = (56, 88, 128)
+WATER_DARK = (43, 65, 103)
+WATER_LIGHT_A = 54
+WATER_DARK_A = 34
 
 # A scatter terrain names which mottling sheet it is built from. Each one
 # carries the crop to take from it and the colour its blobs ALREADY are, which
@@ -452,6 +481,94 @@ def extract_blobs(sheet):
     return blobs
 
 
+def water_decals(sheet):
+    """The swell decals, each as one crop per frame.
+
+    A decal is found on the UNION of all six frames' alpha, not on frame 0:
+    a swell that is absent in the first frame and appears in the third is one
+    decal that starts empty, not a missing one. The same box is then cut from
+    every frame, so the crop carries the motion.
+    """
+    fh = sheet.height // WATER_FRAMES
+    w = sheet.width
+    px = sheet.load()
+
+    def solid(x, y):
+        for f in range(WATER_FRAMES):
+            if px[x, f * fh + y][3] >= 8:
+                return True
+        return False
+
+    seen = bytearray(w * fh)
+    out = []
+    for y0 in range(fh):
+        for x0 in range(w):
+            if seen[y0 * w + x0] or not solid(x0, y0):
+                continue
+            q = deque([(x0, y0)])
+            seen[y0 * w + x0] = 1
+            cells = []
+            while q:
+                x, y = q.popleft()
+                cells.append((x, y))
+                for dy in (-1, 0, 1):
+                    for dx in (-1, 0, 1):
+                        nx, ny = x + dx, y + dy
+                        if (0 <= nx < w and 0 <= ny < fh
+                                and not seen[ny * w + nx] and solid(nx, ny)):
+                            seen[ny * w + nx] = 1
+                            q.append((nx, ny))
+            xs = [c[0] for c in cells]
+            ys = [c[1] for c in cells]
+            bx, by = min(xs), min(ys)
+            bw, bh = max(xs) - bx + 1, max(ys) - by + 1
+            if bw * bh < 6:            # a stray pixel is not a swell
+                continue
+            out.append([sheet.crop((bx, f * fh + by, bx + bw, f * fh + by + bh))
+                        for f in range(WATER_FRAMES)])
+    return out
+
+
+def _neutralise(im):
+    """The two decal tones as white and black at a fixed alpha."""
+    out = im.copy()
+    px = out.load()
+    for y in range(out.height):
+        for x in range(out.width):
+            r, g, b, a = px[x, y]
+            if a < 8:
+                px[x, y] = (0, 0, 0, 0)
+                continue
+            dl = sum((c - k) ** 2 for c, k in zip((r, g, b), WATER_LIGHT))
+            dd = sum((c - k) ** 2 for c, k in zip((r, g, b), WATER_DARK))
+            px[x, y] = ((255, 255, 255, WATER_LIGHT_A) if dl <= dd
+                        else (0, 0, 0, WATER_DARK_A))
+    return out
+
+
+def bake_water(sheet, rng):
+    """Six wrap-seamless frames of swell, transparent between the decals."""
+    decals = [[_neutralise(f) for f in d] for d in water_decals(sheet)]
+    frames = [Image.new("RGBA", (PERIOD, PERIOD), (0, 0, 0, 0))
+              for _ in range(WATER_FRAMES)]
+    # Positions and choices decided ONCE, then applied to every frame.
+    placed = 0
+    # 190 read as woven fabric rather than water: at 512px the swells met
+    # edge to edge and there was no open surface left between them.
+    for _ in range(95):
+        k = rng.randrange(len(decals))
+        x, y = rng.randrange(PERIOD), rng.randrange(PERIOD)
+        flip = rng.random() < 0.5
+        for f in range(WATER_FRAMES):
+            d = decals[k][f]
+            if flip:
+                d = d.transpose(Image.FLIP_LEFT_RIGHT)
+            stamp_wrapped(frames[f], d, x, y)
+        placed += 1
+    log(f"  water  {len(decals)} decals, {placed} placed x {WATER_FRAMES} frames")
+    return frames
+
+
 def tone_of(blob, dark=None, soft=None):
     dark = dark or TONE_DARK
     soft = soft or TONE_SOFT
@@ -600,7 +717,17 @@ def main():
                 continue
             tiles = [cell_of(sheets[rc[0]], rc) for rc in cfg["cells"]]
             ready.append((name, cfg, tiles))
-    if not ready:
+    # Water is six frames of one surface rather than one band, so it is baked
+    # on its own and appended as water0..water5. Named that way so the runtime
+    # reaches them through exactly the same wrap sampling, retone cache and
+    # seasonal skin as every other terrain.
+    water = None
+    if "ripples" in sheets:
+        water = sheets["ripples"]
+    else:
+        log("  -- water: no " + SOURCES["ripples"] + " supplied, skipping")
+
+    if not ready and water is None:
         sys.exit("No terrains could be built — check the pack folders given.")
 
     log("\nmutual seams (a mosaic is only safe if every cell joins every other):")
@@ -632,12 +759,26 @@ def main():
 
     OUT.mkdir(parents=True, exist_ok=True)
     sheet.convert("RGB").save(OUT / "ground.png", optimize=True)
-    (OUT / "ground.json").write_text(json.dumps(
-        {"period": PERIOD, "tile": TILE, "terrains": meta},
-        indent=1, sort_keys=True) + "\n")
+
+    # Its own file, because ground.png is saved as RGB — the swell is mostly
+    # transparent and has to stay that way.
+    wmeta = None
+    if water is not None:
+        frames = bake_water(water, rng)
+        strip = Image.new("RGBA", (PERIOD, PERIOD * WATER_FRAMES), (0, 0, 0, 0))
+        for f, img in enumerate(frames):
+            strip.paste(img, (0, f * PERIOD))
+        strip.save(OUT / "water.png", optimize=True)
+        wmeta = {"frames": WATER_FRAMES, "ms": 150}
+        log(f"  water.png  {(OUT / 'water.png').stat().st_size / 1024:.0f} KB")
+
+    doc = {"period": PERIOD, "tile": TILE, "terrains": meta}
+    if wmeta:
+        doc["water"] = wmeta
+    (OUT / "ground.json").write_text(json.dumps(doc, indent=1, sort_keys=True) + "\n")
 
     kb = (OUT / "ground.png").stat().st_size / 1024
-    log(f"\n{len(ready)} terrains, {PERIOD}px period "
+    log(f"\n{len(meta)} terrains, {PERIOD}px period "
         f"({PERIOD // TILE} tiles) -> assets/ground/  [{kb:.0f} KB]")
 
 

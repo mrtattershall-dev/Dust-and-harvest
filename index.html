@@ -9097,8 +9097,13 @@ function drawTile(tx,ty,sx,sy) {
     const WC=['','#3c6b70','#5b8f8c','#8fb8ad'];
     const BASE='#3c6b70', DEEP='#2b4f56', FOAM='rgba(210,230,220,.22)';
 
-    // Fill base
-    ctx.fillStyle=BASE; ctx.fillRect(sx,sy,T,T);
+    // Fill base, snapped to whole pixels and a pixel wider. The canvas is
+    // scaled by a non-integer ZOOM, so a fill laid exactly on the tile edge
+    // leaves a sub-pixel hairline and what showed through it was the tile's
+    // static colour underpaint — a dark navy — drawing the tile lattice down
+    // the river in faint vertical lines. The neighbour redraws the overlap.
+    // The ocean's water already did this; the river's did not.
+    ctx.fillStyle=BASE; ctx.fillRect(Math.round(sx),Math.round(sy),T+1,T+1);
     // Depth. This was a darker strip along the bottom of EVERY water tile, so
     // a river was banded at the tile pitch — the seam audit scored it 153
     // against an interior of 32, the worst on the overworld. It belongs
@@ -9113,6 +9118,13 @@ function drawTile(tx,ty,sx,sy) {
       if(!wet(getT(tx+1,ty))) ctx.fillRect(sx+T-4,sy,4,T);
     }
 
+    // The pack's swell, over the depth shelving. What follows is the sparkle
+    // lattice it replaces: 22 hand-placed pixels in a 16px cell, mirrored into
+    // each quadrant of the tile, which at any distance reads as speckle rather
+    // than as moving water. Kept as the fallback.
+    if (DHGround.drawSwell(ctx, sx, sy, tx, ty, 0.9)) {
+      ctx.fillStyle=FOAM; ctx.fillRect(sx,sy,T,1);
+    } else {
     // Pixel frames — each [px,py,colorIdx] is one sparkle pixel in the 16x16 cell
     // Tiled: since T=32 and cell=16, draw the pattern twice (2x2 tiling per tile)
     const FRAMES=[
@@ -9139,6 +9151,7 @@ function drawTile(tx,ty,sx,sy) {
     }
     // Top foam edge
     ctx.fillStyle=FOAM; ctx.fillRect(sx,sy,T,1);
+    }
   }
   else if(t===TL.STONE){
     // Real boulders from the desert pack, recoloured cold at bake time so the
@@ -21410,7 +21423,9 @@ function drawHCTile(t, tx, ty, sx, sy) {
     case TL.WATER: {
       // Same Mana Seed pixel frames as overworld but with murky green overlay
       const WC=['','#3c6b70','#5b8f8c','#8fb8ad'];
-      ctx.fillStyle='#3c6b70'; ctx.fillRect(sx,sy,HC_T,HC_T);
+      // Snapped and a pixel wider — see TL.WATER on the overworld.
+      ctx.fillStyle='#3c6b70';
+      ctx.fillRect(Math.round(sx),Math.round(sy),HC_T+1,HC_T+1);
       // Shelved against the bank, not banded along every tile — see TL.WATER.
       {
         const wet=(v)=>v===TL.WATER||v===TL.DEEP_WATER||v===TL.FISHING_SPOT;
@@ -21426,7 +21441,11 @@ function drawHCTile(t, tx, ty, sx, sy) {
         [[1,1,2],[2,1,2],[7,3,2],[11,3,3],[12,3,2],[6,5,2],[13,5,3],[14,5,2],[2,6,3],[3,6,2],[4,8,2],[5,8,2],[9,9,2],[10,9,2],[2,11,2],[3,11,3],[13,11,2],[5,13,2],[14,13,2],[0,14,2],[1,14,3],[10,14,3],[11,14,2]],
         [[1,1,2],[2,1,3],[7,3,2],[11,3,2],[12,3,3],[6,5,3],[13,5,2],[14,5,2],[2,6,2],[3,6,3],[4,8,2],[5,8,3],[9,9,2],[10,9,3],[2,11,3],[3,11,2],[13,11,2],[5,13,2],[14,13,3],[0,14,2],[1,14,2],[10,14,2],[11,14,3]],
       ];
-      // Slower frame rate for stagnant creek feel
+      // The pack's swell, lower than the river's — this is a stagnant creek.
+      // The sparkle lattice below is the fallback; here it was laid four times
+      // per tile WITHOUT the overworld's mirroring, so it put a hard 16px grid
+      // across the water.
+      if (!DHGround.drawSwell(ctx, sx, sy, tx, ty, 0.55)) {
       const fi = (Math.floor(Date.now()/500) + tx*3 + ty*5) & 3;
       const frame = FRAMES[fi];
       for(const [px,py,ci] of frame){
@@ -21435,6 +21454,7 @@ function drawHCTile(t, tx, ty, sx, sy) {
         ctx.fillRect(sx+px+16,sy+py,   1,1);
         ctx.fillRect(sx+px,   sy+py+16,1,1);
         ctx.fillRect(sx+px+16,sy+py+16,1,1);
+      }
       }
       // Murky overlay — stagnant vs clean river
       ctx.fillStyle='rgba(20,50,10,.28)'; ctx.fillRect(sx,sy,HC_T,HC_T);
@@ -23113,9 +23133,16 @@ function drawOCTile(t, tx, ty, sx, sy) {
       const _bx=Math.round(sx), _bw=OC_T+1;
       ctx.fillStyle='#3f7c84';
       ctx.fillRect(_bx,Math.round(sy),_bw,OC_T+1);
-      // Sandy bottom showing through the shallows.
-      ctx.fillStyle='rgba(170,140,74,.13)'; ctx.fillRect(sx,sy+5,OC_T,11);
-      {
+      // Sandy bottom showing through the shallows. This was an 11px band at
+      // sy+5 — a fixed offset INSIDE every tile, which repeats as a stripe
+      // pattern at the tile pitch across the whole sea. It was invisible under
+      // the old flat fill and obvious the moment the water had real texture.
+      // Flat across the tile instead: the shallows are shallow everywhere.
+      ctx.fillStyle='rgba(170,140,74,.10)';
+      ctx.fillRect(_bx,Math.round(sy),_bw,OC_T+1);
+      // The pack's swell. What was here was two 1px horizontal bands scrolling
+      // up the screen — which reads as a scanline, not as water.
+      if (!DHGround.drawSwell(ctx, sx, sy, tx, ty, 0.85)) {
         const ph=Date.now()*0.010;
         for(let py=0;py<OC_T;py++){
           const wy=ty*OC_T+py;
@@ -23140,7 +23167,8 @@ function drawOCTile(t, tx, ty, sx, sy) {
       const _dx=Math.round(sx), _dw=OC_T+1;
       ctx.fillStyle='#22454f';
       ctx.fillRect(_dx,Math.round(sy),_dw,OC_T+1);
-      {
+      // Lower than the shallows: open water is smoother and darker.
+      if (!DHGround.drawSwell(ctx, sx, sy, tx, ty, 0.55)) {
         const ph=Date.now()*0.006;
         for(let py=0;py<OC_T;py++){
           const wy=ty*OC_T+py;
@@ -35846,7 +35874,8 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       const _wx = Math.round(sx), _ww = T + 1;
       ctx.fillStyle = '#16342c';
       ctx.fillRect(_wx, Math.round(sy), _ww, T + 1);
-      {
+      // The pack's swell. The scrolling 1px bands below were the stand-in.
+      if (!DHGround.drawSwell(ctx, sx, sy, tx, ty, 0.5)) {
         const ph = Date.now() * 0.007;
         for (let py = 0; py < T; py++) {
           const wy = ty * T + py, m = ((wy * 3 - ph) % 58 + 58) % 58;
@@ -35862,8 +35891,11 @@ window.drawJGTile = function drawJGTile(t, sx, sy, tx, ty) {
       const _sx2 = Math.round(sx), _sw = T + 1;
       ctx.fillStyle = '#20473c';
       ctx.fillRect(_sx2, Math.round(sy), _sw, T + 1);
-      ctx.fillStyle = 'rgba(120,104,58,.12)'; ctx.fillRect(_sx2, Math.round(sy) + 6, _sw, 12);
-      {
+      // Flat, not a 12px band at a fixed offset in every tile — see the
+      // ocean's shallows for what that does once the water has texture.
+      ctx.fillStyle = 'rgba(120,104,58,.09)';
+      ctx.fillRect(_sx2, Math.round(sy), _sw, T + 1);
+      if (!DHGround.drawSwell(ctx, sx, sy, tx, ty, 0.8)) {
         const ph = Date.now() * 0.011;
         for (let py = 0; py < T; py++) {
           const wy = ty * T + py, m = ((wy * 3 - ph) % 40 + 40) % 40;
