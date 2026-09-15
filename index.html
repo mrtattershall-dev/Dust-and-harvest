@@ -15205,14 +15205,30 @@ function tickBLMineHazards(dt) {
   ];
   const msg = msgs[Math.floor(Math.random()*msgs.length)];
   showMsg(msg);
-  // Damage if player is on a deep floor and doesn't move
+  /* Damage if the player is on a deep floor and doesn't move.
+
+     That is what the comment said and what all three warnings tell you —
+     "Move through quickly!", "Don't linger.", "Keep moving." — but nothing
+     here ever looked at where the player was. The damage landed on a timer
+     regardless. Measured with the hazard forced to fire, three trials each:
+     8 damage standing still, 8 damage after sprinting 400px away. The advice
+     was unfollowable.
+
+     Now the warning notes where you were standing, and clearing the pocket —
+     four tiles, about a second and a half at walking speed — gets you out of
+     it. Standing in it still costs the same 8. */
   if (fl >= 3) {
     const gasDmg = player._mineCanary ? 3 : 8;
+    const gasX = player.x, gasY = player.y;
+    const ESCAPE = T * 4;
     setTimeout(() => {
-      if (gameState.inBLMine && gameState.blMineFloor === fl) {
-        damagePlayer(gasDmg, 'gas');
-        if (gasDmg > 3) showMsg('💨 Gas exposure — took ' + gasDmg + ' damage.');
+      if (!gameState.inBLMine || gameState.blMineFloor !== fl) return;
+      if (Math.hypot(player.x - gasX, player.y - gasY) >= ESCAPE) {
+        showMsg('💨 You cleared the pocket before it caught you.');
+        return;
       }
+      damagePlayer(gasDmg, 'gas');
+      if (gasDmg > 3) showMsg('💨 Gas exposure — took ' + gasDmg + ' damage.');
     }, 3500);
   }
 }
