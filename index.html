@@ -5730,12 +5730,12 @@ function getHomeTableBonus()    { return homeFurnitureOwned('table')   ? 2.0  : 
 function getHomeCarpetBonus()   {
   if (!homeFurnitureOwned('carpet')) return 1.0;
   // Only applies on the overworld (farm/town) — not in mines, badlands, hobo camp, ocean, jungle
-  if (gameState.inMine||gameState.inBLMine||gameState.inBadlands||gameState.inHoboCamp||gameState.inOcean||gameState.inJungle) return 1.0;
+  if (!isOnOverworld()) return 1.0;
   return 1.05;
 }
 function getHomeRugBonus()      {
   if (!homeFurnitureOwned('rug')) return 0;
-  if (gameState.inMine||gameState.inBLMine||gameState.inBadlands||gameState.inHoboCamp||gameState.inOcean||gameState.inJungle) return 0;
+  if (!isOnOverworld()) return 0;
   return 10;
 }
 
@@ -7138,7 +7138,7 @@ function _handleFarmUtility(tx, ty, wx, wy) {
 // Handles till / water / plant / harvest / sprinkler-place tool actions
 function _handleFarmTool(tx, ty, wx, wy, key) {
   // Only valid on the main overworld farm — never in other zones
-  if (gameState.inOcean || gameState.inBadlands || gameState.inHoboCamp || gameState.inMine) return;
+  if (!isOnOverworld()) return;
   // ── Sprinkler placement ──────────────────────────────────────────────────
   if (player.tool === 'sprinkler') {
     if (!isFarmTile(tx, ty)) { showMsg('⚠️ Sprinklers can only be placed on the farm dirt!'); return; }
@@ -7358,7 +7358,7 @@ function onNewDay() {
   _hungerWarnedHungry   = false;
   _hungerWarnedStarving = false;
   // Bed bonus — full HP restore at dawn if on the farm
-  if (homeFurnitureOwned('bed') && !gameState.inMine && !gameState.inBadlands && !gameState.inHoboCamp && !gameState.inOcean && !gameState.inJungle) {
+  if (homeFurnitureOwned('bed') && isOnOverworld()) {
     player.hp = player.maxHp;
     showMsg('🛏 Slept well — full HP restored.');
   }
@@ -7720,7 +7720,7 @@ window.addEventListener('keydown', e => {
 
     // E opens NPC talk (Maya/Rex), farmhand, or chest if player is adjacent
     // Only valid on the overworld — not in hobo camp, ocean, mine, badlands, or jungle
-    if (!gameState.inHoboCamp && !gameState.inOcean && !gameState.inMine && !gameState.inBLMine && !gameState.inBadlands && !gameState.inJungle) {
+    if (isOnOverworld()) {
     const ptx = Math.floor(player.x/T), pty = Math.floor(player.y/T);
     if (Math.abs(ptx-MAYA_TX)<=2 && Math.abs(pty-MAYA_TY)<=2) { openNpcTalk('maya'); return; }
     if (Math.abs(ptx-REX_TX)<=2 && Math.abs(pty-REX_TY)<=2) { openNpcTalk('rex'); return; }
@@ -7867,7 +7867,11 @@ function _checkTutorialTriggers() {
   if (!player || !stats) return;
   const ptx = Math.floor(player.x / T);
   const pty = Math.floor(player.y / T);
-  const hour = gameState.timeOfDay || 0;
+  // timeOfDay is minutes since midnight; every other reader divides by 60 to get
+  // a 24h clock. This one didn't, so the night warning below compared minutes
+  // against hours: >= 19 was true from 00:19 onwards and < 20.5 never true
+  // again, and the tip could not fire.
+  const hour = (gameState.timeOfDay || 0) / 60;
 
   // 1. Debt — after 5 real seconds
   if (!_tipShown.has('debt') && _tipElapsed >= 5)
@@ -7986,6 +7990,58 @@ function unstickPlayer() {
   }
 }
 
+/* One place that knows what "on the overworld" means.
+
+   This was spelled out by hand in eight separate places, each listing the
+   interiors it happened to know about. Every zone added after a given check was
+   written had to be remembered in all of them, and three were missed — with
+   consequences, because the flags are mutually exclusive, so an interior absent
+   from a list is treated as the open farm:
+
+     - the deep jungle ran the overworld's auto-transition check, which reads the
+       OVERWORLD tilemap at the player's local coordinates. Its map is 80x60 and
+       the surface portals sit at (50-52, 2) and (79, 35-37), all inside those
+       bounds — so walking to the top or right edge of the deep jungle set
+       inHoboCamp or inOcean while inDeepJungle was still true. Not a mistaken
+       teleport but two zones at once.
+     - the farm tools ran inside the Altaverde ruins, whose 40x30 map overlaps
+       the farm's tile range, so tilling in the ruins tilled a real plot on the
+       surface.
+
+   Anything that means "the open world, not an interior" should ask here. */
+/* Pixel size of the map the player is standing on.
+
+   Spelled out by hand as a ternary chain in four places, none of which listed
+   every zone: the company mine (48x48), the jungle, the ruins (40x30) and the
+   deep jungle (80x60) all fell through to the farm's 80x50, so the camera could
+   pan past the edge of the map into empty space. */
+function curMapW() {
+  if (gameState.inMine || gameState.inBLMine) return MINE_W * T;
+  if (gameState.inBadlands)   return BL_W * T;
+  if (gameState.inHoboCamp)   return HC_W * HC_T;
+  if (gameState.inOcean)      return OC_W * OC_T;
+  if (gameState.inRuins)      return RU_W * RU_T;
+  if (gameState.inDeepJungle) return DJ_W * DJ_T;
+  if (gameState.inJungle)     return JG_W * JG_T;
+  return MAP_W * T;
+}
+function curMapH() {
+  if (gameState.inMine || gameState.inBLMine) return MINE_H * T;
+  if (gameState.inBadlands)   return BL_H * T;
+  if (gameState.inHoboCamp)   return HC_H * HC_T;
+  if (gameState.inOcean)      return OC_H * OC_T;
+  if (gameState.inRuins)      return RU_H * RU_T;
+  if (gameState.inDeepJungle) return DJ_H * DJ_T;
+  if (gameState.inJungle)     return JG_H * JG_T;
+  return MAP_H * T;
+}
+
+function isOnOverworld() {
+  return !(gameState.inMine || gameState.inBLMine || gameState.inBadlands ||
+           gameState.inHoboCamp || gameState.inOcean || gameState.inJungle ||
+           gameState.inRuins || gameState.inDeepJungle);
+}
+
 function getZone(px,py) {
   /* Every interior has to answer before the coordinate lookup below, because
      that lookup reads px/py as OVERWORLD tiles. Four interiors did; the mine,
@@ -8023,7 +8079,7 @@ function update(dt) {
   if (invOpen||marketOpen||settingsOpen||pauseOpen||daySummaryOpen||deathScreenOpen||chestOpen||farmhandOpen||npcTalkOpen||blBountyBoardOpen||blVendorOpen||minerOverlayOpen||hcTalkOpen||ocTalkOpen||statsOpen||guideOpen||(typeof jgTalkOpen!=='undefined'&&jgTalkOpen)||(typeof _tobiasPanelOpen!=='undefined'&&_tobiasPanelOpen)) return;
 
   // Auto zone transitions — fire every frame, no keypress needed
-  if (!gameState.inMine && !gameState.inBLMine && !gameState.inBadlands && !gameState.inHoboCamp && !gameState.inOcean && !gameState.inJungle) {
+  if (isOnOverworld()) {
     const ptx=Math.floor(player.x/T), pty=Math.floor(player.y/T);
     if (getT(ptx,pty)===TL.HOBO_PORTAL ||
         getT(ptx-1,pty)===TL.HOBO_PORTAL ||
@@ -8142,7 +8198,7 @@ function update(dt) {
     if (p.growthProgress >= 1) p.harvestReady = true;
 
     // Glowroot trait: illuminates fog around its tile while growing (throttled — once/sec)
-    if (p.crop === 'glowroot' && !gameState.inMine && !gameState.inBadlands && !gameState.inHoboCamp && !gameState.inOcean && !gameState.inJungle) {
+    if (p.crop === 'glowroot' && isOnOverworld()) {
       p._glowRevealTimer = (p._glowRevealTimer || 0) - dt;
       if (p._glowRevealTimer <= 0) {
         p._glowRevealTimer = 1.0;
@@ -8192,7 +8248,7 @@ function update(dt) {
   else if (!moving)     player.stamina=Math.min(player.maxStamina,player.stamina+player.staminaRegen*getHungerStaminaMult()*getHomeCarpetBonus()*dt);
   else                  player.stamina=Math.min(player.maxStamina,player.stamina+player.staminaRegen*.2*getHungerStaminaMult()*getHomeCarpetBonus()*dt);
   // Rug bonus — extra max stamina while on farm
-  const _rugBonus = (!gameState.inMine&&!gameState.inBadlands&&!gameState.inHoboCamp&&!gameState.inOcean&&!gameState.inJungle) ? getHomeRugBonus() : 0;
+  const _rugBonus = isOnOverworld() ? getHomeRugBonus() : 0;
   player.maxStamina = (player._baseMaxStamina || 100) + _rugBonus;
   tickHunger(dt);
   tickStorm(dt);
@@ -8269,15 +8325,23 @@ function update(dt) {
       player.walkTimer+=dt;
       if (player.walkTimer>.18){player.walkFrame=(player.walkFrame+1)%4;player.walkTimer=0;}
     }
-  } else if (gameState.inJungle) {
-    // Jungle on-foot movement — routed through zone-specific handler
+  } else if (gameState.inJungle || gameState.inRuins || gameState.inDeepJungle) {
+    /* Jungle-family on-foot movement.
+
+       The ruins and the deep jungle each install their own handler by wrapping
+       updateJungleMovement, but this branch used to ask only for inJungle — and
+       both zones clear inJungle when you enter them, precisely so the zones stay
+       mutually exclusive. So neither wrapper was ever reached: both fell through
+       to the generic path below, which collides against the *farm* tilemap and
+       clamps to the farm's bounds. In the ruins that left the player unable to
+       move at all (the entry tile maps onto a solid farm tile); in the deep
+       jungle it let you walk through walls. */
     updateJungleMovement(dx, dy, dt, spd);
   } else {
     // Normal on-foot movement
     const nx=player.x+dx*spd*dt, ny=player.y+dy*spd*dt;
 
-    const _curW=(gameState.inMine?MINE_W:gameState.inBadlands?BL_W:gameState.inHoboCamp?HC_W:gameState.inOcean?OC_W:MAP_W)*T;
-    const _curH=(gameState.inMine?MINE_H:gameState.inBadlands?BL_H:gameState.inHoboCamp?HC_H:gameState.inOcean?OC_H:MAP_H)*T;
+    const _curW=curMapW(), _curH=curMapH();
     if (!collideSolid(nx,player.y)) player.x=Math.max(0,Math.min(_curW,nx));
     if (!collideSolid(player.x,ny)) player.y=Math.max(0,Math.min(_curH,ny));
 
@@ -8313,8 +8377,7 @@ function update(dt) {
   const ct = {x:player.x-(canvas.width/ZOOM)/2,y:player.y-(canvas.height/ZOOM)/2};
   gameState.camera.x+=(ct.x-gameState.camera.x)*8*dt;
   gameState.camera.y+=(ct.y-gameState.camera.y)*8*dt;
-  const mapW = gameState.inMine ? MINE_W*T : gameState.inBadlands ? BL_W*T : gameState.inHoboCamp ? HC_W*T : gameState.inOcean ? OC_W*T : MAP_W*T;
-  const mapH = gameState.inMine ? MINE_H*T : gameState.inBadlands ? BL_H*T : gameState.inHoboCamp ? HC_H*T : gameState.inOcean ? OC_H*T : MAP_H*T;
+  const mapW = curMapW(), mapH = curMapH();
   gameState.camera.x=Math.max(0,Math.min(mapW-canvas.width/ZOOM,gameState.camera.x));
   gameState.camera.y=Math.max(0,Math.min(mapH-canvas.height/ZOOM,gameState.camera.y));
 
@@ -13465,7 +13528,7 @@ function tickStorm(dt) {
   } else if (gameState._stormPhase === 'peak') {
     gameState._stormIntensity = 0.85 + Math.sin(Date.now() * 0.0008) * 0.08; // breathes
     // Ongoing damage if unsheltered and outdoors
-    if (!isStormsheltered() && !gameState.inMine && !gameState.inBLMine && !gameState.inBadlands && !gameState.inHoboCamp && !gameState.inOcean && !gameState.inJungle) {
+    if (!isStormsheltered() && isOnOverworld()) {
       player.hp = Math.max(1, player.hp - 1.5 * dt);
       player.stamina = Math.max(0, player.stamina - 3 * dt);
     }
@@ -13491,8 +13554,10 @@ function tickStorm(dt) {
 }
 
 function isStormsheltered() {
-  // In sub-zones storms don't apply — always sheltered there
-  if (gameState.inMine || gameState.inBLMine || gameState.inBadlands || gameState.inHoboCamp || gameState.inOcean || gameState.inJungle) return true;
+  // In sub-zones storms don't apply — always sheltered there. The list this
+  // replaced said the same thing but omitted the ruins and the deep jungle, so
+  // the weather followed you indoors and underground.
+  if (!isOnOverworld()) return true;
   // On TOWN_FLOOR or PEN_FLOOR tile = indoors
   const tx = Math.floor(player.x / T), ty = Math.floor(player.y / T);
   const t = getT(tx, ty);
@@ -13522,7 +13587,7 @@ function updateStormOverlay() {
   if (!ov) return;
   const intensity = gameState._stormIntensity || 0;
   // FIX: never show overlay in sub-zones
-  if (intensity < 0.1 || gameState.inMine || gameState.inBLMine || gameState.inBadlands || gameState.inHoboCamp || gameState.inOcean || gameState.inJungle) {
+  if (intensity < 0.1 || !isOnOverworld()) {
     ov.className = ''; return;
   }
   ov.className = isStormsheltered() ? 'sheltered' : (intensity > 0.5 ? 'exposed' : '');
@@ -14525,6 +14590,11 @@ function enterBLMine() {
   gameState.blMineFloor = 0;
   player.x = BL_MINE_SPAWN[0].x + 32;
   player.y = BL_MINE_SPAWN[0].y;
+  /* BL_MINE_SPAWN is a hand-written tile per floor, but each floor's rock is
+     generated, so a spawn point is only clear by luck — floors 2 and 4 put the
+     player inside MINE_WALL. Nudge to the nearest tile they can actually walk
+     out of, the way enterBadlands already does. */
+  unstickPlayer();
   centerCameraOnPlayer();
   showMsg('⛏ The Company Mine. Five levels. Nobody came to get their equipment.');
   updateMineHUD();
@@ -15003,6 +15073,7 @@ function exitBLMine() {
   // Return to just east of the entrance tile
   player.x = blMineEntranceX * T + T*2;
   player.y = blMineEntranceY * T + T/2;
+  unstickPlayer();
   centerCameraOnPlayer();
   showMsg('🏜 Back in the badlands.');
 }
@@ -15012,6 +15083,7 @@ function blMineDescend() {
   gameState.blMineFloor++;
   player.x = BL_MINE_SPAWN[gameState.blMineFloor].x;
   player.y = BL_MINE_SPAWN[gameState.blMineFloor].y;
+  unstickPlayer();
   centerCameraOnPlayer();
   gainRep('badlands', 3); // venturing deeper builds badlands rep
   showMsg('⛏ Descended to Company Level ' + (gameState.blMineFloor+1));
@@ -15134,6 +15206,7 @@ function blMineAscend() {
   gameState.blMineFloor--;
   player.x = BL_MINE_SPAWN[gameState.blMineFloor].x;
   player.y = BL_MINE_SPAWN[gameState.blMineFloor].y;
+  unstickPlayer();
   centerCameraOnPlayer();
   showMsg('⛏ Ascended to Company Level ' + (gameState.blMineFloor+1));
   updateMineHUD();
@@ -17386,9 +17459,15 @@ let enemyIdCounter = 0;
 let nightSpawnTimer = 0;
 const MAX_ENEMIES = 12;
 
+/* Returns the enemy it just spawned. It used to return nothing, which the ocean
+   spawner did not know: it wrote `const skiff = spawnEnemy('pirateSkiff', ...)`
+   and then scaled skiff.hp/.dmg by pirateHeat behind an `if (skiff && ...)`.
+   skiff was always undefined, so the guard was always false and the entire
+   pirate escalation — the thing "They're sending bigger crews" is promising —
+   never touched a single skiff. */
 function spawnEnemy(typeKey, wx, wy) {
   const def = ENEMY_DEFS[typeKey];
-  enemies.push({
+  const e = {
     id: enemyIdCounter++,
     type: typeKey, def,
     x: wx, y: wy,
@@ -17403,7 +17482,9 @@ function spawnEnemy(typeKey, wx, wy) {
     hidden: typeKey === 'burrower',
     hideCountdown: def.hideTimer || 0,
     state: typeKey === 'burrower' ? 'hiding' : 'chase',
-  });
+  };
+  enemies.push(e);
+  return e;
 }
 
 function spawnNightEnemies(dt) {
@@ -28827,11 +28908,10 @@ if (typeof INTERACT_ZONES !== 'undefined') {
 (function _patchSpawnEnemyForJungle() {
   const _orig = window.spawnEnemy || spawnEnemy;
   window.spawnEnemy = function(typeKey, wx, wy) {
-    _orig(typeKey, wx, wy);
-    if (gameState.inJungle) {
-      const e = enemies[enemies.length - 1];
-      if (e) e._isJungle = true;
-    }
+    // Pass the spawned enemy back out — callers scale its stats from the return.
+    const e = _orig(typeKey, wx, wy) || enemies[enemies.length - 1];
+    if (gameState.inJungle && e) e._isJungle = true;
+    return e;
   };
 })();
 
