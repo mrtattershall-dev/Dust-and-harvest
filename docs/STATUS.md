@@ -172,6 +172,17 @@ its props at 1:1 are half this game's pixel density and cannot be used beside
 the rest of the art. `size_in_file / native_step` is what you are actually
 getting.
 
+## Trees follow the setting
+
+This is a desert frontier, so the dry country gets PALMS — `OVERHANG_SAND` in
+index.html, and `HC_TREES` for the camp. The palms were baked for the ocean and
+only the ocean used them; inland they take a light dust wash so a lush coastal
+green does not sit in a dust-bowl palette. A CONIFER was in both lists and is
+gone from both.
+
+The greener tiles — the river banks and the farm — keep the broadleafs, which
+is where grass actually is.
+
 ## tile_sheet.py under-reports
 
 It calls ONE TILE FUNCTION per cell, so anything drawn in a late pass over the

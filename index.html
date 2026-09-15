@@ -8908,6 +8908,12 @@ function drawTile(tx,ty,sx,sy) {
         ctx.fillStyle=_tileUnder(best, TC[best][0]); ctx.fillRect(sx,sy,T,T);
         const name=_owTerrain[best];
         if(name) DHGround.draw(ctx,name,sx,sy,tx,ty);
+        // ...and then interlock it with whatever else is around it. The
+        // majority pick is ONE terrain laid edge to edge, so a rock standing
+        // on a dirt/sand boundary sat in a hard square of whichever side won
+        // the vote — visible all over the map wherever the ground changes.
+        // Majority fixed which terrain it was; it did not fix the square.
+        _terrainEdges();
         return;
       }
     }
@@ -9178,7 +9184,12 @@ function drawTile(tx,ty,sx,sy) {
   }
   else if(t===TL.ROCK){
     const RK=['#292129','#5b4b41','#897762','#cfc7b2','#e0e0d0'];
-    ctx.fillStyle=c[0]; ctx.fillRect(sx,sy,T,T);
+    // The ground it stands on, like every other overlay. This filled the
+    // tile with TL.ROCK's own flat grey and left it there, so a gatherable
+    // rock sat in a grey square wherever the ground around it was not grey —
+    // which is everywhere. TL.STONE has called _owGround() for a while; this
+    // one was missed.
+    _owGround();
     if(DHProps.draw(ctx,'rock',sx,sy,tx,ty)){ /* sprite variant */ } else {
     ctx.fillStyle=RK[0]; ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2+2,13,9,0.2,0,Math.PI*2); ctx.fill();
     ctx.fillStyle=RK[1]; ctx.beginPath(); ctx.ellipse(sx+T/2,sy+T/2+2,11,7,0.2,0,Math.PI*2); ctx.fill();
@@ -10979,10 +10990,22 @@ function _seasonGoods() {
 // tree_fruit is the Free Top-Down Trees pack's apple tree — a farm is where it
 // belongs, and it is the only tree in the game that says "this land is worked"
 // rather than "this land is scrub".
-const OVERHANG_GRASS = ['tree_oak', 'tree_pine', 'tree_gnarled', 'tree_round',
+// Which trees stand where.
+//
+// The dry country gets PALMS. This is a desert frontier — it is the premise of
+// the place — and what stood on its sand and red dirt was three small
+// broad-leaved shrubs, with a dark CONIFER among the trees on the greener
+// tiles. A pine on a dust farm is the single most obviously wrong thing that
+// was left on the map.
+//
+// The palms were baked for the ocean and only the ocean used them; the two
+// `tree_sand_*` pieces are palm-shaped too and stay as the small variants, so
+// a stand is not all one silhouette.
+const OVERHANG_GRASS = ['tree_oak', 'tree_gnarled', 'tree_round',
                         'tree_sapling', 'tree_scrub', 'tree_shrub',
-                        'tree_fruit', 'tree_broad'];
-const OVERHANG_SAND  = ['tree_sand_big', 'tree_sand_small', 'tree_bush'];
+                        'tree_broad'];
+const OVERHANG_SAND  = ['palm', 'palm2', 'tree_sand_big', 'palm_young',
+                        'palm2', 'tree_sand_small', 'palm', 'tree_bush'];
 
 // Whether a given tree has to be drawn IN FRONT of the entities.
 //
@@ -11052,7 +11075,13 @@ function drawOverhangProps(cx, cy, late) {
       const v = ((tx * 374761393 ^ ty * 668265263) >>> 0) % set.length;
       const rootX = tx * T + T / 2, rootY = (ty + 1) * T;
       if (_treeIsInFront(rootX, rootY) !== !!late) continue;
-      drawFixture(set[v], rootX - cx, rootY - cy);
+      // A dust wash over the dry country's trees. The palms were cut for the
+      // ocean, where a lush green is right; inland on red dirt the same green
+      // is a tropical colour in a dust-bowl palette. Light enough that they
+      // are still green — a palm marks water, and this one is meant to read
+      // as a tree that found some.
+      if (set === OVERHANG_SAND) drawFixtureTint(set[v], rootX - cx, rootY - cy, '#c8a060', 0.16);
+      else drawFixture(set[v], rootX - cx, rootY - cy);
     }
   }
 }
@@ -21371,7 +21400,11 @@ function _hcEdges(tx, ty, sx, sy) {
 // The camp's trees, after the whole tile pass — the same reason the overworld
 // has drawOverhangProps(): a tree is taller than its tile, so the tiles below
 // and to the right of it would paint over its canopy.
-const HC_TREES = ['tree_oak', 'tree_round', 'tree_gnarled', 'tree_pine', 'tree_sapling'];
+// The camp sits on the frontier beside a stagnant creek, so it gets the dry
+// country's palms with a couple of creekside broadleafs among them — not the
+// conifer that was in this list.
+const HC_TREES = ['palm', 'tree_round', 'tree_gnarled', 'palm2',
+                  'tree_sapling', 'palm_young'];
 function _hcOverhang(cx, cy) {
   if (!_fixArt.ok) return;
   const vw = canvas.width / ZOOM, vh = canvas.height / ZOOM;
