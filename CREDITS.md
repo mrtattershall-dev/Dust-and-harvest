@@ -156,12 +156,18 @@ in the browser from oscillators, and still is.
 - **Sea, Sea_Rain, Sea_Storm** — the dock zone's ambience, one per weather
   state. Sixty-second stereo loops.
 - **chop_1, chop_2** — the axe.
+- **Dirt_Walk_1..5** — footsteps. Dirt only: the dock's planks and the mine's
+  stone play these too, and want their own.
 
 Baked by `tools/build_audio.py` into `assets/audio/*.mp3`. What that tool does
 to them is not cosmetic and is worth knowing if the sources are ever replaced:
 the ambiences are NOT loops as delivered (the jump from last sample to first is
 about half the amplitude of the material and clicks every time round), they
 peak around -19dBFS, and `chop_1` has 200ms of silence before the axe lands.
+
+Gain is applied per FAMILY, not per file. The five footsteps span 6.6dB between
+the lightest and the heaviest take and a storm is meant to be louder than a calm
+sea; normalising each file would flatten both into nothing.
 
 **TODO — SOURCE AND LICENCE NOT RECORDED.** These were handed over without
 provenance. Before release, add who made them and under what terms, the same

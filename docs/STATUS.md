@@ -192,8 +192,11 @@ Two traps, both already paid for:
   target. Re-scheduling an exponential ramp sixty times a second pins the gain
   wherever it happens to be and it never arrives.
 
-Only the ocean has ambience and only the axe has a recorded one-shot. Every
+Only the ocean has ambience. The axe and the footsteps are recorded; every
 other sound is still an oscillator.
+
+The footsteps are DIRT everywhere, including the dock's planks and the mine's
+stone. Surface-aware footfalls need recordings per surface.
 
 ## Trees follow the setting
 

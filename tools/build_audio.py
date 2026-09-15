@@ -14,10 +14,12 @@ here rather than worked around at runtime:
               linear fade would dip its RMS through the join.
 
   level       They peak at about -19dBFS and average -34. At any sane master
-              volume they would be inaudible. Lifted by ONE COMMON GAIN across
-              the family rather than normalised one by one: a storm is meant to
-              be louder than a calm sea, and per-file normalisation would throw
-              that away.
+              volume they would be inaudible. Lifted by ONE COMMON GAIN per
+              FAMILY rather than normalised one by one: a storm is meant to be
+              louder than a calm sea, and the five dirt footsteps span 6.6dB
+              between the lightest and the heaviest take, which is a real foot
+              falling differently each time. Normalising each file would flatten
+              both of those into nothing.
 
   dead air    chop_1 has 200ms of SILENCE before the axe lands, which would put
               the sound a fifth of a second behind the swing. Both one-shots are
@@ -47,18 +49,29 @@ OUT = REPO / "assets" / "audio"
 
 SR = 44100
 XFADE = 3.0          # seconds of tail crossfaded over the head
-LOOP_PEAK = 0.707    # -3dBFS, the family's loudest peak after the common gain
-SHOT_PEAK = 0.794    # -2dBFS, per one-shot
 SHOT_FLOOR = 0.01    # below this is silence, for trimming
 SHOT_FADE = 0.020    # seconds faded out at the end of a one-shot
 
-# name -> (filename fragment, kind, bitrate)
+# The peak the LOUDEST member of each family lands on. Everything else in the
+# family keeps its distance from it.
+FAMILY_PEAK = {
+    "sea":  0.707,   # -3dBFS. Ambience, so this is the ceiling, not the level.
+    "chop": 0.794,   # -2dBFS.
+    "step": 0.600,   # Footsteps sit under everything else in the mix.
+}
+
+# name -> (filename fragment, kind, family, bitrate)
 PIECES = {
-    "sea":       ("Sea.wav",       "loop", "112k"),
-    "sea_rain":  ("Sea_Rain.wav",  "loop", "112k"),
-    "sea_storm": ("Sea_Storm.wav", "loop", "112k"),
-    "chop1":     ("chop_1.wav",    "shot", "128k"),
-    "chop2":     ("chop_2.wav",    "shot", "128k"),
+    "sea":       ("Sea.wav",       "loop", "sea",  "112k"),
+    "sea_rain":  ("Sea_Rain.wav",  "loop", "sea",  "112k"),
+    "sea_storm": ("Sea_Storm.wav", "loop", "sea",  "112k"),
+    "chop1":     ("chop_1.wav",    "shot", "chop", "128k"),
+    "chop2":     ("chop_2.wav",    "shot", "chop", "128k"),
+    "step1":     ("Dirt_Walk_1.wav", "shot", "step", "96k"),
+    "step2":     ("Dirt_Walk_2.wav", "shot", "step", "96k"),
+    "step3":     ("Dirt_Walk_3.wav", "shot", "step", "96k"),
+    "step4":     ("Dirt_Walk_4.wav", "shot", "step", "96k"),
+    "step5":     ("Dirt_Walk_5.wav", "shot", "step", "96k"),
 }
 
 
@@ -135,43 +148,48 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
 
     found = {}
-    for name, (frag, kind, br) in PIECES.items():
+    for name, (frag, kind, fam, br) in PIECES.items():
         hits = [p for r in roots for p in r.rglob("*" + frag)]
         if not hits:
             log(f"  -- {name}: no *{frag} under " + ", ".join(map(str, roots)))
             continue
-        found[name] = (sorted(hits)[0], kind, br)
+        found[name] = (sorted(hits)[0], kind, fam, br)
 
     if not found:
         sys.exit("None of the source files were found.")
 
-    # One common gain over the looping family, so a storm stays louder than a
-    # calm sea. Measured before anything is written.
-    loaded, loudest = {}, 0.0
-    for name, (path, kind, br) in found.items():
+    # Read everything first, then work out one gain per family from the
+    # loudest member. Measured on the TRIMMED one-shot, not the raw file: a
+    # trim can remove the loudest part of a clip.
+    loaded, loudest = {}, {}
+    for name, (path, kind, fam, br) in found.items():
         a, sr, ch = read_wav(path)
-        loaded[name] = (a, sr, ch, kind, br)
+        extra = None
         if kind == "loop":
-            loudest = max(loudest, float(np.abs(a).max()))
-    gain = (LOOP_PEAK / loudest) if loudest > 1e-6 else 1.0
-    log(f"loops: common gain x{gain:.2f} (loudest peak {loudest:.3f})")
-
-    meta = {}
-    for name, (a, sr, ch, kind, br) in loaded.items():
-        if kind == "loop":
-            a, seam = seam_loop(a, sr)
-            a = a * gain
-            log(f"  {name:10s} loop  {len(a)/sr:6.2f}s  "
-                f"seam {seam[0]:.4f} -> {seam[1]:.4f}  peak {np.abs(a).max():.3f}")
+            a, extra = seam_loop(a, sr)
         else:
             a, lead, tail = trim_shot(a, sr)
-            pk = float(np.abs(a).max())
-            a = a * (SHOT_PEAK / pk if pk > 1e-6 else 1.0)
-            log(f"  {name:10s} shot  {len(a)/sr:6.2f}s  "
-                f"trimmed {lead*1000:.0f}ms lead, {tail*1000:.0f}ms tail")
+            extra = (lead, tail)
+        loaded[name] = (a, sr, ch, kind, fam, br, extra)
+        loudest[fam] = max(loudest.get(fam, 0.0), float(np.abs(a).max()))
+
+    gains = {f: (FAMILY_PEAK.get(f, 0.707) / pk if pk > 1e-6 else 1.0)
+             for f, pk in loudest.items()}
+    for f in sorted(gains):
+        log(f"family {f:5s} x{gains[f]:.2f}  (loudest peak {loudest[f]:.3f})")
+
+    meta = {}
+    for name, (a, sr, ch, kind, fam, br, extra) in loaded.items():
+        a = a * gains[fam]
+        if kind == "loop":
+            log(f"  {name:10s} loop  {len(a)/sr:6.2f}s  "
+                f"seam {extra[0]:.4f} -> {extra[1]:.4f}  peak {np.abs(a).max():.3f}")
+        else:
+            log(f"  {name:10s} shot  {len(a)/sr:6.2f}s  peak {np.abs(a).max():.3f}  "
+                f"trimmed {extra[0]*1000:.0f}ms lead, {extra[1]*1000:.0f}ms tail")
         path = OUT / f"{name}.mp3"
         encode(exe, a, sr, ch, br, path)
-        meta[name] = {"kind": kind, "sec": round(len(a) / sr, 3),
+        meta[name] = {"kind": kind, "family": fam, "sec": round(len(a) / sr, 3),
                       "kb": round(path.stat().st_size / 1024)}
 
     (OUT / "audio.json").write_text(

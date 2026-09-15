@@ -113,6 +113,10 @@ window.DHSound = (function () {
   }
 
   // One of a set, picked at random but never the same one twice running.
+  //
+  // Returns the NAME it played, or false. A name is truthy, so callers that
+  // test it as a boolean are unaffected — and it is the only way to see from
+  // outside which variant was chosen, which is what the test needs.
   const _lastOf = {};
   function playOneOf(names, gain, spread) {
     if (!names || !names.length) return false;
@@ -122,7 +126,7 @@ window.DHSound = (function () {
     }
     _lastOf[names[0]] = pick;
     const s = spread === undefined ? 0.06 : spread;
-    return play(pick, gain, 1 + (Math.random() * 2 - 1) * s);
+    return play(pick, gain, 1 + (Math.random() * 2 - 1) * s) ? pick : false;
   }
 
   // Crossfade to `name`, or to silence when it is null. Calling it with the

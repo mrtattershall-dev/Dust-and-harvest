@@ -1,29 +1,64 @@
 {
  "files": {
   "chop1": {
+   "family": "chop",
    "kb": 7,
    "kind": "shot",
    "sec": 0.369
   },
   "chop2": {
+   "family": "chop",
    "kb": 4,
    "kind": "shot",
    "sec": 0.163
   },
   "sea": {
+   "family": "sea",
    "kb": 780,
    "kind": "loop",
    "sec": 57.0
   },
   "sea_rain": {
+   "family": "sea",
    "kb": 780,
    "kind": "loop",
    "sec": 57.0
   },
   "sea_storm": {
+   "family": "sea",
    "kb": 780,
    "kind": "loop",
    "sec": 57.0
+  },
+  "step1": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.496
+  },
+  "step2": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.457
+  },
+  "step3": {
+   "family": "step",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.496
+  },
+  "step4": {
+   "family": "step",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.499
+  },
+  "step5": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.439
   }
  }
 }

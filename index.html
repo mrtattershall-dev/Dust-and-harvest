@@ -26216,7 +26216,10 @@ function _unlockAudio() {
   // The one-shots, now that there is a context to decode into. Small enough to
   // fetch up front; the sea loops are not and are left to the zone that wants
   // them. Decoding needs the context, so this cannot happen before the gesture.
-  if (window.DHSound) { DHSound.preload(['chop1', 'chop2']); DHSound.setVolume(); }
+  if (window.DHSound) {
+    DHSound.preload(['chop1', 'chop2'].concat(STEP_SOUNDS));
+    DHSound.setVolume();
+  }
 }
 ['click','keydown','touchstart'].forEach(ev =>
   document.addEventListener(ev, function _au() {
@@ -26363,13 +26366,29 @@ function dSound(type) {
   } catch(e) {}
 }
 
-// Step sound: fire every ~0.3s while moving
+// Step sound: fire every ~0.3s while moving.
+//
+// Five recorded dirt footfalls, one of which is picked at random without
+// repeating the last, and detuned a little each time. What this replaces is a
+// SINE at 80-100Hz for 80ms — a low blip, the same one every stride.
+//
+// The five takes deliberately keep the 6.6dB spread they were recorded with
+// (see tools/build_audio.py), so the variation is in the material rather than
+// faked with a random gain here.
+//
+// They are dirt everywhere, including the dock's planks and the mine's stone.
+// Those want their own recordings; dirt underfoot is closer than a sine was.
+const STEP_SOUNDS = ['step1', 'step2', 'step3', 'step4', 'step5'];
 let _stepTimer = 0;
 function tickStepSound(dt, isMoving) {
   if (!isMoving) { _stepTimer = 0; return; }
   _stepTimer -= dt;
   if (_stepTimer <= 0) {
-    dSound('step');
+    // The beep is the fallback, for the moment before the samples have
+    // decoded and for a browser that cannot play them at all.
+    if (!(window.DHSound && DHSound.playOneOf(STEP_SOUNDS, 0.55, 0.09))) {
+      dSound('step');
+    }
     _stepTimer = player.sprinting ? 0.18 : 0.28;
   }
 }
