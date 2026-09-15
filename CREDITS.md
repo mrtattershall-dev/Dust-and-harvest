@@ -63,8 +63,9 @@ the raw assets is not.
 
 Used for the creature and livestock actors: giant rats, three slime packs,
 predator plants, golems, orcs, gnolls, ents, ghosts, skeletons, and the ranch
-animals — `horse` `foal` `goat` `goatling` `goose` `gosling` `rabbit`
-`rabbit_cub` (*Top-Down Cute Farm Animals*), `chicken` `cow` `pig`
+animals — `horse` `foal` `goat` `goatling` `rabbit`
+`rabbit_cub` and the wild `goose` `gosling` (*Top-Down Cute Farm Animals*),
+`chicken` `cow` `pig`
 (*Top-Down Farm with Animals*) and `sheep` (*Top-Down Farmlands Tileset*). Also the five market-square townspeople
 `citizen1`-`citizen5` (*Pixel Art Market Square*), and the player character's
 base body (*Free Base 4-Direction Male / Female Character*) — the clothing,

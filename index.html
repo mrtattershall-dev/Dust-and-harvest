@@ -1284,7 +1284,7 @@ setInterval(resize, 500);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // § ECONOMY ENGINE — BASE_PRICES, VOLATILITY, MARKET_EVENTS, economy{}
-const BASE_PRICES = { carrot:14, corn:34, pumpkin:68, glowroot:140, tomato:25, dustwheat:55, sunblossom:200, pepper:20, melon:90, potato:18, lavender:75, cactusFruit:55, blueberry:16, garlic:22, strawberry:38, onion:30, watermelon:110, rosehip:85, moonshroom:70, stone:6, wood:10, herb:20, egg:12, wool:28, milk:45, pork:60, rabbitFur:35, goatMilk:55, horseshoe:80, banditScarf:30, wolfPelt:45, burrowerCarapace:22, raiderBadge:90, snakeFang:18, scorpionStinger:200, coyoteHide:38, coal:12, copperOre:28, ironOre:55, goldOre:130, crystal:280, copperBar:72, ironBar:145, goldBar:340, torch:8, woolBlanket:90, copperFitting:55, ironSpike:48, leatherStrip:38, plank:8, rope:22, cloth:18, pepperStew:65, potatoMash:45, berryJam:38, lavenderTea:50, porkRoast:95, goatCheese:75, garlicBread:55, watermelonSlice:60, rosehipTonic:110, mushroomSoup:130, strawberryPreserves:65, fishStew:90,
+const BASE_PRICES = { carrot:14, corn:34, pumpkin:68, glowroot:140, tomato:25, dustwheat:55, sunblossom:200, pepper:20, melon:90, potato:18, lavender:75, cactusFruit:55, blueberry:16, garlic:22, strawberry:38, onion:30, watermelon:110, rosehip:85, moonshroom:70, stone:6, wood:10, herb:20, egg:12, gooseEgg:42, wool:28, milk:45, pork:60, rabbitFur:35, goatMilk:55, horseshoe:80, banditScarf:30, wolfPelt:45, burrowerCarapace:22, raiderBadge:90, snakeFang:18, scorpionStinger:200, coyoteHide:38, coal:12, copperOre:28, ironOre:55, goldOre:130, crystal:280, copperBar:72, ironBar:145, goldBar:340, torch:8, woolBlanket:90, copperFitting:55, ironSpike:48, leatherStrip:38, plank:8, rope:22, cloth:18, pepperStew:65, potatoMash:45, berryJam:38, lavenderTea:50, porkRoast:95, goatCheese:75, garlicBread:55, watermelonSlice:60, rosehipTonic:110, mushroomSoup:130, strawberryPreserves:65, fishStew:90,
   // Overworld pond fish
   commonFish:18, perch:32, catfish:55, bassfish:70, sunfish:28, snapperTurtle:45, junkBoot:2,
   // Hobo camp creek fish
@@ -1297,7 +1297,7 @@ const BASE_PRICES = { carrot:14, corn:34, pumpkin:68, glowroot:140, tomato:25, d
   ironBrand:180, copperTrough:240,
   // Mining expansion v22
   beeswaxCandle:14, fossil:65, blueCoal:38 };
-const VOLATILITY  = { carrot:.18, corn:.22, pumpkin:.28, glowroot:.38, tomato:.20, dustwheat:.25, sunblossom:.42, pepper:.20, melon:.32, potato:.15, lavender:.30, cactusFruit:.28, blueberry:.18, stone:.10, wood:.13, herb:.25, egg:.15, wool:.18, milk:.20, pork:.22, rabbitFur:.20, goatMilk:.18, horseshoe:.15, banditScarf:.15, wolfPelt:.18, burrowerCarapace:.12, raiderBadge:.22, snakeFang:.15, scorpionStinger:.35, coyoteHide:.18,
+const VOLATILITY  = { carrot:.18, corn:.22, pumpkin:.28, glowroot:.38, tomato:.20, dustwheat:.25, sunblossom:.42, pepper:.20, melon:.32, potato:.15, lavender:.30, cactusFruit:.28, blueberry:.18, stone:.10, wood:.13, herb:.25, egg:.15, gooseEgg:.30, wool:.18, milk:.20, pork:.22, rabbitFur:.20, goatMilk:.18, horseshoe:.15, banditScarf:.15, wolfPelt:.18, burrowerCarapace:.12, raiderBadge:.22, snakeFang:.15, scorpionStinger:.35, coyoteHide:.18,
   // Badlands items
   sulfurDust:.28, boneShard:.20, charredWood:.22, silverOre:.32, silverBar:.28,
   obsidian:.42, stoneShard:.15, driedHerb:.20, outlawBadge:.30,
@@ -1442,7 +1442,7 @@ const HUNGER_RESTORE = {
   carrot:4, potato:5, corn:4, tomato:3, blueberry:3, melon:6,
   pepper:3, watermelon:7, strawberry:3, garlic:2, onion:2,
   rosehip:3, moonshroom:5, lavender:2, cactusFruit:4, sunblossom:3,
-  herb:3, egg:6, milk:8, goatMilk:7, pumpkin:6, glowroot:4, dustwheat:3,
+  herb:3, egg:6, gooseEgg:14, milk:8, goatMilk:7, pumpkin:6, glowroot:4, dustwheat:3,
   // Bread / basics
   bread:20, dustloaf:28,
   // Campfire cooked — substantial meals
@@ -2151,6 +2151,7 @@ const ITEMS = {
   wood:        { name:'Wood',          icon:'🪵', type:'resource', weight:.8,  stack:64, desc:'Dried frontier timber.' },
   herb:        { name:'Desert Herb',   icon:'🌿', type:'resource', weight:.1,  stack:64, desc:'Rare herb found in the wilderness. Sells well.' },
   egg:         { name:'Egg',           icon:'🥚', type:'ranch',    weight:.1,  stack:24, desc:'Fresh egg. Sell at market.' },
+  gooseEgg:    { name:'Goose Egg',     icon:'🥚', type:'ranch',    weight:.25, stack:12, desc:'Twice the size of a hen\'s and worth more than three. Only ever traded, never farmed — the geese are wild.' },
   wool:        { name:'Wool',          icon:'🧶', type:'ranch',    weight:.3,  stack:12, desc:'Sheep wool. Sell at market.' },
   milk:        { name:'Milk',          icon:'🥛', type:'ranch',    weight:.4,  stack:8,  desc:'Fresh milk. Sell at market.' },
   pork:        { name:'Pork',          icon:'🥩', type:'ranch',    weight:.5,  stack:12, desc:'Fresh pork from the pig pen. Cooks into hearty meals.' },
@@ -7247,6 +7248,9 @@ function useTool(wx, wy) {
 // § NEW DAY — onNewDay, season change warnings, _tickAltaverdeEvents
 function onNewDay() {
   stats.daysSurvived++;
+  // A flock most mornings, not every one. Nothing about them is saved: a
+  // goose belongs to a day.
+  maybeSpawnGeese();
   if (gameState.isNight) stats.nightsSurvived++; // survived through nighttime to dawn
   gameState._noonProductsDespawned = false;
   _hungerWarnedHungry   = false;
@@ -7618,6 +7622,13 @@ window.addEventListener('keydown', e => {
     if (Math.abs(ptx-TRAPPER_TX)<=2 && Math.abs(pty-TRAPPER_TY)<=2) { openTrapperPost(); return; }
     if (Math.abs(ptx-FARMHAND_TX)<=1 && Math.abs(pty-FARMHAND_TY)<=1) { openFarmhand(); return; }
     if (Math.abs(ptx-CHEST_TX)<=1 && Math.abs(pty-CHEST_TY)<=1) { openChest(); return; }
+    }
+    // A goose in reach takes the E before gathering or swinging at anything:
+    // walking up to a wild bird and hitting it with an axe is not the intent.
+    if (!gameState.inHoboCamp && !gameState.inOcean && !gameState.inMine &&
+        !gameState.inBLMine && !gameState.inBadlands && !gameState.inJungle) {
+      const g = nearestGoose();
+      if (g && feedGoose(g)) return;
     }
     // In Wilderness/Mine zone (overworld): always try gathering first — attack only if no node nearby
     const inGatherZone = gameState.zone==='Wilderness' || gameState.zone==='Mine' || gameState.zone==='Badlands';
@@ -8220,6 +8231,7 @@ function update(dt) {
   if (player.attackFlash > 0)    player.attackFlash    -= dt;  // Phase 6
   updateCombatHUD(); // Phase 6
   updateAnimals(dt);    // Phase 8: ranch
+  updateWildGeese(dt);
   tickMineHazards(dt);  // Mine hazards
   tickMineDread(dt);    // Mine dread meter
   if (gameState.inBLMine) tickBLMineHazards(dt); // Company mine hazards
@@ -17529,6 +17541,178 @@ function onNewDayRanch() {
 }
 
 // ── Update Animals ────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// § WILD GEESE — a flock that wanders in, and leaves
+//
+// The `goose` and `gosling` sprites were loaded every session and nothing drew
+// them: there is no goose in ANIMAL_DEFS and never was. They are not livestock
+// — you cannot buy one, pen one or breed one. A flock turns up on its own by
+// the water, and if you have bread on you it will take it and leave eggs.
+//
+// Deliberately NOT saved. The flock belongs to a day; a save that restored one
+// mid-wander would be pinning down the one thing in the ranch that is supposed
+// to be passing through.
+let wildGeese = [];
+let _geeseAnchor = null;      // where the flock came down
+let _geeseLeaveAt = 0;        // minute of the day they move on
+
+const GOOSE_SPEED = 26;
+const GOOSE_RANGE = 6 * 32;   // how far from the anchor they will wander
+const GOOSE_FEED_RADIUS = 1.6 * 32;
+
+// Somewhere to put down: a walkable tile beside open water, because that is
+// where geese are. Returns null if nowhere suitable is explored yet.
+function _gooseLandingSpot() {
+  const wet = (v) => v === TL.WATER || v === TL.DEEP_WATER || v === TL.FISHING_SPOT;
+  const spots = [];
+  for (let ty = 2; ty < MAP_H - 2; ty++) {
+    for (let tx = 2; tx < MAP_W - 2; tx++) {
+      if (SOLID.has(getT(tx, ty)) || wet(getT(tx, ty))) continue;
+      let beside = false;
+      for (const [dx, dy] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+        if (wet(getT(tx + dx, ty + dy))) { beside = true; break; }
+      }
+      if (beside) spots.push([tx, ty]);
+    }
+  }
+  if (!spots.length) return null;
+  return spots[(Math.random() * spots.length) | 0];
+}
+
+// Called once per new day. A flock most mornings, not every one.
+function maybeSpawnGeese() {
+  wildGeese = [];
+  _geeseAnchor = null;
+  if (Math.random() > 0.35) return;
+  const spot = _gooseLandingSpot();
+  if (!spot) return;
+  _geeseAnchor = { x: spot[0] * T + T / 2, y: spot[1] * T + T / 2 };
+  // One adult, and sometimes a couple of young following it about.
+  const young = Math.random() < 0.55 ? 1 + ((Math.random() * 2) | 0) : 0;
+  const make = (kind) => ({
+    kind, id: 'goose_' + Math.random().toString(36).slice(2),
+    x: _geeseAnchor.x + (Math.random() * 2 - 1) * 24,
+    y: _geeseAnchor.y + (Math.random() * 2 - 1) * 24,
+    moveX: 0, moveY: 0, dirTimer: Math.random() * 2, facing: 'down', fed: false,
+  });
+  wildGeese.push(make('goose'));
+  for (let i = 0; i < young; i++) wildGeese.push(make('gosling'));
+  // Gone by dusk. They are a morning thing.
+  _geeseLeaveAt = 17 * 60 + Math.random() * 60;
+}
+
+function updateWildGeese(dt) {
+  if (!wildGeese.length) return;
+  // Only on the overworld: they are not following the player into a mine.
+  if (gameState.inMine || gameState.inBLMine || gameState.inBadlands ||
+      gameState.inHoboCamp || gameState.inOcean || gameState.inJungle) return;
+  if (gameState.timeOfDay > _geeseLeaveAt || gameState.isNight) {
+    wildGeese = []; _geeseAnchor = null;
+    return;
+  }
+  const lead = wildGeese[0];
+  for (const g of wildGeese) {
+    g.dirTimer -= dt;
+    if (g.dirTimer <= 0) {
+      g.dirTimer = 1.0 + Math.random() * 2.2;
+      // Goslings keep near the adult; the adult keeps near where it landed.
+      const home = (g.kind === 'gosling' && lead !== g) ? lead : _geeseAnchor;
+      const dx = home.x - g.x, dy = home.y - g.y;
+      const far = Math.hypot(dx, dy) > (g.kind === 'gosling' ? 46 : GOOSE_RANGE);
+      if (far) {
+        const d = Math.hypot(dx, dy) || 1;
+        g.moveX = dx / d; g.moveY = dy / d;
+      } else if (Math.random() < 0.35) {
+        g.moveX = 0; g.moveY = 0;
+      } else {
+        const a = Math.random() * Math.PI * 2;
+        g.moveX = Math.cos(a); g.moveY = Math.sin(a);
+      }
+    }
+    if (g.moveX || g.moveY) {
+      const spd = GOOSE_SPEED * (g.kind === 'gosling' ? 1.15 : 1);
+      const nx = g.x + g.moveX * spd * dt, ny = g.y + g.moveY * spd * dt;
+      // They will not walk into walls or swim off across the map.
+      const t = getT(Math.floor(nx / T), Math.floor(ny / T));
+      if (!SOLID.has(t) && t !== TL.DEEP_WATER) { g.x = nx; g.y = ny; }
+      else { g.dirTimer = 0; }
+      g.facing = Math.abs(g.moveX) > Math.abs(g.moveY)
+               ? (g.moveX > 0 ? 'right' : 'left')
+               : (g.moveY > 0 ? 'down' : 'up');
+    }
+  }
+}
+
+// Nearest bird within `radius`, preferring one that has not been fed — a fed
+// bird standing closer should not swallow the prompt for a hungry one in reach.
+function nearestGoose(radius) {
+  const R = radius || GOOSE_FEED_RADIUS;
+  let best = null, bd = R, fallback = null, fd = R;
+  for (const g of wildGeese) {
+    const d = Math.hypot(player.x - g.x, player.y - g.y);
+    if (d < fd) { fd = d; fallback = g; }
+    if (!g.fed && d < bd) { bd = d; best = g; }
+  }
+  return best || fallback;
+}
+
+// Feed it bread and it leaves eggs. One bird, one loaf, once.
+function feedGoose(g) {
+  if (g.fed) {
+    showMsg('🪿 It has had its share. Try one of the others.');
+    return true;
+  }
+  if (countItem('bread') <= 0) {
+    showMsg('🪿 A wild goose. It is watching your bag — bring bread.');
+    return true;
+  }
+  removeItem('bread', 1);
+  const qty = g.kind === 'gosling' ? 1 : 1 + ((Math.random() * 3) | 0);
+  const got = addItem('gooseEgg', qty);
+  g.fed = true;
+  if (got <= 0) {
+    showMsg('⚠️ Bag too full for goose eggs — it wandered off with your bread.');
+    return true;
+  }
+  spawnParticles(g.x, g.y, '#e8dfc0', 7, '🥚');
+  if (window.DHSound) DHSound.playOneOf(CHEST_OPEN, 0.5);
+  showMsg(`🪿 Fed the ${g.kind === 'gosling' ? 'gosling' : 'goose'} — ${got}× Goose Egg.`);
+  return true;
+}
+
+function drawWildGeese(cx, cy) {
+  // Only one bird carries the hint, or a flock stacks three labels on top of
+  // each other; the nearest is the one E would actually feed.
+  const HINT_R = GOOSE_FEED_RADIUS * 2.2;
+  const hinted = nearestGoose(HINT_R);
+  for (const g of wildGeese) {
+    const sx = g.x - cx, sy = g.y - cy;
+    if (sx < -40 || sy < -40 || sx > canvas.width / ZOOM + 40 || sy > canvas.height / ZOOM + 40) continue;
+    const size = g.kind === 'gosling' ? 14 : 20;
+    let drew = false;
+    if (window.DHArt && DHArt.ready(g.kind)) {
+      DHArt.play(g, (g.moveX || g.moveY) ? 'walk' : 'idle');
+      DHArt.face(g, g.facing || 'down');
+      DHArt.drawShadow(ctx, g.kind, sx, sy + 6, { size });
+      drew = DHArt.drawActor(ctx, g.kind, g, sx, sy + 6, { size, footY: 0 });
+    }
+    if (!drew) {
+      ctx.fillStyle = 'rgba(0,0,0,.25)';
+      ctx.beginPath(); ctx.ellipse(sx, sy + 6, 5, 2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#e8e4da';
+      ctx.fillRect(sx - 3, sy - 6, 6, 9);
+    }
+    // A hint over an unfed bird, so the player knows it wants something.
+    if (g === hinted && !g.fed && Math.hypot(player.x - g.x, player.y - g.y) < HINT_R) {
+      ctx.globalAlpha = 0.75 + 0.25 * Math.sin(Date.now() * 0.005);
+      ctx.fillStyle = '#f0e0a0';
+      ctx.font = 'bold 8px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('bread?', sx, sy - 14);
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
 function updateAnimals(dt) {
   animals.forEach(a => {
     if (a.hp <= 0) return;
@@ -19932,6 +20116,9 @@ function closeDaySummary() {
 // § INTERACT PROMPT — INTERACT_ZONES[], updateInteractPrompt, zone-aware hints
 const INTERACT_ZONES = [
   // { label, check(tx,ty) }
+  { get label(){ return countItem('bread') > 0 ? 'Feed the goose (1 Bread)'
+                                               : 'Wild goose — it wants bread'; },
+    icon:'🪿', check:()=> !!nearestGoose() },
   { label:'Refill water can',  icon:'💧', check:(tx,ty)=> (tx===13||tx===14) && (ty>=25&&ty<=27) },
   { label:'Enter market',      icon:'🏪', check:(tx,ty)=> ty>=MARKET_TY_MIN&&ty<=MARKET_TY_MAX && tx>=MARKET_TX_MIN&&tx<=MARKET_TX_MAX },
   { label:'General store',     icon:'🛒', check:(tx,ty)=> ty>=STORE_TY_MIN&&ty<=STORE_TY_MAX && tx>=STORE_TX_MIN&&tx<=STORE_TX_MAX },
@@ -20300,6 +20487,7 @@ function render() {
   drawTrapper(cx, cy);
   drawMinerNPC(cx, cy);
   drawAnimals(cx, cy);  // Phase 8: ranch
+  drawWildGeese(cx, cy);
   drawEnemies(cx, cy);
   drawPlayer();
   // The trees that stand in front of something. See _treeIsInFront().

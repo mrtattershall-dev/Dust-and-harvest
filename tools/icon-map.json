@@ -112,7 +112,8 @@
     "goatMilk": "base:334",
     "wool": "base:352",
     "pork": "base:113",
-    "rabbitFur": "base:325"
+    "rabbitFur": "base:325",
+    "gooseEgg": "base:119"
   },
   "crafted": {
     "plank": "base:318",

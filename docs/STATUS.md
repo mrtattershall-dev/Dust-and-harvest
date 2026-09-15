@@ -75,7 +75,7 @@ and it goes through the asset-inlining shim, which the served build does not.
   bushes, a `stonewall` group derived by recolouring `rock` so impassable
   stone reads differently from the gatherable node.
 - **HUD** nine-slice frames on 18 modal panels, hotbar slots, close buttons.
-- **Icons** 188 of 219 items.
+- **Icons** 189 of 220 items.
 - **Content** Amos the trapper + camp + lodge; market stalls for Maya and
   Rex; a boot hill west of town.
 - **Badlands** terrain clumped; `BL.CRACKED` repainted (it drew an X per tile).
@@ -112,6 +112,12 @@ and it goes through the asset-inlining shim, which the served build does not.
   with swells running on world y and depth shelving against the bank.
 - **Jungle characters** on sprite art through JG_NPC_SPRITES.
 - **Mobile** canvas sizing fixed for in-app browsers; touch layout verified.
+- **Wild geese** a flock of 1 adult + 0-2 goslings lands beside open water on
+  35% of days and leaves between 17:00 and 18:00. Feed a bird one Bread and it
+  leaves goose eggs — 1-3 from the adult, 1 from a gosling, once per bird.
+  `goose` and `gosling` were loaded-but-unused actors before this; nothing new
+  was drawn for it. The flock is deliberately NOT saved: it is a daily
+  occurrence, so a reload is a fresh roll rather than a duplicated one.
 
 ## Known unfinished, roughly by value
 
