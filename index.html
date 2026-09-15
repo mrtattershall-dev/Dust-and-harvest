@@ -10521,16 +10521,32 @@ function drawCrop(plot,sx,sy,tx,ty) {
     ctx.save(); ctx.globalAlpha=frostAlpha; ctx.fillStyle='#a8c8ff';
     ctx.fillRect(sx,sy,T,T); ctx.restore();
     if (stage <= 1 && !plot.harvestReady) {
-      ctx.save(); ctx.globalAlpha=0.75; ctx.font='9px serif'; ctx.textAlign='center';
-      ctx.fillText('❄', sx+T-5, sy+9); ctx.restore();
+      // A drawn frost mark. This was the ❄ EMOJI in a 9px serif face, on a
+      // tile where every other pixel is on the game's own grid.
+      ctx.save(); ctx.globalAlpha=0.85;
+      const bx = sx+T-9, by = sy+3;
+      ctx.fillStyle='#1c3048';
+      ctx.fillRect(bx+2, by-1, 2, 8); ctx.fillRect(bx-1, by+2, 8, 2);
+      ctx.fillStyle='#bcdcff';
+      ctx.fillRect(bx+2, by, 2, 6); ctx.fillRect(bx, by+2, 6, 2);
+      ctx.fillRect(bx+1, by+1, 1, 1); ctx.fillRect(bx+4, by+1, 1, 1);
+      ctx.fillRect(bx+1, by+4, 1, 1); ctx.fillRect(bx+4, by+4, 1, 1);
+      ctx.restore();
     }
   } else if (seasonTier === 'best' && !plot.wilted) {
     const peakA = 0.06+Math.abs(Math.sin(t*.002+tx+ty))*0.06;
     ctx.save(); ctx.globalAlpha=peakA; ctx.fillStyle='#ffe080';
     ctx.fillRect(sx,sy,T,T); ctx.restore();
     if (plot.harvestReady) {
-      ctx.save(); ctx.globalAlpha=0.8; ctx.font='8px serif'; ctx.textAlign='center';
-      ctx.fillText('★', sx+T-5, sy+9); ctx.restore();
+      // A drawn star, for the same reason as the frost mark above.
+      ctx.save(); ctx.globalAlpha=0.9;
+      const bx = sx+T-8, by = sy+3;
+      ctx.fillStyle='#4a3208';
+      ctx.fillRect(bx+1, by-1, 3, 7); ctx.fillRect(bx-1, by+1, 7, 3);
+      ctx.fillStyle='#ffe07a';
+      ctx.fillRect(bx+2, by, 1, 5); ctx.fillRect(bx, by+2, 5, 1);
+      ctx.fillRect(bx+1, by+1, 3, 3);
+      ctx.restore();
     }
   }
 }
@@ -17973,7 +17989,7 @@ function drawAnimals(cx, cy) {
     ctx.setLineDash([]);
     ctx.font = '8px sans-serif'; ctx.textAlign = 'center';
     ctx.fillStyle = valid ? '#80e0ff' : '#f08080';
-    ctx.fillText(valid ? '🚿 PLACE' : 'INVALID', gsx+T/2, gsy-4);
+    ctx.fillText(valid ? 'PLACE' : 'INVALID', gsx+T/2, gsy-4);
     ctx.restore();
   }
 }
@@ -19521,14 +19537,19 @@ function renderMinimap() {
       const mex = blMineEntranceX * scaleX, mey = blMineEntranceY * scaleY;
       mctx.fillStyle='rgba(0,0,0,.6)'; mctx.fillRect(mex-1,mey-1,7,7);
       mctx.fillStyle='#6080c0'; mctx.fillRect(mex,mey,5,5);
-      mctx.font='bold 7px monospace'; mctx.textAlign='center';
-      mctx.fillStyle='#90b0e0'; mctx.fillText('⛏',mex+2.5,mey+6);
+      // A drawn pick, 5px. ⛏ at 7px in a monospace face rendered as a colour
+      // emoji the size of the whole marker.
+      mctx.fillStyle='#1a2436';
+      mctx.fillRect(mex+1,mey+3,3,1); mctx.fillRect(mex+3,mey+1,1,3);
     }
     // Survivor landmark
     if (blDeepChestX > 0 && exploredBadlands[(blDeepChestY+3)*BL_W+(blDeepChestX+2)]) {
       const sx2 = (blDeepChestX+2)*scaleX, sy2 = (blDeepChestY+3)*scaleY;
-      mctx.fillStyle='#c0a060'; mctx.font='7px monospace'; mctx.textAlign='center';
-      mctx.fillText('👥',sx2+2,sy2+5);
+      // Two drawn figures rather than the 👥 emoji.
+      mctx.fillStyle='rgba(0,0,0,.6)'; mctx.fillRect(sx2-1,sy2-1,7,7);
+      mctx.fillStyle='#c0a060';
+      mctx.fillRect(sx2,sy2+1,2,4); mctx.fillRect(sx2,sy2,2,1);
+      mctx.fillRect(sx2+3,sy2+2,2,3); mctx.fillRect(sx2+3,sy2+1,2,1);
     }
     // Player dot
     const bpx=(player.x/T)*scaleX, bpy=(player.y/T)*scaleY;
@@ -24998,7 +25019,7 @@ function renderMineMap() {
   }
   if (vis < 0.75 && !purchasedUpgrades.has('mine_lantern')) {
     ctx.fillStyle = 'rgba(200,160,40,.7)';
-    ctx.fillText("🔦 Very dark — buy Miner's Lantern for full visibility!", canvas.width/2, 38);
+    ctx.fillText("Very dark — buy Miner's Lantern for full visibility!", canvas.width/2, 38);
   }
   ctx.restore();
   if (minimapVisible) renderMinimap();
@@ -31879,7 +31900,10 @@ function _drawJGAnimals(cx, cy, c) {
       c.fillRect(sx - 22, sy - 20 + bob, 44, 9);
       c.fillStyle = animal.fedToday ? '#78c888' : '#e08040';
       c.font = '6px sans-serif'; c.textAlign = 'center';
-      c.fillText(def.name + (animal.fedToday ? '' : ' 😟'), sx, sy - 13 + bob);
+      // The label already turns orange when the animal is unfed; the 😟 that
+      // used to be appended here was a colour emoji drawn at 6px in a sans
+      // face, which renders as a smudge. The word says it.
+      c.fillText(def.name + (animal.fedToday ? '' : ' — hungry'), sx, sy - 13 + bob);
     }
   }
 }
@@ -33641,6 +33665,9 @@ function _tickHollowedPresence(dt) {
 
 // Render presence shadow in jungle renderer
 (function _patchJungleRenderForHollowedPresence() {
+  // The wisp's animation state, kept across frames so its idle cycle does not
+  // restart every time it is drawn.
+  let _hollowedEnt = null;
   const _orig = window.renderJungleZone || renderJungleZone;
   window.renderJungleZone = function() {
     if (!gameState.inJungle) return;
@@ -33651,15 +33678,25 @@ function _tickHollowedPresence(dt) {
     const W = canvas.width / ZOOM, H = canvas.height / ZOOM;
     const cx = player.x - W / 2, cy = player.y - H / 2;
     const sx = _hollowedPresenceX - cx, sy = _hollowedPresenceY - cy;
+    // Animation state for the wisp, kept across frames so it does not restart
+    // its idle cycle every time it is drawn.
     if (sx < -JG_T || sx > W + JG_T || sy < -JG_T || sy > H + JG_T) return;
     const c = canvas.getContext('2d');
     c.save();
     c.scale(ZOOM, ZOOM);
     c.globalAlpha = 0.45;
-    c.font = '14px serif';
-    c.textAlign = 'center';
-    c.textBaseline = 'middle';
-    c.fillText('👤', sx, sy);
+    // The pack's wisp, not a 👤 glyph in a 14px serif face. Three ghost
+    // actors are already loaded for the ocean's hauntings and none of them
+    // was being used here.
+    _hollowedEnt = _hollowedEnt || { id: 'hollowed' };
+    if (!DHArt.ready('ghost_wisp') ||
+        !DHArt.drawActor(c, 'ghost_wisp', _hollowedEnt, sx, sy + 8,
+                         { scale: 0.85, footY: 0 })) {
+      // No atlas: a dim shape, so the presence is still THERE.
+      c.fillStyle = '#9fb4c8';
+      c.beginPath(); c.ellipse(sx, sy - 2, 5, 8, 0, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.ellipse(sx, sy - 9, 3.5, 3.5, 0, 0, Math.PI * 2); c.fill();
+    }
     c.globalAlpha = 1;
     c.restore();
   };
