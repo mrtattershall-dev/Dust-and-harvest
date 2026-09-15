@@ -1141,6 +1141,7 @@ body{background:#0e0c08;font-family:var(--font-main);overflow:hidden;user-select
 <script src="assets/js/player-sprite.js"></script>
 <script src="assets/js/props.js"></script>
 <script src="assets/js/ground.js"></script>
+<script src="assets/js/sound.js"></script>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -4581,7 +4582,7 @@ function renderSettingsUI() {
       <div><div class="set-label">Master Volume</div><div class="set-desc">Overall audio level for sounds and music</div></div>
       <div class="set-ctrl">
         <input type="range" class="set-slider" min="0" max="100" step="1" value="${s.masterVol}"
-          oninput="setSetting('masterVol',+this.value);_soundVol=this.value/100;if(BGM.masterGain){BGM.masterGain.gain.setValueAtTime(bgmMasterLevel(),bgmCtx().currentTime);}document.getElementById('volVal').textContent=this.value+'%'">
+          oninput="setSetting('masterVol',+this.value);_soundVol=this.value/100;if(BGM.masterGain){BGM.masterGain.gain.setValueAtTime(bgmMasterLevel(),bgmCtx().currentTime);}if(window.DHSound)DHSound.setVolume();document.getElementById('volVal').textContent=this.value+'%'">
         <span class="set-val" id="volVal">${s.masterVol}%</span>
       </div>
     </div>
@@ -13901,9 +13902,15 @@ function gatherNode(key) {
   const dur = getGatherDuration(node.def.loot);
   actionTimer._nodeKey = key;
 
+  // A real axe on the swing. dSound('tool') is a square wave sliding from
+  // 220Hz to 110 — it is the same beep for chopping, tilling, smelting and
+  // riding a mine cart.
+  if (window.DHSound && node.def.loot === 'wood') DHSound.playOneOf(['chop1','chop2'], 0.9);
+
   startAction(toolLabel, dur, () => {
     const n2 = resourceNodes[key];
     if (!n2 || n2.depleted) return;
+    if (window.DHSound && n2.def.loot === 'wood') DHSound.playOneOf(['chop1','chop2'], 1.0);
 
     const gathMult = getEffectiveMiningMult(n2.def.loot);
     const baseQty  = n2.def.qty[0] + Math.floor(Math.random() * (n2.def.qty[1] - n2.def.qty[0] + 1));
@@ -20132,12 +20139,31 @@ function _winterSkin() {
           getCurrentSeason().name === 'Cold Winter') ? WINTER_GROUND : null;
 }
 
+// Which recorded ambience the player should be hearing.
+//
+// Only the dock zone has one so far, and it picks between the three sea loops
+// by the weather: calm by default, rain once a storm is building or breaking
+// up, the storm loop at its height. The files are fetched the first time a
+// zone asks — they are ~780KB each and nothing else in the game needs them.
+//
+// Safe to call every frame: DHSound.ambient() returns immediately when it is
+// already playing what was asked for.
+function _updateAmbience() {
+  if (!window.DHSound) return;
+  if (!gameState.inOcean) { DHSound.stopAmbient(); return; }
+  const st = gameState.stormActive ? (gameState._stormIntensity || 0) : 0;
+  const name = st > 0.45 ? 'sea_storm' : st > 0.05 ? 'sea_rain' : 'sea';
+  // The storm is loud on its own; the calm sea sits under everything else.
+  DHSound.ambient(name, st > 0.45 ? 0.85 : 0.6);
+}
+
 function render() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
   // Cleared every frame BEFORE the zone dispatch, so a zone that returns early
   // can never inherit the previous frame's skin. Each zone that wants one sets
   // it for itself below.
   if (window.DHGround && DHGround.season) DHGround.season(null);
+  _updateAmbience();
   if (gameState.inBLMine) {
     renderBLMineMap();
     return;
@@ -26187,6 +26213,10 @@ function _unlockAudio() {
     // Create it now so it starts in running state (gesture active)
     try { _dahAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
   }
+  // The one-shots, now that there is a context to decode into. Small enough to
+  // fetch up front; the sea loops are not and are left to the zone that wants
+  // them. Decoding needs the context, so this cannot happen before the gesture.
+  if (window.DHSound) { DHSound.preload(['chop1', 'chop2']); DHSound.setVolume(); }
 }
 ['click','keydown','touchstart'].forEach(ev =>
   document.addEventListener(ev, function _au() {

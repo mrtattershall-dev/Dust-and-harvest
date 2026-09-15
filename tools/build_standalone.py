@@ -101,7 +101,25 @@ def main():
   window.fetch = function (u, o) {
     var k = key(u && u.url ? u.url : u);
     if (k && A[k] != null) {
-      return Promise.resolve(new Response(A[k], {
+      var v = A[k];
+      if (typeof v === 'string' && v.slice(0, 5) === 'data:') {
+        /* A binary asset. new Response(dataUri) makes the body that URI's
+           TEXT, so .arrayBuffer() hands back the characters of the string
+           rather than the file — decodeAudioData cannot read that, and the
+           audio in the standalone build failed with "Unable to decode audio
+           data" while the same files were fine over http. Images never hit
+           this because they go through the <img>.src path below. */
+        var c = v.indexOf(','), meta = v.slice(5, c), body = v.slice(c + 1);
+        var type = meta.split(';')[0] || 'application/octet-stream';
+        var bin = meta.indexOf(';base64') >= 0 ? atob(body)
+                                               : decodeURIComponent(body);
+        var bytes = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return Promise.resolve(new Response(bytes, {
+          status: 200, headers: { 'Content-Type': type }
+        }));
+      }
+      return Promise.resolve(new Response(v, {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       }));

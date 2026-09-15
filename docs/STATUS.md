@@ -172,6 +172,29 @@ its props at 1:1 are half this game's pixel density and cannot be used beside
 the rest of the art. `size_in_file / native_step` is what you are actually
 getting.
 
+## Audio
+
+`assets/js/sound.js` (DHSound) plays recorded audio. It shares the page's one
+AudioContext with the oscillator beeps and the procedural BGM, and answers to
+the same `_soundEnabled` / `_soundVol`, so the existing volume slider governs
+it and there is no second control.
+
+Ambience is LAZY — the sea loops are ~780KB each and only the dock zone wants
+them, so the first paint is unaffected. `_updateAmbience()` runs every frame
+from `render()` and picks between the three sea loops by storm intensity.
+
+Two traps, both already paid for:
+
+- `ambient()` must short-circuit on what is PLAYING, not what was last WANTED.
+  Testing `want` meant that once a zone had asked for a loop, every later call
+  agreed there was nothing to do and the loop never started.
+- It is called every frame, so it must not re-ramp a gain that is already on
+  target. Re-scheduling an exponential ramp sixty times a second pins the gain
+  wherever it happens to be and it never arrives.
+
+Only the ocean has ambience and only the axe has a recorded one-shot. Every
+other sound is still an oscillator.
+
 ## Trees follow the setting
 
 This is a desert frontier, so the dry country gets PALMS — `OVERHANG_SAND` in

@@ -148,6 +148,28 @@ across two authors.
 
 ---
 
+## Audio
+
+The first recorded sound in the game. Everything else it makes is synthesised
+in the browser from oscillators, and still is.
+
+- **Sea, Sea_Rain, Sea_Storm** — the dock zone's ambience, one per weather
+  state. Sixty-second stereo loops.
+- **chop_1, chop_2** — the axe.
+
+Baked by `tools/build_audio.py` into `assets/audio/*.mp3`. What that tool does
+to them is not cosmetic and is worth knowing if the sources are ever replaced:
+the ambiences are NOT loops as delivered (the jump from last sample to first is
+about half the amplitude of the material and clicks every time round), they
+peak around -19dBFS, and `chop_1` has 200ms of silence before the axe lands.
+
+**TODO — SOURCE AND LICENCE NOT RECORDED.** These were handed over without
+provenance. Before release, add who made them and under what terms, the same
+way every art pack above is credited. If they are not licensed for commercial
+use they cannot ship.
+
+---
+
 ## Fonts
 
 **Special Elite** and **Rye**, via Google Fonts, under the SIL Open Font License.

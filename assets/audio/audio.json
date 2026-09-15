@@ -1,0 +1,29 @@
+{
+ "files": {
+  "chop1": {
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.369
+  },
+  "chop2": {
+   "kb": 4,
+   "kind": "shot",
+   "sec": 0.163
+  },
+  "sea": {
+   "kb": 780,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "sea_rain": {
+   "kb": 780,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "sea_storm": {
+   "kb": 780,
+   "kind": "loop",
+   "sec": 57.0
+  }
+ }
+}
