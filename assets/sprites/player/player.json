@@ -12,7 +12,13 @@
    "clips": {
     "idle": {
      "frames": 12,
-     "loop": true
+     "loop": true,
+     "rowFrames": [
+      12,
+      12,
+      12,
+      4
+     ]
     },
     "walk": {
      "frames": 6,
@@ -967,7 +973,13 @@
    "clips": {
     "idle": {
      "frames": 12,
-     "loop": true
+     "loop": true,
+     "rowFrames": [
+      12,
+      12,
+      12,
+      4
+     ]
     },
     "walk": {
      "frames": 6,

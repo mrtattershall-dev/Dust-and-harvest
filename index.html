@@ -10963,6 +10963,26 @@ function drawNPC(npc) {
   }
 }
 
+/* The player used to stand a head and shoulders above the world.
+
+   Measured across all 58 actors in the sprite manifest, every human NPC in the
+   game draws 23-25px tall (median 23). The player drew 33-34px — about 40%
+   taller than the tallest townsfolk — so walking into town put a giant among
+   the citizens. This scales the in-world character about its feet, which keeps
+   the anchor on the ground, and leaves the character-creation preview alone:
+   that canvas wants a big portrait, not a world-sized one. */
+const PLAYER_WORLD_SCALE = 0.72;   // 34px drawn -> ~24px, matching the townsfolk
+const PWS = PLAYER_WORLD_SCALE;
+
+function drawCharacterInWorld(ctx, sx, sy, facing, wf, sprinting, cfg) {
+  ctx.save();
+  ctx.translate(sx, sy);
+  ctx.scale(PWS, PWS);
+  ctx.translate(-sx, -sy);
+  drawCharacter(ctx, sx, sy, facing, wf, sprinting, cfg);
+  ctx.restore();
+}
+
 function drawPlayer() {
   const cam   = gameState.camera;
   const sx    = Math.round(player.x - cam.x);
@@ -10995,7 +11015,7 @@ function drawPlayer() {
   ctx.globalAlpha = 0.35;
   ctx.fillStyle = '#000';
   ctx.beginPath();
-  ctx.ellipse(sx, sy + 2, 10, 4, 0, 0, Math.PI * 2);
+  ctx.ellipse(sx, sy + 2, 10 * PWS, 4 * PWS, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
@@ -11004,14 +11024,14 @@ function drawPlayer() {
   if (!isMovingNow && idleBreath !== 0) {
     // Very subtle chest-only scale for breathing — scale the torso area slightly
     ctx.save();
-    const chestCY = sy - 16; // approximate torso center
+    const chestCY = sy - Math.round(16 * PWS); // approximate torso center
     ctx.translate(sx, chestCY);
     ctx.scale(1, 1 + idleBreath * 0.018);
     ctx.translate(-sx, -chestCY);
-    drawCharacter(ctx, sx, sy + bob, player.facing, wf, player.sprinting, cfg);
+    drawCharacterInWorld(ctx, sx, sy + bob, player.facing, wf, player.sprinting, cfg);
     ctx.restore();
   } else {
-    drawCharacter(ctx, sx, sy + bob, player.facing, wf, player.sprinting, cfg);
+    drawCharacterInWorld(ctx, sx, sy + bob, player.facing, wf, player.sprinting, cfg);
   }
 
   // ── Tool icon ──
@@ -11021,11 +11041,11 @@ function drawPlayer() {
     harvest:'🌾'
   };
   ctx.font = '13px serif'; ctx.textAlign = 'center';
-  ctx.fillText(ti[player.tool] || '', sx, sy - 44 + bob);
+  ctx.fillText(ti[player.tool] || '', sx, sy - 34 + bob);
 
   if (inventory.totalWeight > getEffectiveWeightCap() * 0.8) {
     ctx.fillStyle = 'rgba(220,80,30,.9)'; ctx.font = '7px sans-serif';
-    ctx.fillText('⚠ HEAVY', sx, sy - 52 + bob);
+    ctx.fillText('⚠ HEAVY', sx, sy - 42 + bob);
   }
 }
 
@@ -38879,7 +38899,7 @@ function drawRemotePlayer(p, color) {
   ctx.save(); ctx.scale(ZOOM, ZOOM);
   // Shadow
   ctx.save(); ctx.globalAlpha=.28; ctx.fillStyle='#000';
-  ctx.beginPath(); ctx.ellipse(sx,sy+2,10,4,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+  ctx.beginPath(); ctx.ellipse(sx,sy+2,10*PWS,4*PWS,0,0,Math.PI*2); ctx.fill(); ctx.restore();
   // Character
   const cfg={
     gender:p.gender??'male', skinTone:p.skinTone??0,
@@ -38888,7 +38908,7 @@ function drawRemotePlayer(p, color) {
     pantsColor:p.pantsColor??1, hatColor:p.hatColor??2,
   };
   if (typeof drawCharacter==='function') {
-    drawCharacter(ctx,sx,sy,p.facing||'down',p.walkFrame||0,false,cfg);
+    drawCharacterInWorld(ctx,sx,sy,p.facing||'down',p.walkFrame||0,false,cfg);
   } else {
     ctx.fillStyle=color; ctx.fillRect(sx-9,sy-20,18,22);
     ctx.fillStyle='#c09870'; ctx.fillRect(sx-5,sy-31,10,12);
@@ -38896,14 +38916,14 @@ function drawRemotePlayer(p, color) {
   // Tool icon
   const icons={till:'⛏',water:'💧',plant:'🌱',harvest:'🌾'};
   const icon=icons[p.tool]||'';
-  if (icon){ctx.font='13px serif';ctx.textAlign='center';ctx.fillText(icon,sx,sy-44);}
+  if (icon){ctx.font='13px serif';ctx.textAlign='center';ctx.fillText(icon,sx,sy-34);}
   // Name tag
   const name=(p.name||'Partner').slice(0,16);
   const nw=name.length*4.5+14;
-  ctx.fillStyle='rgba(10,25,50,.82)'; ctx.fillRect(sx-nw/2,sy-54,nw,13);
-  ctx.fillStyle=color; ctx.fillRect(sx-nw/2,sy-54,nw,2);
+  ctx.fillStyle='rgba(10,25,50,.82)'; ctx.fillRect(sx-nw/2,sy-44,nw,13);
+  ctx.fillStyle=color; ctx.fillRect(sx-nw/2,sy-44,nw,2);
   ctx.fillStyle='#a8ccff'; ctx.font='9px sans-serif'; ctx.textAlign='center';
-  ctx.fillText(name,sx,sy-45);
+  ctx.fillText(name,sx,sy-35);
   ctx.restore();
 }
 

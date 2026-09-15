@@ -382,7 +382,15 @@ window.DHPlayer = (function () {
     const o = opts || {};
     const cell = gd.cell;
     const row = gd.dirRows[facing] != null ? gd.dirRows[facing] : 0;
-    const f = ((frame % cdef.frames) + cdef.frames) % cdef.frames;
+    /* Rows are not all the same length. The source packs pad a short row with
+       blank cells rather than trimming the sheet, so a clip's frame count is
+       only the count of its longest row — the player's back-facing idle is 4
+       frames against 12. Cycling all 12 stepped into empty cells for two
+       thirds of the loop, which is why standing still facing away made the
+       player disappear. sprite-engine.js already learned this from the market
+       citizens; this renderer hadn't. */
+    const nFrames = (cdef.rowFrames && cdef.rowFrames[row]) || cdef.frames;
+    const f = ((frame % nFrames) + nFrames) % nFrames;
 
     // The content sits in the middle of a 64px cell; scale so its height
     // matches the requested size and stand it on (sx, sy).
