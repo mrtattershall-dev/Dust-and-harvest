@@ -58,6 +58,10 @@ FAMILY_PEAK = {
     "sea":  0.707,   # -3dBFS. Ambience, so this is the ceiling, not the level.
     "chop": 0.794,   # -2dBFS.
     "mine": 0.794,   # Struck stone, same ceiling as the axe.
+    "cave":  0.707,  # Ambience, like the sea.
+    "river": 0.707,
+    "chest": 0.794,  # Lids and a lock: one family, so they match each other.
+    "door":  0.794,
     # Walks and runs share this family, and a run is ~7dB heavier in the
     # material, so the ceiling belongs to the loudest RUN. 0.600 was set when
     # the family was walks only; leaving it there once runs joined pushed the
@@ -112,6 +116,31 @@ PIECES = {
     "run3":      ("Dirt_Run_3.wav", "shot", "step", "96k"),
     "run4":      ("Dirt_Run_4.wav", "shot", "step", "96k"),
     "run5":      ("Dirt_Run_5.wav", "shot", "step", "96k"),
+
+    # The mine, heard from inside it, with the weather coming through.
+    "cave":       ("Cave.wav",       "loop", "cave", "112k"),
+    "cave_rain":  ("Cave_Rain.wav",  "loop", "cave", "112k"),
+    "cave_storm": ("Cave_Storm.wav", "loop", "cave", "112k"),
+
+    # Running water, played by proximity rather than by zone.
+    "river":        ("River_Loop.wav",        "loop", "river", "112k"),
+    "river_stream": ("River_Stream_Loop.wav", "loop", "river", "112k"),
+    # Waterfall_Loop.wav was delivered too and is NOT baked: there is no
+    # waterfall anywhere in the game, and an 800KB file nothing ever fetches
+    # still costs 1.1MB in the standalone build, which embeds every asset.
+
+    # Lids and a lock. One family: they are the same kind of mechanism and
+    # were recorded within 0.07 of each other, so they should stay that way.
+    "chest_open1":  ("Chest_Open_1.wav",  "shot", "chest", "128k"),
+    "chest_open2":  ("Chest_Open_2.wav",  "shot", "chest", "128k"),
+    "chest_close1": ("Chest_Close_1.wav", "shot", "chest", "128k"),
+    "chest_close2": ("Chest_Close_2.wav", "shot", "chest", "128k"),
+    "unlock":       ("Lock_Unlock.wav",   "shot", "chest", "128k"),
+
+    "door_open1":   ("Door_Open_1.wav",   "shot", "door", "128k"),
+    "door_open2":   ("Door_Open_2.wav",   "shot", "door", "128k"),
+    "door_close1":  ("Door_Close_1.wav",  "shot", "door", "128k"),
+    "door_close2":  ("Door_Close_2.wav",  "shot", "door", "128k"),
 }
 
 
@@ -154,7 +183,14 @@ def seam_loop(a, sr):
     out = a[: len(a) - c].copy()
     out[:c] = head * np.sin(t * np.pi / 2) + tail * np.cos(t * np.pi / 2)
     after = float(np.abs(out[0] - out[-1]).max())
-    return out, (before, after)
+
+    # The seam is a SINGLE-SAMPLE difference, and on its own that number means
+    # nothing: bright hiss jumps that far between ordinary neighbouring samples
+    # all day. What matters is whether the join is bigger than the steps the
+    # material already takes. River_Loop lands at 0.025 where the sea reaches
+    # 0.005, and it is still seamless — its own 99th-percentile step is 0.043.
+    step99 = float(np.percentile(np.abs(np.diff(out[:, 0])), 99))
+    return out, (before, after, step99)
 
 
 def trim_shot(a, sr):
@@ -222,8 +258,10 @@ def main():
     for name, (a, sr, ch, kind, fam, br, extra) in loaded.items():
         a = a * gains[fam]
         if kind == "loop":
-            log(f"  {name:10s} loop  {len(a)/sr:6.2f}s  "
-                f"seam {extra[0]:.4f} -> {extra[1]:.4f}  peak {np.abs(a).max():.3f}")
+            ok = "ok" if extra[1] <= extra[2] else "STILL AUDIBLE"
+            log(f"  {name:12s} loop  {len(a)/sr:6.2f}s  "
+                f"seam {extra[0]:.4f} -> {extra[1]:.4f} "
+                f"(own p99 step {extra[2]:.4f}: {ok})  peak {np.abs(a).max():.3f}")
         else:
             log(f"  {name:10s} shot  {len(a)/sr:6.2f}s  peak {np.abs(a).max():.3f}  "
                 f"trimmed {extra[0]*1000:.0f}ms lead, {extra[1]*1000:.0f}ms tail")

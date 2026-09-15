@@ -1,5 +1,47 @@
 {
  "files": {
+  "cave": {
+   "family": "cave",
+   "kb": 780,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "cave_rain": {
+   "family": "cave",
+   "kb": 780,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "cave_storm": {
+   "family": "cave",
+   "kb": 780,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "chest_close1": {
+   "family": "chest",
+   "kb": 12,
+   "kind": "shot",
+   "sec": 0.693
+  },
+  "chest_close2": {
+   "family": "chest",
+   "kb": 13,
+   "kind": "shot",
+   "sec": 0.742
+  },
+  "chest_open1": {
+   "family": "chest",
+   "kb": 18,
+   "kind": "shot",
+   "sec": 1.065
+  },
+  "chest_open2": {
+   "family": "chest",
+   "kb": 20,
+   "kind": "shot",
+   "sec": 1.251
+  },
   "chop1": {
    "family": "chop",
    "kb": 7,
@@ -23,6 +65,30 @@
    "kb": 5,
    "kind": "shot",
    "sec": 0.254
+  },
+  "door_close1": {
+   "family": "door",
+   "kb": 9,
+   "kind": "shot",
+   "sec": 0.542
+  },
+  "door_close2": {
+   "family": "door",
+   "kb": 12,
+   "kind": "shot",
+   "sec": 0.713
+  },
+  "door_open1": {
+   "family": "door",
+   "kb": 18,
+   "kind": "shot",
+   "sec": 1.082
+  },
+  "door_open2": {
+   "family": "door",
+   "kb": 16,
+   "kind": "shot",
+   "sec": 0.972
   },
   "mine1": {
    "family": "mine",
@@ -53,6 +119,18 @@
    "kb": 7,
    "kind": "shot",
    "sec": 0.386
+  },
+  "river": {
+   "family": "river",
+   "kb": 780,
+   "kind": "loop",
+   "sec": 57.0
+  },
+  "river_stream": {
+   "family": "river",
+   "kb": 780,
+   "kind": "loop",
+   "sec": 57.0
   },
   "run1": {
    "family": "step",
@@ -161,6 +239,12 @@
    "kb": 6,
    "kind": "shot",
    "sec": 0.455
+  },
+  "unlock": {
+   "family": "chest",
+   "kb": 16,
+   "kind": "shot",
+   "sec": 0.965
   }
  }
 }

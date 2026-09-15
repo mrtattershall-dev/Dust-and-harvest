@@ -158,6 +158,18 @@ in the browser from oscillators, and still is.
 - **chop_1..4** — the axe. (chop_1 and chop_2 were delivered twice, byte for
   byte; only 3 and 4 were new the second time.)
 - **mine_1..5** — the pick. Stone, and every ore in both mines.
+- **Cave, Cave_Rain, Cave_Storm** — the mine's ambience, with the weather
+  coming through from above.
+- **River_Loop, River_Stream_Loop** — running water, played by how close the
+  player is to it rather than by which zone they are in.
+- **Chest_Open_1/2, Chest_Close_1/2** — the storage chest.
+- **Lock_Unlock** — buying an upgrade.
+- **Door_Open_1/2, Door_Close_1/2** — the barn doors.
+
+**Waterfall_Loop.wav** was delivered and is deliberately NOT baked: there is no
+waterfall anywhere in the game. An 800KB file nothing ever fetches still costs
+1.1MB in the standalone build, which embeds every asset. It is on hand if a
+waterfall is ever added.
 - **Dirt_Walk_1..5** — footsteps. Dirt only: the dock's planks and the mine's
   stone play these too, and want their own.
 - **Dirt_Chain_Walk_1..5** — the same five takes with a chain over them. Played

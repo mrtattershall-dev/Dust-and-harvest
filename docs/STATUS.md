@@ -192,9 +192,21 @@ Two traps, both already paid for:
   target. Re-scheduling an exponential ramp sixty times a second pins the gain
   wherever it happens to be and it never arrives.
 
-Only the ocean has ambience. Recorded so far: footsteps (walk, loaded walk,
-run), the axe, and the pick. Everything else is still an oscillator — the hoe,
-the watering can, the smelter and the mine cart all share one square wave.
+Ambience: the sea in the dock zone, the cave in both mines, and running water
+by PROXIMITY — `_waterNearness()` samples a 17x17 square around the player each
+frame (289 lookups, nothing) and fades the loop in as they approach, so the
+river is only audible near the river. The sea and the cave both pick a weather
+variant off the storm intensity.
+
+Recorded one-shots: footsteps (walk, loaded walk, run), the axe, the pick, the
+chest, the barn doors, and the upgrade unlock. Everything else is still an
+oscillator — the hoe, the watering can, the smelter and the mine cart all share
+one square wave.
+
+Audio is 6.5MB now, and the standalone build is 16.3MB because it embeds every
+asset as base64. Nothing is fetched until a zone or a proximity asks for it, so
+the web build's first paint is unaffected; the single file is the one that
+pays.
 
 Every family's gain is relative WITHIN the family, so the material's own
 loudness relationships survive: a run over a walk, a storm over a calm sea.

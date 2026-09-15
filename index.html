@@ -3605,6 +3605,8 @@ function buyUpgrade(id) {
   purchasedUpgrades.add(id); // for requires-chains; harmless to re-add
   upg.apply();
   spawnParticles(player.x, player.y, '#f0d060', 8, upg.icon);
+  // A lock turning, over the coin. Every upgrade opens something up.
+  if (window.DHSound) DHSound.play('unlock', 0.8);
   dSound('buy');
   refreshMarketUI();
 }
@@ -12184,6 +12186,7 @@ initChest();
 
 function openChest() {
   chestOpen = true;
+  if (window.DHSound) DHSound.playOneOf(CHEST_OPEN, 0.85);
   const ov = document.getElementById('chestOverlay');
   ov.classList.add('open');
   refreshChestUI();
@@ -12191,6 +12194,7 @@ function openChest() {
 
 function closeChest() {
   chestOpen = false;
+  if (window.DHSound) DHSound.playOneOf(CHEST_CLOSE, 0.85);
   document.getElementById('chestOverlay').classList.remove('open');
 }
 
@@ -18139,6 +18143,7 @@ function toggleBarn() {
   // Set barn door tiles
   setT(BARN_TX,   BARN_TY, barnOpen ? TL.BARN_OPEN : TL.BARN_CLOSED);
   setT(BARN_TX+1, BARN_TY, barnOpen ? TL.BARN_OPEN : TL.BARN_CLOSED);
+  if (window.DHSound) DHSound.playOneOf(barnOpen ? DOOR_OPEN : DOOR_CLOSE, 0.9);
   showMsg(barnOpen ? '🚪 Barn open.' : '🚪 Barn closed — animals inside are safe.');
 }
 
@@ -20152,13 +20157,68 @@ function _winterSkin() {
 //
 // Safe to call every frame: DHSound.ambient() returns immediately when it is
 // already playing what was asked for.
+// How close the player is to running water, 0 (nowhere near) to 1 (standing in
+// it). Sampled over a small square around them rather than scanned over the
+// whole map: at 8 tiles that is 289 lookups a frame, which is nothing, and it
+// is the only way to get a proximity that follows the player.
+function _waterNearness(get, wet, tiles) {
+  const px = Math.floor(player.x / T), py = Math.floor(player.y / T);
+  const R = 8;
+  let best = R + 1;
+  for (let dy = -R; dy <= R; dy++) {
+    for (let dx = -R; dx <= R; dx++) {
+      const d = Math.abs(dx) + Math.abs(dy);          // manhattan is close enough
+      if (d >= best) continue;
+      if (wet(get(px + dx, py + dy))) best = d;
+    }
+  }
+  if (best > R) return 0;
+  return 1 - best / (R + 1);
+}
+
 function _updateAmbience() {
   if (!window.DHSound) return;
-  if (!gameState.inOcean) { DHSound.stopAmbient(); return; }
-  const st = gameState.stormActive ? (gameState._stormIntensity || 0) : 0;
-  const name = st > 0.45 ? 'sea_storm' : st > 0.05 ? 'sea_rain' : 'sea';
-  // The storm is loud on its own; the calm sea sits under everything else.
-  DHSound.ambient(name, st > 0.45 ? 0.85 : 0.6);
+
+  // The sea, in the dock zone.
+  if (gameState.inOcean) {
+    const st = gameState.stormActive ? (gameState._stormIntensity || 0) : 0;
+    const name = st > 0.45 ? 'sea_storm' : st > 0.05 ? 'sea_rain' : 'sea';
+    // The storm is loud on its own; the calm sea sits under everything else.
+    DHSound.ambient(name, st > 0.45 ? 0.85 : 0.6);
+    return;
+  }
+
+  // The mine, with the weather coming through from above. Underground and
+  // completely silent until now.
+  if (gameState.inMine || gameState.inBLMine) {
+    const st = gameState.stormActive ? (gameState._stormIntensity || 0) : 0;
+    const name = st > 0.45 ? 'cave_storm' : st > 0.05 ? 'cave_rain' : 'cave';
+    DHSound.ambient(name, 0.55);
+    return;
+  }
+
+  // Running water, by PROXIMITY rather than by zone: the river only covers a
+  // strip of the overworld and there is no reason to hear it from the far side
+  // of the map. A creek on the frontier, a bigger river in the jungle.
+  let near = 0, name = null;
+  if (gameState.inJungle) {
+    near = _waterNearness(getJGT, v => v === JG.WATER || v === JG.WATER_DEEP);
+    name = 'river';
+  } else if (gameState.inHoboCamp) {
+    near = _waterNearness(getHCT, v => v === TL.WATER || v === TL.DEEP_WATER);
+    name = 'river_stream';
+  } else if (!gameState.inBadlands) {
+    near = _waterNearness(getT, v => v === TL.WATER || v === TL.DEEP_WATER ||
+                                     v === TL.FISHING_SPOT);
+    name = 'river_stream';
+  }
+  if (near > 0.02 && name) {
+    // Squared, so it falls away rather than sitting at half volume across the
+    // whole search square.
+    DHSound.ambient(name, 0.10 + near * near * 0.55);
+    return;
+  }
+  DHSound.stopAmbient();
 }
 
 function render() {
@@ -26221,8 +26281,9 @@ function _unlockAudio() {
   // fetch up front; the sea loops are not and are left to the zone that wants
   // them. Decoding needs the context, so this cannot happen before the gesture.
   if (window.DHSound) {
-    DHSound.preload(CHOP_SOUNDS.concat(MINE_SOUNDS, STEP_SOUNDS,
-                                       STEP_CHAIN, RUN_SOUNDS));
+    DHSound.preload(CHOP_SOUNDS.concat(MINE_SOUNDS, STEP_SOUNDS, STEP_CHAIN,
+                                       RUN_SOUNDS, CHEST_OPEN, CHEST_CLOSE,
+                                       DOOR_OPEN, DOOR_CLOSE, ['unlock']));
     DHSound.setVolume();
   }
 }
@@ -26373,7 +26434,11 @@ function dSound(type) {
 
 // Which tool is heard for a given loot. The axe for wood, the pick for stone
 // and every ore; nothing recorded yet for herbs, which keep the beep.
-const CHOP_SOUNDS = ['chop1', 'chop2', 'chop3', 'chop4'];
+const CHOP_SOUNDS  = ['chop1', 'chop2', 'chop3', 'chop4'];
+const CHEST_OPEN   = ['chest_open1', 'chest_open2'];
+const CHEST_CLOSE  = ['chest_close1', 'chest_close2'];
+const DOOR_OPEN    = ['door_open1', 'door_open2'];
+const DOOR_CLOSE   = ['door_close1', 'door_close2'];
 const MINE_SOUNDS = ['mine1', 'mine2', 'mine3', 'mine4', 'mine5'];
 const _PICK_LOOT = new Set(['stone', 'stoneShard', 'coal', 'copperOre', 'ironOre',
                             'silverOre', 'goldOre', 'crystal', 'obsidian',
