@@ -13905,12 +13905,12 @@ function gatherNode(key) {
   // A real axe on the swing. dSound('tool') is a square wave sliding from
   // 220Hz to 110 — it is the same beep for chopping, tilling, smelting and
   // riding a mine cart.
-  if (window.DHSound && node.def.loot === 'wood') DHSound.playOneOf(['chop1','chop2'], 0.9);
+  if (window.DHSound) DHSound.playOneOf(_toolSounds(node.def.loot), 0.9);
 
   startAction(toolLabel, dur, () => {
     const n2 = resourceNodes[key];
     if (!n2 || n2.depleted) return;
-    if (window.DHSound && n2.def.loot === 'wood') DHSound.playOneOf(['chop1','chop2'], 1.0);
+    if (window.DHSound) DHSound.playOneOf(_toolSounds(n2.def.loot), 1.0);
 
     const gathMult = getEffectiveMiningMult(n2.def.loot);
     const baseQty  = n2.def.qty[0] + Math.floor(Math.random() * (n2.def.qty[1] - n2.def.qty[0] + 1));
@@ -14326,9 +14326,11 @@ function gatherMineNode(key) {
   const dur = getGatherDuration(node.def.loot) * 0.9; // slight speed bonus in mine
   const richDetect = player._pickDiamond && Math.random() < 0.18; // diamond pick reveals rich veins
   actionTimer._nodeKey = key;
+  if (window.DHSound) DHSound.playOneOf(MINE_SOUNDS, 0.9);
   startAction(`⛏ Mining ${node.def.icon}${richDetect ? ' ✨ Rich!' : ''}`, dur, () => {
     const n2 = mineResourceNodes[fl][key];
     if (!n2 || n2.depleted) return;
+    if (window.DHSound) DHSound.playOneOf(MINE_SOUNDS, 1.0);
     const gathMult = getEffectiveMiningMult(n2.def.loot);
     const baseQty = n2.def.qty[0] + Math.floor(Math.random() * (n2.def.qty[1] - n2.def.qty[0] + 1));
     const wantQty = Math.floor(baseQty * gathMult);
@@ -16164,9 +16166,11 @@ function gatherBLMineNode(key) {
   const dur = getGatherDuration(node.def.loot) * 0.9;
   const richDetect = player._pickDiamond && Math.random() < 0.18;
   actionTimer._nodeKey = key;
+  if (window.DHSound) DHSound.playOneOf(MINE_SOUNDS, 0.9);
   startAction(`⛏ Mining ${node.def.icon}${richDetect ? ' ✨ Rich!' : ''}`, dur, () => {
     const n2 = blMineResourceNodes[fl][key];
     if (!n2 || n2.depleted) return;
+    if (window.DHSound) DHSound.playOneOf(MINE_SOUNDS, 1.0);
     n2.depleted = true;
     n2.respawnDay = gameState.day + 2 + fl;
     const gathMult = getEffectiveMiningMult(n2.def.loot);
@@ -26217,7 +26221,8 @@ function _unlockAudio() {
   // fetch up front; the sea loops are not and are left to the zone that wants
   // them. Decoding needs the context, so this cannot happen before the gesture.
   if (window.DHSound) {
-    DHSound.preload(['chop1', 'chop2'].concat(STEP_SOUNDS, STEP_CHAIN));
+    DHSound.preload(CHOP_SOUNDS.concat(MINE_SOUNDS, STEP_SOUNDS,
+                                       STEP_CHAIN, RUN_SOUNDS));
     DHSound.setVolume();
   }
 }
@@ -26366,6 +26371,19 @@ function dSound(type) {
   } catch(e) {}
 }
 
+// Which tool is heard for a given loot. The axe for wood, the pick for stone
+// and every ore; nothing recorded yet for herbs, which keep the beep.
+const CHOP_SOUNDS = ['chop1', 'chop2', 'chop3', 'chop4'];
+const MINE_SOUNDS = ['mine1', 'mine2', 'mine3', 'mine4', 'mine5'];
+const _PICK_LOOT = new Set(['stone', 'stoneShard', 'coal', 'copperOre', 'ironOre',
+                            'silverOre', 'goldOre', 'crystal', 'obsidian',
+                            'singingStone', 'blueCoal']);
+function _toolSounds(loot) {
+  if (loot === 'wood' || loot === 'charredWood') return CHOP_SOUNDS;
+  if (_PICK_LOOT.has(loot)) return MINE_SOUNDS;
+  return null;
+}
+
 // Carrying too much. One definition, because three things key off it: the
 // player slows to 0.72x, the HUD puts '⚠ HEAVY' over their head, and the walk
 // picks up a chain. It was written out twice before, which is two chances for
@@ -26390,6 +26408,12 @@ const STEP_SOUNDS  = ['step1', 'step2', 'step3', 'step4', 'step5'];
 // The same five takes with a chain over them, for when the pack is loaded.
 // You hear that you are overloaded before you read it.
 const STEP_CHAIN   = ['stepc1', 'stepc2', 'stepc3', 'stepc4', 'stepc5'];
+// Sprinting. Baked in the same family as the walks, where the recordings put a
+// run about 7dB above a walk, so the weight difference is in the material and
+// not faked with a louder playback gain. There is no chain RUN, so a loaded
+// sprint uses these — the pack still says '⚠ HEAVY' and the walk still clinks
+// the moment you stop sprinting.
+const RUN_SOUNDS   = ['run1', 'run2', 'run3', 'run4', 'run5'];
 let _stepTimer = 0;
 function tickStepSound(dt, isMoving) {
   if (!isMoving) { _stepTimer = 0; return; }
@@ -26397,8 +26421,12 @@ function tickStepSound(dt, isMoving) {
   if (_stepTimer <= 0) {
     // The beep is the fallback, for the moment before the samples have
     // decoded and for a browser that cannot play them at all.
-    const set = isEncumbered() ? STEP_CHAIN : STEP_SOUNDS;
-    if (!(window.DHSound && DHSound.playOneOf(set, 0.55, 0.09))) {
+    const set = player.sprinting ? RUN_SOUNDS
+              : isEncumbered()     ? STEP_CHAIN
+                                   : STEP_SOUNDS;
+    // 0.85, not the 0.55 this used to be: the family ceiling moved when the
+    // runs joined it, which took the lightest walk down with it.
+    if (!(window.DHSound && DHSound.playOneOf(set, 0.85, 0.09))) {
       dSound('step');
     }
     _stepTimer = player.sprinting ? 0.18 : 0.28;

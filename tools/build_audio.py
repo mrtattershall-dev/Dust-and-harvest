@@ -57,7 +57,12 @@ SHOT_FADE = 0.020    # seconds faded out at the end of a one-shot
 FAMILY_PEAK = {
     "sea":  0.707,   # -3dBFS. Ambience, so this is the ceiling, not the level.
     "chop": 0.794,   # -2dBFS.
-    "step": 0.600,   # Footsteps sit under everything else in the mix.
+    "mine": 0.794,   # Struck stone, same ceiling as the axe.
+    # Walks and runs share this family, and a run is ~7dB heavier in the
+    # material, so the ceiling belongs to the loudest RUN. 0.600 was set when
+    # the family was walks only; leaving it there once runs joined pushed the
+    # lightest walk down to 0.123, which disappears under the ambience.
+    "step": 0.850,
 }
 
 # name -> (filename fragment, kind, family, bitrate)
@@ -67,6 +72,17 @@ PIECES = {
     "sea_storm": ("Sea_Storm.wav", "loop", "sea",  "112k"),
     "chop1":     ("chop_1.wav",    "shot", "chop", "128k"),
     "chop2":     ("chop_2.wav",    "shot", "chop", "128k"),
+    "chop3":     ("chop_3.wav",    "shot", "chop", "128k"),
+    "chop4":     ("chop_4.wav",    "shot", "chop", "128k"),
+
+    # The pick. Five takes that all peak within 0.006 of each other, so unlike
+    # the footsteps there is almost no level variation in the material and the
+    # variety has to come from which one is chosen.
+    "mine1":     ("mine_1.wav",    "shot", "mine", "128k"),
+    "mine2":     ("mine_2.wav",    "shot", "mine", "128k"),
+    "mine3":     ("mine_3.wav",    "shot", "mine", "128k"),
+    "mine4":     ("mine_4.wav",    "shot", "mine", "128k"),
+    "mine5":     ("mine_5.wav",    "shot", "mine", "128k"),
     "step1":     ("Dirt_Walk_1.wav", "shot", "step", "96k"),
     "step2":     ("Dirt_Walk_2.wav", "shot", "step", "96k"),
     "step3":     ("Dirt_Walk_3.wav", "shot", "step", "96k"),
@@ -85,6 +101,17 @@ PIECES = {
     "stepc3":    ("Dirt_Chain_Walk_3.wav", "shot", "step", "96k"),
     "stepc4":    ("Dirt_Chain_Walk_4.wav", "shot", "step", "96k"),
     "stepc5":    ("Dirt_Chain_Walk_5.wav", "shot", "step", "96k"),
+
+    # Running. Same family as the walks ON PURPOSE: these peak at 0.144-0.290
+    # against the walks' 0.059-0.128, so a run is about 7dB heavier than a walk
+    # in the material itself. One family gain keeps that; giving runs their own
+    # would have normalised a run and a walk to the same loudness, which is
+    # exactly wrong.
+    "run1":      ("Dirt_Run_1.wav", "shot", "step", "96k"),
+    "run2":      ("Dirt_Run_2.wav", "shot", "step", "96k"),
+    "run3":      ("Dirt_Run_3.wav", "shot", "step", "96k"),
+    "run4":      ("Dirt_Run_4.wav", "shot", "step", "96k"),
+    "run5":      ("Dirt_Run_5.wav", "shot", "step", "96k"),
 }
 
 

@@ -12,6 +12,78 @@
    "kind": "shot",
    "sec": 0.163
   },
+  "chop3": {
+   "family": "chop",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.349
+  },
+  "chop4": {
+   "family": "chop",
+   "kb": 5,
+   "kind": "shot",
+   "sec": 0.254
+  },
+  "mine1": {
+   "family": "mine",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.354
+  },
+  "mine2": {
+   "family": "mine",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.316
+  },
+  "mine3": {
+   "family": "mine",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.316
+  },
+  "mine4": {
+   "family": "mine",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.309
+  },
+  "mine5": {
+   "family": "mine",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.386
+  },
+  "run1": {
+   "family": "step",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.497
+  },
+  "run2": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.46
+  },
+  "run3": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.494
+  },
+  "run4": {
+   "family": "step",
+   "kb": 7,
+   "kind": "shot",
+   "sec": 0.497
+  },
+  "run5": {
+   "family": "step",
+   "kb": 6,
+   "kind": "shot",
+   "sec": 0.435
+  },
   "sea": {
    "family": "sea",
    "kb": 780,

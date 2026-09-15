@@ -192,8 +192,15 @@ Two traps, both already paid for:
   target. Re-scheduling an exponential ramp sixty times a second pins the gain
   wherever it happens to be and it never arrives.
 
-Only the ocean has ambience. The axe and the footsteps are recorded; every
-other sound is still an oscillator.
+Only the ocean has ambience. Recorded so far: footsteps (walk, loaded walk,
+run), the axe, and the pick. Everything else is still an oscillator — the hoe,
+the watering can, the smelter and the mine cart all share one square wave.
+
+Every family's gain is relative WITHIN the family, so the material's own
+loudness relationships survive: a run over a walk, a storm over a calm sea.
+When a set joins an existing family the family's ceiling has to be re-checked —
+adding the runs pushed the lightest walk down to 0.123 and it vanished under
+the ambience until the ceiling moved.
 
 The footsteps are DIRT everywhere, including the dock's planks and the mine's
 stone. Surface-aware footfalls need recordings per surface.
