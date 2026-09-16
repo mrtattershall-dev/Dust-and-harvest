@@ -46,6 +46,24 @@ def log(m):
     print("  " + m)
 
 
+def recolour(im, brightness=1.0, saturation=1.0):
+    """Scale value and pull toward grey, leaving alpha alone."""
+    out = im.copy()
+    px = out.load()
+    for y in range(out.height):
+        for x in range(out.width):
+            r, g, b, a = px[x, y]
+            if not a:
+                continue
+            grey = (r * 299 + g * 587 + b * 114) // 1000
+            r = grey + (r - grey) * saturation
+            g = grey + (g - grey) * saturation
+            b = grey + (b - grey) * saturation
+            px[x, y] = (min(255, int(r * brightness)), min(255, int(g * brightness)),
+                        min(255, int(b * brightness)), a)
+    return out
+
+
 def main(pack_root):
     pack_root = Path(pack_root)
     spec = json.loads(MAP.read_text())
@@ -58,11 +76,14 @@ def main(pack_root):
     cols, rows = sheet.width // cell, sheet.height // cell
     log(f"source {spec['source']}  {cols}x{rows} cells of {cell}px")
 
-    def crop(cx, cy, h_cells=1):
-        if cx >= cols or cy + h_cells > rows:
+    def crop_rect(cx, cy, w_cells=1, h_cells=1):
+        if cx + w_cells > cols or cy + h_cells > rows:
             sys.exit(f"cell [{cx},{cy}] is outside the {cols}x{rows} sheet")
         return sheet.crop((cx * cell, cy * cell,
-                           (cx + 1) * cell, (cy + h_cells) * cell))
+                           (cx + w_cells) * cell, (cy + h_cells) * cell))
+
+    def crop(cx, cy, h_cells=1):
+        return crop_rect(cx, cy, 1, h_cells)
 
     # name -> list of (image, anchor_x, anchor_y)
     collected = {}
@@ -77,21 +98,43 @@ def main(pack_root):
         collected[group] = items
         log(f"{group}: {len(items)} tiles")
 
+    # Cells the pack does not ship. The ore set has seven colours and the game
+    # has seven veins, but none of the seven is black, and coal that is not
+    # black is not coal. Rather than tint it every frame at draw time, the one
+    # cell that needs it is darkened here, once, into its own group.
+    for group, entry in spec.get("recoloured", {}).items():
+        items = []
+        for cx, cy in entry["cells"]:
+            im = crop(cx, cy)
+            if not im.getbbox():
+                sys.exit(f"{group}: cell [{cx},{cy}] is empty")
+            items.append((recolour(im, entry.get("brightness", 1.0),
+                                   entry.get("saturation", 1.0)), 0, 0))
+        collected[group] = items
+        log(f"{group}: {len(items)} tiles recoloured from {entry['cells']}")
+
     for group, entries in spec.get("sprites", {}).items():
         items = []
         for entry in entries:
-            cs = entry["cells"]
-            cx = cs[0][0]
-            top = min(c[1] for c in cs)
-            if any(c[0] != cx for c in cs):
-                sys.exit(f"{group}: sprite cells must share a column")
-            im = crop(cx, top, len(cs))
+            if "rect" in entry:
+                # [col, row, cols_wide, rows_tall] — for the things the pack drew
+                # wider than one tile, like the 64x64 boulder.
+                cx, top, w_cells, h_cells = entry["rect"]
+            else:
+                cs = entry["cells"]
+                cx = cs[0][0]
+                top = min(c[1] for c in cs)
+                if any(c[0] != cx for c in cs):
+                    sys.exit(f"{group}: sprite cells must share a column, or use rect")
+                w_cells, h_cells = 1, len(cs)
+            im = crop_rect(cx, top, w_cells, h_cells)
             if not im.getbbox():
                 sys.exit(f"{group}: sprite at [{cx},{top}] is empty")
             # Bottom-centre: it stands on its tile and rises above it.
             items.append((im, im.width // 2, im.height))
         collected[group] = items
-        log(f"{group}: {len(items)} sprites of {items[0][0].size[0]}x{items[0][0].size[1]}")
+        sizes = sorted({f"{im.size[0]}x{im.size[1]}" for im, _, _ in items})
+        log(f"{group}: {len(items)} sprites of {', '.join(sizes)}")
 
     flat = [(g, im, ax, ay) for g, items in collected.items() for (im, ax, ay) in items]
     if not flat:

@@ -7983,8 +7983,10 @@ function collideSolid(nx,ny) {
     const hw=player.w/2-2, hh=player.h/2-2;
     const fl = gameState.blMineFloor;
     for (const [cx,cy] of [[nx-hw,ny-hh],[nx+hw,ny-hh],[nx-hw,ny+hh],[nx+hw,ny+hh]]) {
-      const t = getBLMineT(fl, Math.floor(cx/T), Math.floor(cy/T));
+      const btx = Math.floor(cx/T), bty = Math.floor(cy/T);
+      const t = getBLMineT(fl, btx, bty);
       if (t === TL.MINE_WALL) return true;
+      if (mineSolidPropAt(btx, bty)) return true;
     }
     return false;
   }
@@ -7992,8 +7994,10 @@ function collideSolid(nx,ny) {
     const hw=player.w/2-2, hh=player.h/2-2;
     const fl = gameState.mineFloor;
     for (const [cx,cy] of [[nx-hw,ny-hh],[nx+hw,ny-hh],[nx-hw,ny+hh],[nx+hw,ny+hh]]) {
-      const t = getMineT(fl, Math.floor(cx/T), Math.floor(cy/T));
+      const mtx = Math.floor(cx/T), mty = Math.floor(cy/T);
+      const t = getMineT(fl, mtx, mty);
       if (t === TL.MINE_WALL) return true;
+      if (mineSolidPropAt(mtx, mty)) return true;
     }
     return false;
   }
@@ -12168,10 +12172,13 @@ function buildMineFloor(floor) {
     // Branch arms — asymmetric, unsettling
     carveRoom(4,  8,  20, 12);
     carveRoom(26, 6,  44, 10);
-    carveRoom(4,  20, 16, 24);
-    carveRoom(30, 18, 44, 22);
+    /* Reaches x20 so it meets the spine. At 16 it stopped four tiles short and
+       the whole west arm — with about a sixth of the floor's veins in it — was
+       sealed behind solid rock with no way in. */
+    carveRoom(4,  20, 20, 24);
+    carveRoom(26, 18, 44, 22);   // to x26: see the west arm
     carveRoom(6,  32, 20, 36);
-    carveRoom(28, 30, 42, 34);
+    carveRoom(26, 30, 42, 34);   // to x26: see the west arm
     carveRoom(14, 40, 22, 46);
     carveRoom(24, 38, 38, 43);
     // Dead ends — rooms that go nowhere
@@ -12462,8 +12469,8 @@ function buildBLMineFloor(floor) {
     // Floor 4 — The Deep Cut: same narrow layout as The Unmapped
     carve(20,4,26,44);
     carve(4,8,20,12);  carve(26,6,44,10);
-    carve(4,20,16,24); carve(30,18,44,22);
-    carve(6,32,20,36); carve(28,30,42,34);
+    carve(4,20,20,24); carve(26,18,44,22);   // meet the spine: see The Unmapped
+    carve(6,32,20,36); carve(26,30,42,34);
     carve(14,40,22,46);carve(24,38,38,43);
     carve(2,8,5,11);   carve(40,6,45,9);
     carve(2,32,7,36);  carve(40,30,45,34);
@@ -12491,13 +12498,34 @@ function buildBLMineFloor(floor) {
       }
     }
   }
-  // Place shafts
-  const spawnX=11, spawnY=20;
-  setBLMineT(floor, spawnX-1, spawnY, TL.MINE_EXIT);   // exit/ascend
-  setBLMineT(floor, spawnX+1, spawnY, TL.MINE_SHAFT_UP);
-  if (floor < BL_MINE_FLOORS-1) {
-    setBLMineT(floor, 38, 38, TL.MINE_SHAFT_DOWN);
-  }
+  /* Shafts, on tiles this floor actually carved.
+
+     These used to be written to fixed coordinates, and two of the five layouts
+     do not carve them. Level 4's central-chamber plan has solid rock at (38,38),
+     so the way down to Level 5 was a shaft sealed inside the wall. Level 5's
+     narrow plan spawns you on the spine at (24,6) while its exit and its shaft
+     up went to (10,20) in the west arm, which does not connect: you arrived on
+     the deepest floor of the mine with no way back up.
+
+     So each one is placed on the nearest carved floor tile to where it wants to
+     be, and the spawn decides where "wants to be" is. */
+  const sp = BL_MINE_SPAWN[floor];
+  const spawnX = Math.floor(sp.x / 32), spawnY = Math.floor(sp.y / 32);
+  const taken = new Set();
+  const putShaft = (t, wx, wy) => {
+    for (let r = 0; r < 12; r++)
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = wx + dx, y = wy + dy, k = x + ',' + y;
+          if (taken.has(k) || getBLMineT(floor, x, y) !== TL.MINE_FLOOR) continue;
+          if (x === spawnX && y === spawnY) continue;   // never under the player
+          taken.add(k); setBLMineT(floor, x, y, t); return;
+        }
+  };
+  putShaft(TL.MINE_EXIT,     spawnX - 1, spawnY);
+  putShaft(TL.MINE_SHAFT_UP, spawnX + 1, spawnY);
+  if (floor < BL_MINE_FLOORS - 1) putShaft(TL.MINE_SHAFT_DOWN, 38, 38);
 }
 
 function buildAllBLMineFloors() {
@@ -12574,6 +12602,8 @@ const MINE_HAZARDS = {
         const nx=hx+dx,ny=hy+dy;
         if(getMineT(fl,nx,ny)===TL.MINE_FLOOR){ setMineT(fl,nx,ny,TL.MINE_WALL); }
       }
+      // The room is a different shape now; its wall faces have to say so.
+      repatchMineDressing(false, fl, hx, hy);
       const dist=Math.hypot(player.x/T-hx,player.y/T-hy);
       if(dist<3){
         const caveDmg = player._hardhat ? 10 : 25;
@@ -23499,21 +23529,37 @@ function _mineFungusHere(tx, ty) {
   if (tx === undefined || gameState.inBLMine) return false;
   if (gameState.mineFloor !== MINE_UNMAPPED_FLOOR) return false;
   if (!(window.DHJungle && DHJungle.ready('caveFungus'))) return false;
-  return ((((tx * 73856093) ^ (ty * 19349663)) >>> 0) % 9) === 0;
+  /* One tile in nine, everywhere, turned the floor into a fungus garden — the
+     glow was so evenly spread that it stopped meaning anything. It grows where
+     things grow in a cave: sparse, and against the rock, never out in the
+     middle of the floor you are walking down. */
+  if ((((tx * 73856093) ^ (ty * 19349663)) >>> 0) % 17) return false;
+  const solid = (x, y) => getMineT(gameState.mineFloor, x, y) === TL.MINE_WALL;
+  return solid(tx - 1, ty) || solid(tx + 1, ty) || solid(tx, ty - 1) || solid(tx, ty + 1);
 }
 
 /* Which ore chunk sits in which vein. Seven distinct colours in the pack and
    seven vein types in the game, so every ore reads as its own thing rather
    than as "a coloured blob". Iron takes the steel-blue and silver the white,
-   which is the way round they actually look. */
+   which is the way round they actually look.
+
+   MINE_ORE_INDEX is the same seven in the order the atlas lists them, which is
+   also the order of the seven loaded ore carts — so a cart parked beside an
+   iron vein is a cart of iron. */
 const MINE_VEIN_ORE = {
-  [TL.COAL_VEIN]:    'oreDark',
+  [TL.COAL_VEIN]:    'oreCoal',      // darkened at build time; see mine-map.json
   [TL.COPPER_VEIN]:  'oreCopper',
-  [TL.IRON_VEIN]:    'oreBlue',
+  [TL.IRON_VEIN]:    'oreIron',
   [TL.SILVER_VEIN]:  'oreSilver',
   [TL.GOLD_VEIN]:    'oreGold',
-  [TL.CRYSTAL_VEIN]: 'orePurple',
-  [TL.SINGING_VEIN]: 'oreGreen',
+  [TL.CRYSTAL_VEIN]: 'oreCrystal',
+  [TL.SINGING_VEIN]: 'oreSinging',
+};
+// Which of the seven loaded ore carts carries which ore. Iron and coal share
+// the grey load, which is the one pair you cannot tell apart in a cart anyway.
+const MINE_ORE_INDEX = {
+  [TL.COAL_VEIN]: 0, [TL.COPPER_VEIN]: 1, [TL.SILVER_VEIN]: 2, [TL.GOLD_VEIN]: 3,
+  [TL.SINGING_VEIN]: 4, [TL.IRON_VEIN]: 0, [TL.CRYSTAL_VEIN]: 6,
 };
 
 // The renderer serves both mines, so ask the one we are actually standing in.
@@ -23523,23 +23569,551 @@ function _mineTileAt(tx, ty) {
     : getMineT(gameState.mineFloor, tx, ty);
 }
 
-function _mineTouchesWall(tx, ty) {
-  return _mineTileAt(tx - 1, ty) === TL.MINE_WALL ||
-         _mineTileAt(tx + 1, ty) === TL.MINE_WALL ||
-         _mineTileAt(tx, ty - 1) === TL.MINE_WALL ||
-         _mineTileAt(tx, ty + 1) === TL.MINE_WALL;
+/* ═══════════════════════════════════════════════════════════════════════════
+   MINE DRESSING — where everything goes, worked out once per floor
+
+   The first cut of this scattered props by hashing the tile coordinate: a rail
+   on one floor tile in fifteen, a barrel on one wall-adjacent tile in
+   seventeen. It was stable and it was varied and it was nonsense — disconnected
+   inches of track lying in the middle of rooms, barrels in places no one could
+   have carried a barrel to, and a mine whose only story was "dice".
+
+   So placement is a pass, not a hash. It runs once per floor, the first time
+   that floor is drawn, and it reasons about the map:
+
+     · The rail is a route, not a texture. It is a real path from the cart point
+       at the entrance to the cart point in the deep chamber — the same two
+       points rideMinecart() teleports between — routed with a turn penalty so
+       it runs in long straight haulage lines, and drawn with the pack's corner
+       and junction pieces so the corners are corners. A cart sits at each end,
+       because the fast travel is a cart.
+     · Wall faces point the right way. The pack's rock border is an autotile
+       ring; each wall tile bordering open ground takes the piece whose opening
+       faces the same way, so a room has an edge instead of being a rubble fill
+       that stops.
+     · The company boarded what it used. Wall faces along the haulage way get
+       the timber ring instead of the rock one, and the landing at the entrance
+       is planked. Walk off the track and the boarding stops: past there nobody
+       built anything.
+     · Things are where someone put them. Barrels, crates, a chest and tools sit
+       in a depot by the entrance and a smaller one at the deep end. Lanterns
+       hang along the track at intervals. A loaded ore cart stands beside a vein
+       that the track actually reaches, loaded with that vein's ore.
+     · Rubble is spoil. Loose rock lies next to veins, where digging put it, and
+       at dead ends, where the floor gave up.
+
+   The deepest floor of each mine — The Unmapped, The Deep Cut — gets none of
+   the company's half of that list. No rail, no boarding, no lanterns, no depot.
+   Rock, boulders and the things that grow. Nobody worked down there; that is
+   the whole point of the place, and an empty floor says it better than a sign.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const MINE_DRESS = { mine: [], bl: [] };
+
+/* Which props stand up. The pack draws a barrel, a crate, a chest, a shovel and
+   a boulder as 32x64 or 64x64 pieces that sit on their tile and overhang
+   upward; the first cut of this mapped only their bottom halves and drew half a
+   barrel as if it were a floor tile. Anything named here is anchored
+   bottom-centre; anything not is flat and walked over. */
+const MINE_STANDING_PROPS = new Set([
+  'barrel', 'crate', 'chest', 'tool', 'boulder', 'lantern', 'sign', 'signWarn',
+  'minecart', 'oreCart', 'winch', 'gate', 'tunnelMouth', 'shaftLadder',
+]);
+
+/* Props that need an alcove — two walls or more around the tile. Only the
+   64x64 boulder: it is wider than the tile it stands on, so in the open it
+   overhangs its neighbours, and a rock that size came off a wall anyway.
+   Everything else is already placed against something by the pass that puts it
+   there, and blocking (below) is what keeps it out of the road. */
+const MINE_ALCOVE_PROPS = new Set(['boulder']);
+
+/* And of those, the ones you cannot walk through. Everything in the mine used
+   to be paint, so you strolled through the barrels; these take their tile out
+   of the walkable map. buildMineDressing proves the floor is still connected
+   afterwards and gives up the blocking if it is not — see MINE_SOLID_PROPS use
+   below. */
+const MINE_SOLID_PROPS = new Set(['barrel', 'crate', 'chest', 'boulder', 'oreCart']);
+
+// Does a solid prop stand on this tile? Asked by collideSolid, so it has to be
+// cheap: the dressing is built once per floor and cached.
+function mineSolidPropAt(tx, ty) {
+  const D = mineDressing();
+  return !!(D.solid && D.solid.has(tx + ',' + ty));
 }
 
-/* Draw a mine tile from the Miner's Cave atlas.
+function mineDressing() {
+  const bl = !!gameState.inBLMine;
+  const fl = bl ? gameState.blMineFloor : gameState.mineFloor;
+  const cache = bl ? MINE_DRESS.bl : MINE_DRESS.mine;
+  if (!cache[fl]) cache[fl] = buildMineDressing(bl, fl);
+  return cache[fl];
+}
 
-   Returns false when the atlas is not up, and the painted tiles below run
-   instead — which is also what happens for the tiles this does not cover, like
-   the hidden shaft.
+// Which piece of an autotile ring has its opening facing the open ground.
+const _MINE_EDGE_PIECE = {
+  N:'OpenN', S:'OpenS', E:'OpenE', W:'OpenW',
+  NE:'OpenNE', NW:'OpenNW', SE:'OpenSE', SW:'OpenSW',
+};
 
-   Standing props — barrels, crates, a minecart, a lantern — only go on floor
-   that touches a wall. A barrel in the middle of a corridor is something you
-   walk through; against the wall it is scenery. Flat things (rail, loose rock)
-   can go anywhere, because walking over them is what they are for. */
+function _mineEdgeKey(n, s, e, w) {
+  const c = (n?1:0) + (s?1:0) + (e?1:0) + (w?1:0);
+  if (c === 1) return n ? 'N' : s ? 'S' : e ? 'E' : 'W';
+  if (c === 2) {
+    if (n && e) return 'NE';
+    if (n && w) return 'NW';
+    if (s && e) return 'SE';
+    if (s && w) return 'SW';
+  }
+  // Open on three sides, or on two opposite sides: a spur or a one-tile-thick
+  // divider. No ring piece describes that, so it stays solid rock.
+  return null;
+}
+
+/* Route the haulage way. Plain BFS gives a shortest path, but a shortest path
+   through open ground staircases — one step across, one step down, forty times
+   over — and a staircase is not something anyone lays track along. Charging for
+   each change of direction buys long straight runs and few corners, which is
+   what a haulage way looks like. Dijkstra over (tile, heading) rather than
+   (tile), because what a step costs depends on which way you were already
+   going. */
+const MINE_RAIL_TURN_COST = 8;
+
+function _routeMineRail(isFloor, ax, ay, bx, by) {
+  const DIRS = [[0,-1],[1,0],[0,1],[-1,0]];
+  const N = MINE_W * MINE_H * 4;
+  const dist = new Float64Array(N).fill(Infinity);
+  const prev = new Int32Array(N).fill(-1);
+  const sid = (x, y, d) => (y * MINE_W + x) * 4 + d;
+
+  // Binary heap of state ids keyed by dist.
+  const heap = [];
+  const push = (id) => {
+    heap.push(id);
+    let i = heap.length - 1;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (dist[heap[p]] <= dist[heap[i]]) break;
+      [heap[p], heap[i]] = [heap[i], heap[p]]; i = p;
+    }
+  };
+  const pop = () => {
+    const top = heap[0], last = heap.pop();
+    if (heap.length) {
+      heap[0] = last;
+      let i = 0;
+      for (;;) {
+        const l = i*2+1, r = l+1; let m = i;
+        if (l < heap.length && dist[heap[l]] < dist[heap[m]]) m = l;
+        if (r < heap.length && dist[heap[r]] < dist[heap[m]]) m = r;
+        if (m === i) break;
+        [heap[m], heap[i]] = [heap[i], heap[m]]; i = m;
+      }
+    }
+    return top;
+  };
+
+  for (let d = 0; d < 4; d++) { const id = sid(ax, ay, d); dist[id] = 0; push(id); }
+
+  let best = -1;
+  while (heap.length) {
+    const id = pop();
+    const d = id & 3, ti = id >> 2, x = ti % MINE_W, y = (ti / MINE_W) | 0;
+    if (x === bx && y === by) { best = id; break; }
+    for (let nd = 0; nd < 4; nd++) {
+      const nx = x + DIRS[nd][0], ny = y + DIRS[nd][1];
+      if (nx < 0 || ny < 0 || nx >= MINE_W || ny >= MINE_H) continue;
+      if (!isFloor(nx, ny)) continue;
+      const nid = sid(nx, ny, nd);
+      const cost = dist[id] + 1 + (nd === d ? 0 : MINE_RAIL_TURN_COST);
+      if (cost < dist[nid]) { dist[nid] = cost; prev[nid] = id; push(nid); }
+    }
+  }
+  if (best < 0) return null;
+
+  const path = [];
+  for (let id = best; id >= 0; id = prev[id]) {
+    const ti = id >> 2;
+    path.push([ti % MINE_W, (ti / MINE_W) | 0]);
+    if (dist[id] === 0) break;
+  }
+  path.reverse();
+  return path.length > 1 ? path : null;
+}
+
+function buildMineDressing(isBL, floor) {
+  const get = isBL ? (x, y) => getBLMineT(floor, x, y) : (x, y) => getMineT(floor, x, y);
+  const isFloor = (x, y) => get(x, y) === TL.MINE_FLOOR;
+  const isOpen  = (x, y) => get(x, y) !== TL.MINE_WALL;
+  const K = (x, y) => x + ',' + y;
+
+  // ground: which floor tile.  flat: drawn over it, walk-over.  tall: stands
+  // on it and overhangs upward.  edge: which ring piece a wall tile takes.
+  const D = { ground: {}, flat: {}, tall: {}, edge: {} };
+  const used = new Set();          // tiles already carrying something
+  const wallsAround = (x, y) => (isOpen(x, y-1) ? 0 : 1) + (isOpen(x, y+1) ? 0 : 1) +
+                                (isOpen(x+1, y) ? 0 : 1) + (isOpen(x-1, y) ? 0 : 1);
+
+  // The tile the player arrives on is spoken for. A crate there is a crate you
+  // materialise inside, and on the Company floors that is exactly what happened.
+  {
+    const sp = isBL ? BL_MINE_SPAWN[floor] : MINE_SPAWN[floor];
+    used.add(K((sp.x / T) | 0, (sp.y / T) | 0));
+  }
+  const place = (x, y, g, idx) => {
+    const k = K(x, y);
+    if (used.has(k)) return false;
+    if (MINE_ALCOVE_PROPS.has(g) && wallsAround(x, y) < 2) return false;
+    used.add(k);
+    const slot = MINE_STANDING_PROPS.has(g) ? D.tall : D.flat;
+    slot[k] = (idx === undefined || idx === null) ? { g } : { g, idx };
+    return true;
+  };
+
+  /* The company floors were dug and worked. The deepest floor of each mine was
+     only ever found. Everything below that depends on this one line. */
+  const worked = isBL ? floor < BL_MINE_FLOORS - 1 : floor !== MINE_UNMAPPED_FLOOR;
+
+  // ── Wall faces ──────────────────────────────────────────────────────────
+  for (let y = 0; y < MINE_H; y++) {
+    for (let x = 0; x < MINE_W; x++) {
+      if (get(x, y) !== TL.MINE_WALL) continue;
+      const key = _mineEdgeKey(isOpen(x, y-1), isOpen(x, y+1), isOpen(x+1, y), isOpen(x-1, y));
+      if (key) D.edge[K(x, y)] = 'wall' + _MINE_EDGE_PIECE[key];
+    }
+  }
+
+  const findTile = (t) => {
+    for (let y = 0; y < MINE_H; y++)
+      for (let x = 0; x < MINE_W; x++)
+        if (get(x, y) === t) return { x, y };
+    return null;
+  };
+  const nearestFloor = (p) => {
+    if (!p) return null;
+    if (isFloor(p.x, p.y)) return p;
+    for (let r = 1; r < 8; r++)
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++)
+          if (isFloor(p.x + dx, p.y + dy)) return { x: p.x + dx, y: p.y + dy };
+    return null;
+  };
+
+  const shaftUp   = findTile(TL.MINE_SHAFT_UP);
+  const shaftDown = findTile(TL.MINE_SHAFT_DOWN);
+  const exitTile  = findTile(TL.MINE_EXIT);
+  D.shaftDown = shaftDown;
+
+  // ── Veins, and what they leave behind ───────────────────────────────────
+  const veins = [];
+  for (let y = 1; y < MINE_H - 1; y++)
+    for (let x = 1; x < MINE_W - 1; x++)
+      if (MINE_VEIN_ORE[get(x, y)]) veins.push({ x, y, t: get(x, y) });
+
+  // ── The haulage way ─────────────────────────────────────────────────────
+  let path = null;
+  if (worked) {
+    /* The two ends are the two cart points, so the track the player sees is
+       the track rideMinecart() actually rides. Where a floor has no cart
+       points, the shafts are the ends — you still haul from one to the other. */
+    let a = null, b = null;
+    if (!isBL && MINE_CART_POINTS[floor]) {
+      const cp = MINE_CART_POINTS[floor];
+      a = { x: (cp.entry.x / T) | 0, y: (cp.entry.y / T) | 0 };
+      b = { x: (cp.deep.x  / T) | 0, y: (cp.deep.y  / T) | 0 };
+    } else {
+      a = exitTile || shaftUp;
+      b = shaftDown || { x: 38, y: 38 };
+    }
+    a = nearestFloor(a); b = nearestFloor(b);
+    if (a && b) path = _routeMineRail(isFloor, a.x, a.y, b.x, b.y);
+  }
+
+  const onRail = new Set();
+  if (path) {
+    for (let i = 0; i < path.length; i++) {
+      const [x, y] = path[i];
+      let cn = false, cs = false, ce = false, cw = false;
+      for (const j of [i - 1, i + 1]) {
+        const q = path[j];
+        if (!q) continue;
+        if (q[1] < y) cn = true; else if (q[1] > y) cs = true;
+        else if (q[0] > x) ce = true; else if (q[0] < x) cw = true;
+      }
+      let g;
+      if (cn && cs) g = 'railV';
+      else if (ce && cw) g = 'railH';
+      else if (cn && ce) g = 'railNE';
+      else if (cn && cw) g = 'railNW';
+      else if (cs && ce) g = 'railSE';
+      else if (cs && cw) g = 'railSW';
+      else g = (ce || cw) ? 'railH' : 'railV';
+      const k = K(x, y);
+      D.flat[k] = { g };
+      onRail.add(k);
+      used.add(k);
+    }
+
+    /* Boarding, only where the track runs. The rock ring becomes the timber
+       ring on the wall faces the haulage way runs between — look out from each
+       rail tile until you meet a wall, up to the width of a corridor, and board
+       that face. Cross a wide room and you reach nothing, which is right: there
+       is nothing there to shore. */
+    const TIMBER_REACH = 3;
+    for (const [x, y] of path) {
+      for (const [dx, dy] of [[0,-1],[0,1],[1,0],[-1,0]]) {
+        for (let i = 1; i <= TIMBER_REACH; i++) {
+          const nx = x + dx * i, ny = y + dy * i;
+          if (isOpen(nx, ny)) continue;
+          const k = K(nx, ny);
+          if (D.edge[k]) D.edge[k] = D.edge[k].replace('wall', 'timber');
+          break;
+        }
+      }
+    }
+
+    // A cart at each end of the line, which is where the ride begins and ends.
+    const ends = [path[0], path[path.length - 1]];
+    for (const [x, y] of ends) { used.delete(K(x, y)); D.tall[K(x, y)] = { g: 'minecart' }; used.add(K(x, y)); }
+
+    // Lanterns down the track, far enough apart to be worth walking between.
+    const touchesWall = (x, y) => !isOpen(x, y-1) || !isOpen(x, y+1) || !isOpen(x+1, y) || !isOpen(x-1, y);
+    for (let i = 6; i < path.length - 4; i += 11) {
+      const [x, y] = path[i];
+      for (const [sx2, sy2] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]) {
+        if (isFloor(sx2, sy2) && touchesWall(sx2, sy2) && !used.has(K(sx2, sy2))) {
+          place(sx2, sy2, 'lantern');
+          break;
+        }
+      }
+    }
+
+    /* A loaded cart beside a vein the track reaches, carrying that vein's ore.
+       Three per floor: any more and "someone was working this seam" turns back
+       into wallpaper. */
+    let carts = 0;
+    const cartsAt = [];
+    for (const v of veins) {
+      if (carts >= 3) break;
+      if (cartsAt.some(c => Math.abs(c.x - v.x) + Math.abs(c.y - v.y) < 7)) continue;
+      for (const [sx2, sy2] of [[v.x,v.y+1],[v.x+1,v.y],[v.x,v.y-1],[v.x-1,v.y]]) {
+        if (!isFloor(sx2, sy2) || used.has(K(sx2, sy2))) continue;
+        const nextToRail = [[sx2,sy2-1],[sx2,sy2+1],[sx2+1,sy2],[sx2-1,sy2]]
+          .some(([rx, ry]) => onRail.has(K(rx, ry)));
+        if (!nextToRail) continue;
+        if (place(sx2, sy2, 'oreCart', MINE_ORE_INDEX[v.t] || 0)) {
+          cartsAt.push({ x: sx2, y: sy2 }); carts++;
+        }
+        break;
+      }
+    }
+  }
+
+  // ── The landing, and what is stacked on it ──────────────────────────────
+  if (worked) {
+    const landing = nearestFloor(exitTile || shaftUp || (path && { x: path[0][0], y: path[0][1] }));
+    if (landing) {
+      // Planked floor around the way in — the one bit of the mine with a floor
+      // laid on it rather than dug out of it.
+      for (let dy = -2; dy <= 2; dy++)
+        for (let dx = -2; dx <= 2; dx++)
+          if (isFloor(landing.x + dx, landing.y + dy))
+            D.ground[K(landing.x + dx, landing.y + dy)] = 'floorPlank';
+
+      const depot = (cx, cy, items, radius) => {
+        const cand = [];
+        for (let dy = -radius; dy <= radius; dy++)
+          for (let dx = -radius; dx <= radius; dx++) {
+            const x = cx + dx, y = cy + dy;
+            if (!isFloor(x, y) || used.has(K(x, y))) continue;
+            const wallAdj = !isOpen(x, y-1) || !isOpen(x, y+1) || !isOpen(x+1, y) || !isOpen(x-1, y);
+            if (!wallAdj) continue;
+            cand.push({ x, y, d: Math.abs(dx) + Math.abs(dy) });
+          }
+        // Deterministic: nearest first, then by position. No dice anywhere.
+        cand.sort((p, q) => p.d - q.d || p.y - q.y || p.x - q.x);
+        let i = 0;
+        for (const g of items) {
+          while (i < cand.length && !place(cand[i].x, cand[i].y, g)) i++;
+          if (i >= cand.length) break;
+          i++;
+        }
+      };
+
+      /* The sign goes first, so it takes the tile nearest the way in — nothing
+         else in the mine is writing, and a sign three crates deep into a stack
+         is a sign nobody reads. */
+      depot(landing.x, landing.y,
+            ['sign', 'barrel', 'crate', 'barrel', 'chest', 'tool', 'crate'], 5);
+    }
+
+    // A smaller depot at the working end, where the ore comes from.
+    if (path) {
+      const [ex, ey] = path[path.length - 1];
+      const cand = [];
+      for (let dy = -4; dy <= 4; dy++)
+        for (let dx = -4; dx <= 4; dx++) {
+          const x = ex + dx, y = ey + dy;
+          if (!isFloor(x, y) || used.has(K(x, y))) continue;
+          if (isOpen(x, y-1) && isOpen(x, y+1) && isOpen(x+1, y) && isOpen(x-1, y)) continue;
+          cand.push({ x, y, d: Math.abs(dx) + Math.abs(dy) });
+        }
+      cand.sort((p, q) => p.d - q.d || p.y - q.y || p.x - q.x);
+      let ci = 0;
+      for (const g of ['crate', 'barrel', 'tool', 'lantern']) {
+        while (ci < cand.length && !place(cand[ci].x, cand[ci].y, g)) ci++;
+        ci++;
+      }
+    }
+
+    /* A hoist stands beside the drop, because something has to bring the ore
+       back up it. Where the drop goes somewhere nobody worked, it gets the one
+       sign in the mine with a skull on it — put there by the last people who
+       came back up. */
+    if (shaftDown) {
+      const intoTheDark = isBL && floor + 1 === BL_MINE_FLOORS - 1;
+      const wants = intoTheDark ? ['winch', 'signWarn'] : ['winch'];
+      let wi = 0;
+      for (const [sx2, sy2] of [[shaftDown.x-1, shaftDown.y], [shaftDown.x+1, shaftDown.y],
+                                [shaftDown.x, shaftDown.y-1], [shaftDown.x, shaftDown.y+1]]) {
+        if (wi >= wants.length) break;
+        if (isFloor(sx2, sy2) && !onRail.has(K(sx2, sy2)) && place(sx2, sy2, wants[wi])) wi++;
+      }
+    }
+  }
+
+  // ── Spoil ───────────────────────────────────────────────────────────────
+  /* Loose rock next to veins, because that is where the digging put it.
+
+     There are well over a hundred veins on a floor, so "a rock beside each
+     vein" is the confetti this pass exists to get rid of. Spoil is capped and
+     spaced: a heap has to be three tiles clear of the last one, which reads as
+     a few places somebody worked rather than as gravel laid wall to wall. */
+  const spoil = [];
+  const spoilClear = (x, y) => !spoil.some(q => Math.abs(q.x - x) + Math.abs(q.y - y) < 4);
+  const dropSpoil = (x, y, g) => {
+    if (!isFloor(x, y) || used.has(K(x, y)) || onRail.has(K(x, y))) return false;
+    if (!spoilClear(x, y)) return false;
+    if (!place(x, y, g)) return false;
+    spoil.push({ x, y });
+    return true;
+  };
+
+  /* On a floor nobody worked, the fallen rock comes first and gets the good
+     spots — the chokepoints where the walls come in on both sides and you have
+     to walk round it. Spoil from digging fills in after, if there is room. */
+  if (!worked) {
+    for (let y = 1; y < MINE_H - 1; y++)
+      for (let x = 1; x < MINE_W - 1; x++) {
+        if (!isFloor(x, y) || used.has(K(x, y))) continue;
+        const pinchH = !isOpen(x-1, y) && !isOpen(x+1, y);
+        const pinchV = !isOpen(x, y-1) && !isOpen(x, y+1);
+        if (pinchH || pinchV) dropSpoil(x, y, 'boulder');
+      }
+  }
+
+  const spoilCap = worked ? 14 : 22;
+  for (const v of veins) {
+    if (spoil.length >= spoilCap) break;
+    for (const [sx2, sy2] of [[v.x,v.y+1],[v.x+1,v.y],[v.x-1,v.y],[v.x,v.y-1]])
+      if (dropSpoil(sx2, sy2, 'rock')) break;
+  }
+
+  // Dead ends — one open side and nowhere to go — are where the floor gave up.
+  for (let y = 1; y < MINE_H - 1; y++)
+    for (let x = 1; x < MINE_W - 1; x++) {
+      if (!isFloor(x, y) || used.has(K(x, y))) continue;
+      const openN = (isOpen(x,y-1)?1:0) + (isOpen(x,y+1)?1:0) + (isOpen(x+1,y)?1:0) + (isOpen(x-1,y)?1:0);
+      if (openN <= 1) place(x, y, worked ? 'rock' : 'boulder');
+    }
+
+  /* ── Nothing standing in the way ─────────────────────────────────────────
+     A crate takes its tile out of the walkable map, which is only safe because
+     crates only ever stand in alcoves. "Only safe because" is not good enough
+     for a floor you can be trapped on, so this walks the floor without them and
+     checks you can still reach the way out, the shafts and both cart points.
+     If any of that has been cut off, every prop on the floor gives up its
+     blocking — the art stays, and the mine stays completable. */
+  D.solid = new Set();
+  for (const k in D.tall) if (MINE_SOLID_PROPS.has(D.tall[k].g)) D.solid.add(k);
+  if (D.solid.size) {
+    const mustReach = [shaftUp, shaftDown, exitTile].filter(Boolean);
+    if (path) mustReach.push({ x: path[0][0], y: path[0][1] },
+                             { x: path[path.length-1][0], y: path[path.length-1][1] });
+    const spawn = isBL ? BL_MINE_SPAWN[floor] : MINE_SPAWN[floor];
+    const from = nearestFloor({ x: (spawn.x / T) | 0, y: (spawn.y / T) | 0 });
+    // A vein has to stay reachable too — a crate is not allowed to be the
+    // reason a seam can no longer be mined — but only the ones you could get to
+    // in the first place. Some of these floors have sealed pockets of their own.
+    const base = from ? _mineFloorSeen(isOpen, new Set(), from) : null;
+    const want = base ? veins.filter(v => base[v.y * MINE_W + v.x]) : [];
+    if (!from) {
+      D.solid = new Set();
+    } else {
+      /* Give up the blocking where it actually costs something, not everywhere.
+         Whatever we can no longer reach, drop the props standing next to it and
+         look again; a handful of passes settles it, and if dropping nothing
+         helps, the whole floor gives up its blocking. */
+      const targets = mustReach.concat(want);
+      for (let pass = 0; pass < 5 && D.solid.size; pass++) {
+        const seen = _mineFloorSeen(isOpen, D.solid, from);
+        const missing = targets.filter(t => !seen[t.y * MINE_W + t.x]);
+        if (!missing.length) break;
+        let dropped = 0;
+        for (const m of missing)
+          for (const [nx, ny] of [[m.x,m.y],[m.x,m.y-1],[m.x,m.y+1],[m.x+1,m.y],[m.x-1,m.y]])
+            if (D.solid.delete(K(nx, ny))) dropped++;
+        if (!dropped) { D.solid = new Set(); break; }
+      }
+    }
+  }
+
+  return D;
+}
+
+/* Flood the floor from one tile, treating the blocked set as wall, and report
+   whether every tile in `targets` came up. */
+function _mineFloorReaches(isOpen, blocked, from, targets) {
+  const seen = _mineFloorSeen(isOpen, blocked, from);
+  return targets.every(t => seen[t.y * MINE_W + t.x]);
+}
+
+function _mineFloorSeen(isOpen, blocked, from) {
+  const seen = new Uint8Array(MINE_W * MINE_H);
+  const q = [from.x, from.y];
+  seen[from.y * MINE_W + from.x] = 1;
+  for (let h = 0; h < q.length; h += 2) {
+    const x = q[h], y = q[h + 1];
+    for (const [nx, ny] of [[x,y-1],[x,y+1],[x+1,y],[x-1,y]]) {
+      if (nx < 0 || ny < 0 || nx >= MINE_W || ny >= MINE_H) continue;
+      const i = ny * MINE_W + nx;
+      if (seen[i] || !isOpen(nx, ny) || blocked.has(nx + ',' + ny)) continue;
+      seen[i] = 1; q.push(nx, ny);
+    }
+  }
+  return seen;
+}
+
+/* A cave-in turns floor into wall under the player's feet, which leaves the
+   wall faces around it describing a room that no longer has that shape. Only
+   the faces are recomputed: the track that got buried stays buried rather than
+   politely rerouting itself around the collapse. */
+function repatchMineDressing(isBL, floor, cx, cy) {
+  const cache = isBL ? MINE_DRESS.bl : MINE_DRESS.mine;
+  const D = cache[floor];
+  if (!D) return;
+  const get = isBL ? (x, y) => getBLMineT(floor, x, y) : (x, y) => getMineT(floor, x, y);
+  const isOpen = (x, y) => get(x, y) !== TL.MINE_WALL;
+  for (let y = cy - 2; y <= cy + 2; y++)
+    for (let x = cx - 2; x <= cx + 2; x++) {
+      const k = x + ',' + y;
+      if (get(x, y) !== TL.MINE_WALL) { delete D.edge[k]; continue; }
+      const timbered = (D.edge[k] || '').startsWith('timber');
+      const key = _mineEdgeKey(isOpen(x, y-1), isOpen(x, y+1), isOpen(x+1, y), isOpen(x-1, y));
+      if (key) D.edge[k] = (timbered ? 'timber' : 'wall') + _MINE_EDGE_PIECE[key];
+      else delete D.edge[k];
+    }
+}
+
 /* One tint over every atlas tile, at the same strength everywhere.
 
    The pack is lit for a bright cave; this mine is meant to be oppressive, and
@@ -23550,49 +24124,92 @@ function _mineTouchesWall(tx, ty) {
    to laying one rectangle over the whole viewport. */
 const MINE_ATLAS_TINT = 'rgba(16,11,8,0.42)';
 
+/* Rock that is not a face is darker still. The pack's wall fill and its floor
+   cobble are close in value, so under one flat tint a room had no edges — the
+   floor simply changed texture and stopped. The extra coat goes on solid rock
+   only, never on the ring pieces, so the boundary tile sits between the two and
+   the rock reads as going back rather than as a different kind of ground. */
+const MINE_ROCK_TINT = 'rgba(6,4,10,0.30)';
+
 function _drawMineTileFromAtlas(t, sx, sy, tx, ty) {
   if (typeof DHMine === 'undefined' || !DHMine.ready('floor')) return false;
   if (tx === undefined || ty === undefined) return false;
 
-  const ore = MINE_VEIN_ORE[t];
+  const D = mineDressing();
+  const k = tx + ',' + ty;
   const tint = () => { ctx.fillStyle = MINE_ATLAS_TINT; ctx.fillRect(sx, sy, T, T); };
-
-  if (ore) {
-    DHMine.drawTile(ctx, 'wall', sx, sy, tx, ty);
-    DHMine.drawTile(ctx, ore, sx, sy, tx, ty);
-    tint();
-    return true;
-  }
+  const ground = () => DHMine.drawTile(ctx, D.ground[k] || 'floor', sx, sy, tx, ty);
 
   if (t === TL.MINE_WALL) {
-    if (!DHMine.drawTile(ctx, 'wall', sx, sy, tx, ty)) return false;
+    const edge = D.edge[k];
+    if (edge) {
+      // The ring pieces are the boundary, so what shows through the open half
+      // of one is the floor it borders.
+      DHMine.drawTile(ctx, 'floor', sx, sy, tx, ty);
+      DHMine.drawTile(ctx, edge, sx, sy, tx, ty);
+    } else if (DHMine.drawTile(ctx, 'wall', sx, sy, tx, ty)) {
+      ctx.fillStyle = MINE_ROCK_TINT; ctx.fillRect(sx, sy, T, T);
+    } else {
+      return false;
+    }
     tint();
     return true;
   }
 
-  if (t === TL.MINE_SHAFT_DOWN || t === TL.MINE_SHAFT_UP || t === TL.MINE_EXIT) {
-    DHMine.drawTile(ctx, 'floor', sx, sy, tx, ty);
-    DHMine.drawTile(ctx, 'ladder', sx, sy, tx, ty);
+  const ore = MINE_VEIN_ORE[t];
+  if (ore) {
+    /* Veins are walkable — you stand on the tile to mine it — so they are drawn
+       as an outcrop lying on the floor, not as a slab of rock you then walk
+       through.
+
+       The ore goes on after the tint, and it is the only thing in the mine that
+       does. Tinted down with everything else it was the same dull grey as the
+       loose rock lying beside it, and a mine where you cannot tell the copper
+       from the rubble is a mine with nothing to look for. */
+    ground();
+    tint();
+    DHMine.drawTile(ctx, ore, sx, sy, tx, ty);
+    return true;
+  }
+
+  if (t === TL.MINE_EXIT) {
+    ground();
+    DHMine.draw(ctx, 'tunnelMouth', sx + T / 2, sy + T, tx, ty);
+    tint();
+    return true;
+  }
+
+  if (t === TL.MINE_SHAFT_DOWN) {
+    ground();
+    DHMine.drawTile(ctx, 'pit', sx, sy, tx, ty);
+    // The company sank its shafts behind a steel gate. The town mine braces
+    // its drops with timber and hangs a hoist beside them.
+    DHMine.draw(ctx, gameState.inBLMine ? 'gate' : 'shaftLadder', sx + T / 2, sy + T, tx, ty);
+    tint();
+    return true;
+  }
+
+  if (t === TL.MINE_SHAFT_UP) {
+    ground();
+    DHMine.drawTile(ctx, 'steps', sx, sy, tx, ty);
     tint();
     return true;
   }
 
   if (t !== TL.MINE_FLOOR) return false;
 
-  DHMine.drawTile(ctx, 'floor', sx, sy, tx, ty);
+  ground();
 
-  // Flat, walk-over.
-  if (DHMine.chance(tx, ty, 1, 15))      DHMine.drawTile(ctx, 'railH', sx, sy, tx, ty);
-  else if (DHMine.chance(tx, ty, 2, 17)) DHMine.drawTile(ctx, 'rock', sx, sy, tx, ty);
+  const flat = D.flat[k];
+  if (flat) {
+    if (flat.idx === undefined) DHMine.drawTile(ctx, flat.g, sx, sy, tx, ty);
+    else DHMine.drawTileIdx(ctx, flat.g, flat.idx, sx, sy);
+  }
 
-  // Against the wall only.
-  if (_mineTouchesWall(tx, ty)) {
-    if      (DHMine.chance(tx, ty, 3, 11)) DHMine.drawTile(ctx, 'support', sx, sy, tx, ty);
-    else if (DHMine.chance(tx, ty, 4, 17)) DHMine.drawTile(ctx, 'barrel',  sx, sy, tx, ty);
-    else if (DHMine.chance(tx, ty, 5, 21)) DHMine.drawTile(ctx, 'crate',   sx, sy, tx, ty);
-    else if (DHMine.chance(tx, ty, 6, 29)) DHMine.drawTile(ctx, 'oreCart', sx, sy, tx, ty);
-    else if (DHMine.chance(tx, ty, 7, 33)) DHMine.drawTile(ctx, 'lantern', sx, sy, tx, ty);
-    else if (DHMine.chance(tx, ty, 8, 41)) DHMine.draw(ctx, 'minecart', sx + T / 2, sy + T, tx, ty);
+  const tall = D.tall[k];
+  if (tall) {
+    if (tall.idx === undefined) DHMine.draw(ctx, tall.g, sx + T / 2, sy + T, tx, ty);
+    else DHMine.drawIdx(ctx, tall.g, tall.idx, sx + T / 2, sy + T);
   }
 
   tint();

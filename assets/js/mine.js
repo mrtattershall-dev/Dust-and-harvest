@@ -69,30 +69,45 @@ window.DHMine = (function () {
     return (h % oneIn) === 0;
   }
 
-  function drawTile(ctx, group, sx, sy, tx, ty) {
-    const s = pick(group, tx, ty);
+  // Same as pick(), but the caller names the variant. The seven ore groups and
+  // the seven loaded ore carts are listed in the same order, so an iron vein
+  // can be given the cart of iron rather than whichever cart the hash landed on.
+  function at(group, i) {
+    if (!ready(group)) return null;
+    const list = state.data.groups[group];
+    return list[((i % list.length) + list.length) % list.length];
+  }
+
+  function blit(ctx, s, dx, dy) {
     if (!s) return false;
     const prev = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(state.img, s.x, s.y, s.w, s.h,
-                  Math.round(sx), Math.round(sy), s.w, s.h);
+    ctx.drawImage(state.img, s.x, s.y, s.w, s.h, Math.round(dx), Math.round(dy), s.w, s.h);
     ctx.imageSmoothingEnabled = prev;
     return true;
+  }
+
+  function drawTile(ctx, group, sx, sy, tx, ty) {
+    return blit(ctx, pick(group, tx, ty), sx, sy);
   }
 
   // Bottom-centre anchored. (sx, sy) is the centre of the tile it stands on.
   function draw(ctx, group, sx, sy, tx, ty) {
     const s = pick(group, tx, ty);
-    if (!s) return false;
-    const prev = ctx.imageSmoothingEnabled;
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(state.img, s.x, s.y, s.w, s.h,
-                  Math.round(sx - s.ax), Math.round(sy - s.ay), s.w, s.h);
-    ctx.imageSmoothingEnabled = prev;
-    return true;
+    return s ? blit(ctx, s, sx - s.ax, sy - s.ay) : false;
   }
 
-  return { init, ready, count, pick, drawTile, draw, chance, _state: state };
+  function drawTileIdx(ctx, group, i, sx, sy) {
+    return blit(ctx, at(group, i), sx, sy);
+  }
+
+  function drawIdx(ctx, group, i, sx, sy) {
+    const s = at(group, i);
+    return s ? blit(ctx, s, sx - s.ax, sy - s.ay) : false;
+  }
+
+  return { init, ready, count, pick, at, drawTile, draw, drawTileIdx, drawIdx,
+           chance, _state: state };
 })();
 
 DHMine.init();
