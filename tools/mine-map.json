@@ -1,0 +1,145 @@
+{
+ "_comment": [
+  "Mine art sources. Both mines — the overworld Mine and the badlands Company",
+  "Mine — were drawn entirely in flat fillRect colours. The Miner's Cave pack",
+  "ships a 32x32 master tileset at exactly the game's tile size, so this maps",
+  "its cells onto the TL mine enum and drawMineTile draws real art.",
+  "",
+  "The source is one uniform grid, so cells are addressed as [col, row].",
+  "",
+  "IMPORTANT — the pack draws several things as autotile RINGS: a 3x3 block of",
+  "cells whose middle is empty and whose eight edges are the border of an",
+  "opening. The rock wall ([0,0]-[2,2]), the boarded timber wall ([0,6]-[2,8])",
+  "and the rail loop ([0,24]-[2,26]) are all rings. Their cells are named here",
+  "by WHICH SIDE IS OPEN — wallOpenS is the piece to use for a wall tile with",
+  "floor to its south — so the dressing pass can pick the right one per tile",
+  "instead of scattering ring fragments around as if they were props.",
+  "",
+  "`tiles` are single 32x32 cells drawn at the tile's top-left with no anchor.",
+  "",
+  "`sprites` span stacked cells and anchor bottom-centre, so the thing stands on",
+  "its tile and overhangs upward. A minecart, a loaded ore cart and the timber",
+  "tunnel mouth are all 32x64 and were previously cut in half by being listed",
+  "as tiles.",
+  "",
+  "The ore* groups and the seven loaded ore carts come from the same seven",
+  "columns of the sheet, so MINE_ORE_INDEX can park a cart of gold beside a",
+  "gold vein. Column 5, the cyan one, matches no vein the game has.",
+  "",
+  "Run tools/build_mine.py after editing.",
+  "",
+  "floor deliberately excludes cell [3,2]: it is the pack's flat untextured",
+  "fill, and mixed in with the cobble it read as pale mauve patches.",
+  "",
+  "The pack also ships lava pools, water pools, coffins and a dragon trap. None",
+  "of those belong in a frontier coal mine, so none of them are mapped."
+ ],
+ "source": "All Tileset/32x32.png",
+ "cell": 32,
+
+ "tiles": {
+  "floor":      [[4,2], [5,2], [6,2]],
+  "floorPlank": [[4,3], [5,3], [6,3], [4,4], [5,4]],
+  "wall":       [[0,3], [1,3], [2,3], [0,4], [1,4], [2,4], [0,5], [1,5], [2,5]],
+
+  "wallOpenS":  [[1,0]],
+  "wallOpenN":  [[1,2]],
+  "wallOpenE":  [[0,1]],
+  "wallOpenW":  [[2,1]],
+  "wallOpenSE": [[0,0]],
+  "wallOpenSW": [[2,0]],
+  "wallOpenNE": [[0,2]],
+  "wallOpenNW": [[2,2]],
+
+  "timberOpenS":  [[1,6]],
+  "timberOpenN":  [[1,8]],
+  "timberOpenE":  [[0,7]],
+  "timberOpenW":  [[2,7]],
+  "timberOpenSE": [[0,6]],
+  "timberOpenSW": [[2,6]],
+  "timberOpenNE": [[0,8]],
+  "timberOpenNW": [[2,8]],
+
+  "oreIron":    [[0,20]],
+  "oreCopper":  [[1,20]],
+  "oreSilver":  [[2,20]],
+  "oreGold":    [[3,20]],
+  "oreSinging": [[4,20]],
+  "oreCrystal": [[6,20]],
+
+  "veinRed":    [[5,6], [5,7], [5,8]],
+  "veinGreen":  [[6,6], [7,6], [6,7], [7,7], [6,8], [7,8]],
+
+  "railH":      [[1,24], [1,26]],
+  "railV":      [[0,25], [2,25]],
+  "railSE":     [[0,24]],
+  "railSW":     [[2,24]],
+  "railNE":     [[0,26]],
+  "railNW":     [[2,26]],
+  "railCross":  [[3,24], [3,25]],
+
+  "steps":      [[4,6], [4,7], [4,8]],
+  "pit":        [[3,4]],
+  "rock":       [[0,14], [1,14], [0,15], [1,15]],
+  "lantern":    [[0,18], [1,18], [2,18], [3,18], [1,19], [2,19], [3,19]],
+  "sign":       [[6,10], [6,11]],
+  "signWarn":   [[7,11]]
+ },
+
+ "recoloured": {
+  "oreCoal": { "cells": [[0,20], [0,21]], "brightness": 0.36, "saturation": 0.25,
+               "_": "The pack has no black ore, and coal that is not black is not coal." }
+ },
+
+ "sprites": {
+  "minecart": [
+   { "cells": [[4,25], [4,26]], "note": "empty, on the track" },
+   { "cells": [[5,25], [5,26]], "note": "empty" },
+   { "cells": [[6,25], [6,26]], "note": "empty, other side" },
+   { "cells": [[4,27], [4,28]], "note": "empty, parked" },
+   { "cells": [[5,27], [5,28]], "note": "empty, parked" },
+   { "cells": [[6,27], [6,28]], "note": "empty, parked" }
+  ],
+  "oreCart": [
+   { "cells": [[0,22], [0,23]], "note": "loaded — coal / dark" },
+   { "cells": [[1,22], [1,23]], "note": "loaded — copper" },
+   { "cells": [[2,22], [2,23]], "note": "loaded — silver" },
+   { "cells": [[3,22], [3,23]], "note": "loaded — gold" },
+   { "cells": [[4,22], [4,23]], "note": "loaded — green" },
+   { "cells": [[5,22], [5,23]], "note": "loaded — blue" },
+   { "cells": [[6,22], [6,23]], "note": "loaded — purple" }
+  ],
+  "tunnelMouth": [
+   { "cells": [[2,9], [2,10]], "note": "timber-framed opening — the way out" }
+  ],
+  "gate": [
+   { "cells": [[5,17], [5,18]], "note": "company steel gate" }
+  ],
+  "winch": [
+   { "cells": [[4,18], [4,19]], "note": "hoist over a shaft" }
+  ],
+  "boulder": [
+   { "rect": [2, 14, 2, 2], "note": "fallen boulder, 64x64" },
+   { "rect": [0, 16, 2, 2], "note": "fallen boulder, mossy" }
+  ],
+  "barrel": [
+   { "cells": [[4,13], [4,14]], "note": "sealed" },
+   { "cells": [[5,13], [5,14]], "note": "open" }
+  ],
+  "crate": [
+   { "cells": [[4,15], [4,16]] },
+   { "cells": [[5,15], [5,16]] }
+  ],
+  "chest": [
+   { "cells": [[0,9], [0,10]] },
+   { "cells": [[1,9], [1,10]] }
+  ],
+  "tool": [
+   { "cells": [[4,11], [4,12]], "note": "shovel" },
+   { "cells": [[5,11], [5,12]], "note": "pick" }
+  ],
+  "shaftLadder": [
+   { "cells": [[3,9], [3,10]], "note": "braced timber drop" }
+  ]
+ }
+}

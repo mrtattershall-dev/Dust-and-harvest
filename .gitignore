@@ -1,0 +1,6 @@
+.asset-tmp/
+node_modules/
+.DS_Store
+
+# Built by tools/build_standalone.py — 8MB, regenerates in seconds.
+dist/
