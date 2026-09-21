@@ -37709,6 +37709,546 @@ setTimeout(function _patchLoadForCourt() {
 
 // End § JUNGLE ZONE — Slice 18
 
+// ─────────────────────────────────────────────────────────────────────────────
+// § JUNGLE ZONE — Slice 19: The Filing
+//
+//   THE BOUNDARY, written down before any of it was built.
+//
+//   What Slice 18 leaves behind:
+//     - isThreeWayClaimOpen()  — settlement, Hollowed and Court all on record
+//     - gameState._courtAllied, the Court's Mark, jungle rep
+//     - Kit's closing line: "Now it's a filing problem. Tobias knows people
+//       who do filing problems."
+//     - Tobias, since Slice 16: "the bond becomes a paper problem. Paper
+//       problems can be solved with paper."
+//
+//   This slice is that paper problem. The $145,000 Land Restoration Bond has
+//   been the second act's whole economic weight, and grinding it out at
+//   $2,000+ a week was always only ONE way through. The story has promised a
+//   second way since Slice 14 — Hessa: "the bond becomes legally contestable"
+//   — and has never had one. Now it does.
+//
+//   What STARTS it:   a FILING tab on Tobias's dock panel, once the claim is
+//                     open. Stage 0 → 1 on filing.
+//   What the player must DO: bring 8 Altaverde Documents out of the ruins
+//                     Archive and $6,000 in filing costs, then wait. The
+//                     contest takes six weeks of review and the waiting is the
+//                     objective — but it is not dead time, because filing buys
+//                     a STAY OF ENFORCEMENT: no bond interest accrues while
+//                     the contest is live. That is the reason to file before
+//                     you can afford to settle.
+//   What COMPLETES it: the ruling, at week 6. Stage 1 → 2.
+//   What it UNLOCKS:  isRulingDelivered(). Slice 20's gate, and nothing here
+//                     reads it.
+//
+//   The ruling does NOT clear the bond. Every character in this arc has said
+//   the restoration is real and takes a decade; a contest that zeroed it would
+//   contradict the only thing all three parties agree on. It strikes the
+//   EXTRACTION portion and leaves a restoration levy at 15% of face — $21,750,
+//   payable, and about six weeks of good farming rather than forty.
+//
+//   THREE THINGS THIS SLICE HAD TO FIX FIRST, all found by probing rather than
+//   by reading, and all of them blocking:
+//
+//     1. ITEMS.altaverdeDocument was defined in Slice 15, priced, and added to
+//        SELL_ITEMS — and dropped by nothing, anywhere in the game. It was an
+//        item that could not be obtained. The filing needs paper, so the
+//        Archive gives paper now.
+//
+//     2. The ruins INTERIOR's gather loop was dead. Slice 15 built the ruins
+//        as a separate 40x30 zone but left JG_RUINS_NODES keyed by the old
+//        SURFACE coordinates (y:66–76), which are outside that map entirely —
+//        0 of 8 nodes were addressable from inside. The [E] handler in there
+//        called _getNearbyRuinsNode() every time and could never find
+//        anything. Interior nodes are keyed 'ru:x,y' now, in ruins
+//        coordinates, in the same table so the existing gather path is reused
+//        unchanged.
+//
+//     3. Ruins nodes wrote a respawnDay and nothing ever read it, so the
+//        surface nodes were a one-time payout — finite paper is a soft lock
+//        when a quest asks for eight of it. They respawn now, on the schedule
+//        Slice 15 was already writing down. And their depleted state is SAVED,
+//        which it was not: reloading restored every node, so any requirement
+//        counted in ruins loot could be farmed by pressing load.
+//
+//   RELOAD SAFETY — the review clock is DERIVED, never accumulated. Weeks
+//   elapsed is (gameState.day - _filingFiledDay) / 7, computed fresh. A
+//   counter incremented on each new day would drift on every reload; this
+//   cannot, because the only stored number is the day it was filed.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── State ─────────────────────────────────────────────────────────────────────
+// _filingStage: 0 = not filed, 1 = under review, 2 = ruling delivered
+if (typeof gameState._filingStage    === 'undefined') gameState._filingStage    = 0;
+if (typeof gameState._filingFiledDay === 'undefined') gameState._filingFiledDay = 0;
+if (typeof gameState._filingWeekSeen === 'undefined') gameState._filingWeekSeen = 0;
+
+const FILING_DOCS_REQ   = 8;
+const FILING_FEE        = 6000;
+const FILING_WEEKS      = 6;
+const FILING_LEVY_SHARE = 0.15;   // what survives the ruling, of bond face
+const FILING_RESTITUTION= 20000;  // paid instead, if the bond is already clear
+
+// ── Public: the Slice 20 gate ────────────────────────────────────────────────
+function isBondContested()   { return gameState._filingStage === 1; }
+function isRulingDelivered() { return gameState._filingStage === 2; }
+window.isBondContested   = isBondContested;
+window.isRulingDelivered = isRulingDelivered;
+
+function getFilingWeeksElapsed() {
+  if (gameState._filingStage === 0) return 0;
+  const days = Math.max(0, gameState.day - gameState._filingFiledDay);
+  return Math.floor(days / JG_DEBT_WEEK_LENGTH);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// § THE ARCHIVE — where the paper is
+// Interior nodes, in RUINS map coordinates, keyed into the existing table
+// under a 'ru:' namespace so _gatherRuinsNode works on them unchanged.
+// Placed against the rooms buildRuinsMap() actually laid out: the Processing
+// floor is y:10–18, the Archive is y:20–28, and the crates it stamped as WALL
+// sit at (7,23) (16,25) (24,23) (31,25) — paper goes beside those.
+// ─────────────────────────────────────────────────────────────────────────────
+const RU_NODE_SPOTS = [
+  // Processing floor — machinery, same loot as the surface facade
+  { tx: 6,  ty: 13, loot: 'altaverdeSalvage',  qty: [1, 2] },
+  { tx: 14, ty: 16, loot: 'altaverdeSalvage',  qty: [1, 2] },
+  { tx: 25, ty: 12, loot: 'altaverdeSalvage',  qty: [2, 3] },
+  { tx: 32, ty: 17, loot: 'altaverdeSalvage',  qty: [1, 2] },
+  // Archive — the filing cabinets of a company that left in a hurry
+  { tx: 8,  ty: 23, loot: 'altaverdeDocument', qty: [1, 2] },
+  { tx: 17, ty: 25, loot: 'altaverdeDocument', qty: [1, 2] },
+  { tx: 23, ty: 23, loot: 'altaverdeDocument', qty: [1, 2] },
+  { tx: 30, ty: 25, loot: 'altaverdeDocument', qty: [1, 2] },
+  { tx: 12, ty: 27, loot: 'altaverdeDocument', qty: [1, 2] },
+  { tx: 26, ty: 27, loot: 'altaverdeDocument', qty: [1, 2] },
+];
+
+function _stampRuinsInteriorNodes() {
+  for (const spot of RU_NODE_SPOTS) {
+    const key = 'ru:' + spot.tx + ',' + spot.ty;
+    if (JG_RUINS_NODES[key]) continue;
+    JG_RUINS_NODES[key] = { ...spot, depleted: false, respawnDay: 0 };
+  }
+}
+_stampRuinsInteriorNodes();
+
+// Build them alongside the surface ones, for a map built after this point too.
+(function _patchRuinsBuildForInteriorNodes() {
+  const _orig = window._stampRuinsSalvageNodes || _stampRuinsSalvageNodes;
+  window._stampRuinsSalvageNodes = function() {
+    _orig();
+    _stampRuinsInteriorNodes();
+  };
+})();
+
+// Interior lookup uses the 'ru:' namespace; the surface keeps plain keys.
+(function _patchNearbyRuinsNodeForInterior() {
+  const _orig = window._getNearbyRuinsNode || _getNearbyRuinsNode;
+  window._getNearbyRuinsNode = function() {
+    if (!gameState.inRuins) return _orig();
+    const ptx = Math.floor(player.x / RU_T);
+    const pty = Math.floor(player.y / RU_T);
+    const offs = [[0,0],[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+    for (const [dx, dy] of offs) {
+      const key = 'ru:' + (ptx + dx) + ',' + (pty + dy);
+      const node = JG_RUINS_NODES[key];
+      if (node && !node.depleted) return { key, node };
+    }
+    return null;
+  };
+})();
+
+// The interior [E] never reached the gather loop. Slice 15 wired ruins
+// gathering in a wrapper whose first line is `if (!gameState.inJungle) return
+// false`, and installed it AFTER the wrapper that handles the ruins zone — so
+// inside the ruins, where inJungle is false, the outer wrapper bailed and the
+// inner one was never called. That is the other half of why the interior was
+// dead: even with nodes addressable, nothing asked for them.
+(function _patchJGInteractForRuinsInterior() {
+  const _orig = window._handleJGInteraction || _handleJGInteraction;
+  window._handleJGInteraction = function() {
+    if (!gameState.inRuins) return _orig();
+    const node = _getNearbyRuinsNode();
+    if (node) return _gatherRuinsNode(node.key);
+    return _orig();   // ASCEND and the rest of the ruins chain still run
+  };
+})();
+
+// Respawn. Slice 15 wrote respawnDay on every depleted node and nothing read
+// it; a finite Archive is a soft lock for a quest that wants eight documents.
+function _tickRuinsNodeRespawn() {
+  for (const key in JG_RUINS_NODES) {
+    const n = JG_RUINS_NODES[key];
+    if (n.depleted && n.respawnDay && gameState.day >= n.respawnDay) {
+      n.depleted = false;
+      n.respawnDay = 0;
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// § THE FILING
+// ─────────────────────────────────────────────────────────────────────────────
+function canOpenFiling() {
+  return typeof isThreeWayClaimOpen === 'function' && isThreeWayClaimOpen();
+}
+
+function fileBondContest() {
+  if (!canOpenFiling())              { showMsg('⚓ Tobias: "Three claimants or it\'s a complaint, not a contest."'); return false; }
+  if (gameState._filingStage !== 0)  { _renderTobiasDockPanel(); return false; }
+
+  const docs = countItem('altaverdeDocument');
+  if (docs < FILING_DOCS_REQ) {
+    showMsg(`⚓ Tobias: "${docs} of ${FILING_DOCS_REQ}. A contest is only as good as its exhibits."`);
+    return false;
+  }
+  if (player.gold < FILING_FEE) {
+    showMsg(`⚓ Tobias: "Six thousand. Filing costs money — that's the whole design of it."`);
+    return false;
+  }
+
+  // ── COMMIT ──────────────────────────────────────────────────────────────
+  removeItem('altaverdeDocument', FILING_DOCS_REQ);
+  player.gold -= FILING_FEE;
+  gameState._filingStage    = 1;
+  gameState._filingFiledDay = gameState.day;
+  gameState._filingWeekSeen = 0;
+  jungleTalkSeen.add('bond_contest_filed');
+  gainRep('jungle', 10);
+  // ── /COMMIT ─────────────────────────────────────────────────────────────
+
+  const beats = [
+    [0,     '⚓ He counts the documents twice. Writes a number on the top sheet.'],
+    [3400,  '⚓ Tobias: "Eight exhibits, three claimants, one dated promise they signed themselves."'],
+    [7000,  '⚓ "I\'ll run it out myself. Not trusting this to the regular freight."'],
+    [10600, '⚓ "Six weeks for review. That\'s not them stalling, that\'s just how long it takes."'],
+    [14200, '⚓ "And the second they stamp it received, enforcement stays. No interest. No minimums."'],
+    [17800, '⚓ "They can\'t compound a debt they\'re defending in front of a clerk."'],
+    [21400, `✓ The Land Restoration Bond is under contest. Enforcement stayed, ${FILING_WEEKS} weeks to ruling.`],
+  ];
+  beats.forEach(([d, m]) => setTimeout(() => showMsg(m, 4200), d));
+  _renderTobiasDockPanel();
+  return true;
+}
+window.fileBondContest = fileBondContest;
+
+// ── The stay of enforcement ──────────────────────────────────────────────────
+// While the contest is live the bond does not compound. The dawn tick still
+// generates the week's bill so the schedule stays continuous — what stops is
+// the 5% daily interest on overdue minimums and the payment nagging, which is
+// exactly what a stay of enforcement is.
+//
+// It holds after the ruling as well, and must: the ruling strikes the
+// extraction portion and leaves a levy payable at leisure, but
+// generateJGWeeklyBills keeps minting week-N minimums from the ORIGINAL
+// schedule, each one already past its due day and so compounding at 5% daily
+// the moment enforcement resumes. Left alone that drove the levy back to the
+// interest ceiling within three weeks of the win. The weekly minimum is a
+// feature of the bond that was struck; it does not survive it.
+(function _patchDebtDawnForStay() {
+  const _orig = window._tickJungleDebtDawn || _tickJungleDebtDawn;
+  window._tickJungleDebtDawn = function() {
+    if (gameState._filingStage === 0) { _orig(); return; }
+    if (typeof gameState._jgDebt === 'undefined') return;
+    generateJGWeeklyBills(gameState.day);
+    // Not enforceable — neither while the contest is live nor after it is won.
+    for (const bill of jgWeeklyBills) if (!bill.paid) bill.paid = true;
+  };
+})();
+
+// ── The review clock ─────────────────────────────────────────────────────────
+const FILING_WEEK_BEATS = [
+  '⚓ Week 1 — Tobias: "Received and stamped. That\'s the part I was worried about."',
+  '⚓ Week 2 — Kit: "Altaverde filed a response. Malu read it. She says it\'s mostly adjectives."',
+  '💀 Week 3 — Hessa\'s people confirm the land promise is authenticated. The signature holds.',
+  '🏛 Week 4 — The Court are named in the filing. Nobody can explain to the clerk what they are.',
+  '⚓ Week 5 — Tobias: "They offered a settlement. Kit told them to wait for the ruling."',
+];
+
+function _tickBondContest() {
+  if (gameState._filingStage !== 1) return;
+  const weeks = getFilingWeeksElapsed();
+
+  // Weekly beats. _filingWeekSeen is a HIGH-WATER MARK of what has been shown,
+  // not a counter of days, so a reload replays nothing and skips nothing.
+  while (gameState._filingWeekSeen < Math.min(weeks, FILING_WEEKS - 1)) {
+    gameState._filingWeekSeen++;
+    const line = FILING_WEEK_BEATS[gameState._filingWeekSeen - 1];
+    if (line) showMsg(line, 5000);
+  }
+
+  if (weeks >= FILING_WEEKS) _deliverBondRuling();
+}
+
+function _deliverBondRuling() {
+  if (gameState._filingStage !== 1) return;
+
+  const faceDebt  = getJGTotalDebt();
+  const levy      = Math.round(JG_DEBT_TOTAL * FILING_LEVY_SHARE);
+  const struck    = Math.max(0, faceDebt - levy);
+
+  // ── COMMIT ──────────────────────────────────────────────────────────────
+  gameState._filingStage = 2;
+  jungleTalkSeen.add('bond_ruling_delivered');
+  jungleTalkSeen.add('ruling_notify_kit');
+
+  if (faceDebt > levy) {
+    gameState._jgDebt = levy;
+    // The stayed minimums die with the extraction portion. Bills already
+    // settled stay settled; what is left is the levy, payable at leisure.
+    for (const bill of jgWeeklyBills) if (!bill.paid) bill.paid = true;
+  } else {
+    // Bond already paid down past the levy — the ruling pays back instead.
+    player.gold += FILING_RESTITUTION;
+  }
+  gainRep('jungle', 30);
+  gainRep('hollowed', 15);
+  // ── /COMMIT ─────────────────────────────────────────────────────────────
+
+  const beats = faceDebt > levy ? [
+    [0,     '⚓ Tobias comes up the dock at a pace nobody has seen him move at.'],
+    [3600,  '⚓ "Ruling." He is out of breath. "It\'s a ruling."'],
+    [7400,  '📋 The Land Restoration Bond is struck in part.'],
+    [11000, '📋 The extraction portion — what Altaverde billed for clearing the land they cleared for themselves — is void.'],
+    [14800, `📋 $${struck.toLocaleString()} struck. What stands is restoration: $${levy.toLocaleString()}, owed to the ground rather than the company.`],
+    [18600, '⚓ Tobias: "They can appeal. They will appeal. But they have to appeal from behind now."'],
+    [22400, '🌿 Kit will want to hear this from you.'],
+  ] : [
+    [0,     '⚓ Tobias comes up the dock at a pace nobody has seen him move at.'],
+    [3600,  '⚓ "Ruling." He is out of breath. "It\'s a ruling."'],
+    [7400,  '📋 The extraction portion of the Bond is void — and you already paid it.'],
+    [11000, `📋 $${FILING_RESTITUTION.toLocaleString()} in restitution. Altaverde pays it without comment, which is its own kind of answer.`],
+    [14800, '⚓ Tobias: "Money back off a company. I\'ve heard of it. Never watched it."'],
+    [18600, '🌿 Kit will want to hear this from you.'],
+  ];
+  beats.forEach(([d, m]) => setTimeout(() => showMsg(m, 4600), d));
+
+  if (typeof updateDebtClock === 'function') updateDebtClock();
+  _renderTobiasDockPanel();
+}
+window._deliverBondRuling = _deliverBondRuling;
+
+(function _patchOnNewDayForFiling() {
+  const _orig = window.onNewDay || onNewDay;
+  window.onNewDay = function() {
+    _orig();
+    _tickRuinsNodeRespawn();
+    _tickBondContest();
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// § THE FILING TAB — Tobias's dock panel
+// The original rebuilds its whole innerHTML, so the tab button is inserted
+// after it renders rather than woven into it, and the filing body replaces the
+// content below the tab row. If the panel's markup ever changes shape the
+// button goes missing, which is why test_slice19.py asserts it is there.
+// ─────────────────────────────────────────────────────────────────────────────
+function _filingTabButtonHTML() {
+  const on = window._jgPanelTab === 'filing';
+  const live = gameState._filingStage === 1;
+  const label = gameState._filingStage === 2 ? 'RULING' : live ? 'CONTEST ⏳' : 'FILE CONTEST';
+  return `<button onclick="window._jgPanelTab='filing';_renderTobiasDockPanel()" style="padding:4px 10px;font-size:9px;font-family:'Special Elite',serif;cursor:pointer;border:1px solid rgba(140,120,200,${on?'.6':'.25'});background:rgba(140,120,200,${on?'.15':'.04'});color:${on?'#b0a0e0':'#605080'};border-radius:0;">${label}</button>`;
+}
+
+function _filingBodyHTML() {
+  const docs = countItem('altaverdeDocument');
+  const stage = gameState._filingStage;
+
+  if (stage === 2) {
+    const levy = getJGTotalDebt();
+    return `
+      <div style="font-size:9px;color:#8070b0;margin-bottom:6px;letter-spacing:.04em">RULING DELIVERED</div>
+      <div style="background:rgba(140,120,200,.06);border:1px solid rgba(140,120,200,.2);padding:8px 10px;margin-bottom:8px;">
+        <div style="font-size:10px;color:#b0a0e0;line-height:1.7;">The extraction portion of the Land Restoration Bond is void. Three claimants on the record: the settlement, the Hollowed, and what was here before either.</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:#a08060;padding:3px 0;">
+        <span>Restoration levy outstanding</span><span style="color:#c0d060;">$${levy.toLocaleString()}</span>
+      </div>
+      <div style="font-size:9px;color:#605030;margin-top:6px;line-height:1.6;">Owed to the ground rather than the company. Pay it at the BOND PAYMENT tab, in your own time.</div>`;
+  }
+
+  if (stage === 1) {
+    const weeks = Math.min(getFilingWeeksElapsed(), FILING_WEEKS);
+    const left  = Math.max(0, FILING_WEEKS - weeks);
+    const pct   = Math.round((weeks / FILING_WEEKS) * 100);
+    return `
+      <div style="font-size:9px;color:#8070b0;margin-bottom:6px;letter-spacing:.04em">UNDER REVIEW — ENFORCEMENT STAYED</div>
+      <div style="height:6px;background:rgba(140,120,200,.1);border:1px solid rgba(140,120,200,.25);margin-bottom:8px;">
+        <div style="height:100%;width:${pct}%;background:rgba(160,140,220,.5);"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:#a08060;padding:3px 0;">
+        <span>Week ${weeks} of ${FILING_WEEKS}</span>
+        <span style="color:#b0a0e0;">${left === 0 ? 'ruling imminent' : left + ' week' + (left === 1 ? '' : 's') + ' to ruling'}</span>
+      </div>
+      <div style="font-size:9px;color:#607050;margin-top:8px;line-height:1.7;">No interest accrues and no minimum falls due while the contest is live. Altaverde cannot compound a debt they are defending.</div>`;
+  }
+
+  const okDocs = docs >= FILING_DOCS_REQ;
+  const okGold = player.gold >= FILING_FEE;
+  const ready  = okDocs && okGold;
+  return `
+    <div style="font-size:9px;color:#8070b0;margin-bottom:6px;letter-spacing:.04em">CONTEST THE BOND</div>
+    <div style="font-size:9px;color:#607050;margin-bottom:8px;line-height:1.7;">Three claimants are on the record. A contest needs exhibits and a filing fee. Six weeks of review, and enforcement stays the day it is stamped.</div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid rgba(140,120,200,.1);">
+      <span style="color:#90c890;">📄 Altaverde Documents</span>
+      <span style="color:${okDocs?'#80d060':'#e06040'};">${docs} / ${FILING_DOCS_REQ}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid rgba(140,120,200,.1);">
+      <span style="color:#90c890;">💰 Filing costs</span>
+      <span style="color:${okGold?'#80d060':'#e06040'};">$${player.gold.toLocaleString()} / $${FILING_FEE.toLocaleString()}</span>
+    </div>
+    <button id="fileContestBtn" onclick="fileBondContest()" ${ready?'':'disabled'} style="margin-top:10px;width:100%;padding:6px;font-size:9px;font-family:'Special Elite',serif;cursor:pointer;background:rgba(140,120,200,${ready?'.14':'.04'});border:1px solid rgba(140,120,200,${ready?'.5':'.15'});color:${ready?'#b0a0e0':'#504060'};border-radius:0;">FILE THE CONTEST</button>
+    <div style="font-size:9px;color:#504030;margin-top:8px;line-height:1.6;">Paper is in the ruins Archive, past the processing floor.</div>`;
+}
+
+(function _patchTobiasPanelForFiling() {
+  const _orig = window._renderTobiasDockPanel || _renderTobiasDockPanel;
+  window._renderTobiasDockPanel = function() {
+    _orig();
+    if (!_tobiasPanelOpen || !canOpenFiling()) return;
+    const ov = document.getElementById('hcTalkOverlay');
+    if (!ov) return;
+
+    const bondBtn = ov.querySelector('button[onclick*="bank"]');
+    if (bondBtn) bondBtn.insertAdjacentHTML('afterend', _filingTabButtonHTML());
+
+    if (window._jgPanelTab !== 'filing') return;
+
+    // The original treats any tab it does not recognise as SELL, so with
+    // 'filing' active it draws the SELL button lit as well. Two lit tabs is a
+    // worse bug than it looks — it is the only thing telling the player which
+    // panel they are reading. Put SELL back to its inactive styling.
+    const sellBtn = ov.querySelector('button[onclick*="=\'sell\'"]');
+    if (sellBtn) {
+      sellBtn.style.border     = '1px solid rgba(80,160,60,.25)';
+      sellBtn.style.background = 'rgba(80,160,60,.04)';
+      sellBtn.style.color      = '#506040';
+    }
+
+    // Children are [header, tab row, ...body]. Drop the body the original drew
+    // for its fallback tab and put the filing in its place.
+    while (ov.children.length > 2) ov.removeChild(ov.lastChild);
+    ov.insertAdjacentHTML('beforeend', _filingBodyHTML());
+  };
+})();
+
+// Tobias mentions it once, unprompted, so the tab is not something to discover.
+(function _patchTalkForFilingNudge() {
+  const _orig = window.openJGTalk || openJGTalk;
+  window.openJGTalk = function(npcId) {
+    if (npcId === 'jg_tobias' && canOpenFiling() && gameState._filingStage === 0
+        && !jungleTalkSeen.has('tobias_filing_nudge')) {
+      jungleTalkSeen.add('tobias_filing_nudge');
+      showMsg('⚓ Tobias: "Right. Paper problem." He clears the crate he uses as a desk.');
+      setTimeout(() => showMsg(`⚓ "Bring me ${FILING_DOCS_REQ} of their own documents out of that Archive and $${FILING_FEE.toLocaleString()} for the clerk. I\'ll do the rest."`), 3600);
+    }
+    _orig(npcId);
+  };
+})();
+
+// ── Kit, after the ruling ────────────────────────────────────────────────────
+(function _patchTalkForRulingAftermath() {
+  const _orig = window.openJGTalk || openJGTalk;
+  window.openJGTalk = function(npcId) {
+    if (npcId === 'jg_kit' && jungleTalkSeen.has('ruling_notify_kit')
+        && !jungleTalkSeen.has('kit_heard_ruling')) {
+      const ov = document.getElementById('hcTalkOverlay');
+      if (!ov) { _orig(npcId); return; }
+      jungleTalkSeen.add('kit_heard_ruling');
+      jgTalkOpen = true; jgActiveTalk = npcId;
+      ov.innerHTML = `
+        <div style="font-size:var(--ui-font-sm);color:#70c878;margin-bottom:6px;">🌿 Kit</div>
+        <div style="font-size:var(--ui-font-xs);color:#90b870;white-space:pre-line;line-height:1.6;margin-bottom:10px;">She doesn't say anything for a while. She's sitting on the step of the lodge with the ruling in her hands, and she's read it enough times that the fold is going soft.
+
+"I keep looking for the part where it's a trick."
+
+She turns a page she's already read.
+
+"Six years I've been paying a bill for the privilege of fixing what they broke. Every week. And a clerk in a city I've never been to read eight of their own memos and a promise they signed and said — no, actually, that part isn't a debt."
+
+She looks up.
+
+"It's not over. The levy's real, and the soil's real, and they'll appeal." A pause. "But the appeal is theirs to make now. That's different. That's completely different."
+
+She folds the ruling carefully and puts it inside her coat.
+
+"Malu wants to tell the Court herself. She's been waiting fifty years to hand them a piece of paper with their name on it."</div>
+        <button onclick="closeJGTalk()" style="display:block;width:100%;text-align:left;padding:6px 10px;font-size:var(--ui-font-xs);font-family:'Special Elite',serif;cursor:pointer;background:rgba(255,255,255,.02);border:1px solid rgba(80,180,80,.28);border-radius:0;color:#78c888;">"Let her."</button>`;
+      ov.style.display = 'block';
+      ov.scrollTop = 0;
+      return;
+    }
+    _orig(npcId);
+  };
+})();
+
+// ── Save / load ──────────────────────────────────────────────────────────────
+// Ruins node state is persisted here for the first time. Without it a reload
+// restored every depleted node, so anything counted in ruins loot — the
+// filing's eight documents, the Court's six salvage — could be farmed by
+// pressing load.
+(function _patchSaveForFiling() {
+  const _orig = window.getSaveData || getSaveData;
+  window.getSaveData = function() {
+    const d = _orig();
+    d.filingStage    = gameState._filingStage;
+    d.filingFiledDay = gameState._filingFiledDay;
+    d.filingWeekSeen = gameState._filingWeekSeen;
+    d.ruinsNodes     = Object.keys(JG_RUINS_NODES).map(k => {
+      const n = JG_RUINS_NODES[k];
+      return n.depleted ? [k, n.respawnDay || 0] : null;
+    }).filter(Boolean);
+    return d;
+  };
+})();
+
+setTimeout(function _patchLoadForFiling() {
+  const _orig = window.loadGame;
+  if (typeof _orig !== 'function') return;
+  window.loadGame = function(slot) {
+    _orig.call(this, slot);
+    try {
+      const s = slot || window._activeSaveSlot || 1;
+      const raw = localStorage.getItem('dustAndHarvest_save_' + s);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      gameState._filingStage    = d.filingStage    || 0;
+      gameState._filingFiledDay = d.filingFiledDay || 0;
+      gameState._filingWeekSeen = d.filingWeekSeen || 0;
+
+      // Always rebuild the table's depleted state from the save, so loading a
+      // save where a node was full un-depletes it too.
+      _stampRuinsInteriorNodes();
+      for (const k in JG_RUINS_NODES) { JG_RUINS_NODES[k].depleted = false; JG_RUINS_NODES[k].respawnDay = 0; }
+      if (Array.isArray(d.ruinsNodes)) {
+        for (const [k, rd] of d.ruinsNodes) {
+          if (!JG_RUINS_NODES[k]) continue;
+          JG_RUINS_NODES[k].depleted   = true;
+          JG_RUINS_NODES[k].respawnDay = rd || 0;
+        }
+      }
+      _tickRuinsNodeRespawn();
+    } catch(e) {}
+  };
+}, 0);
+
+(function _patchStartNewGameForFiling() {
+  const _orig = window.startNewGame || startNewGame;
+  window.startNewGame = function() {
+    _orig();
+    gameState._filingStage    = 0;
+    gameState._filingFiledDay = 0;
+    gameState._filingWeekSeen = 0;
+    _stampRuinsInteriorNodes();
+    for (const k in JG_RUINS_NODES) { JG_RUINS_NODES[k].depleted = false; JG_RUINS_NODES[k].respawnDay = 0; }
+  };
+})();
+
+// End § JUNGLE ZONE — Slice 19
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // § SAVE BACKUP — auto-backup slot, saveKey/backupKey

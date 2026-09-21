@@ -13,6 +13,7 @@ rejected and why.
 ./tools/test_play.py                # does it still play? (non-zero on failure)
 ./tools/test_play.py dist/dust-and-harvest.html    # ...and does the SHIPPED file?
 ./tools/test_slice18.py             # does the Verdant Court quest still work?
+./tools/test_slice19.py             # does the bond contest still work?
 ./tools/audit_seams.py              # does a zone show its own tile grid?
 ./tools/tile_sheet.py               # every tile type of every zone, side by side
 ```
@@ -35,6 +36,16 @@ until the reload; Slice 18 fixes that and this is what holds it fixed. Verified
 in both directions: with `d.inDeepJungle` forced false it fails the
 mid-objective checkpoint, and with the hand-over's stage guard loosened it
 fails on a second Court's Mark.
+
+`test_slice19.py` is the same shape for the bond contest, with one addition
+that earned its place: it GATHERS the quest items through the real node loop
+rather than calling addItem. Slice 19 asks for eight Altaverde Documents, and
+that item had been defined, priced and listed as sellable since Slice 15 while
+being dropped by nothing anywhere in the game. A test that grants itself the
+goods cannot see that, and this one failed on its first run for exactly that
+reason — along with a ruins interior whose gather loop could never fire, and a
+levy that climbed back to the interest ceiling three weeks after the player
+won. All three were found by the test rather than by reading the code.
 
 `test_play.py` boots a new game, walks about with the real frame loop running,
 opens every modal panel, visits every zone, and fails on any uncaught error. It
