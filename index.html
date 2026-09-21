@@ -37165,6 +37165,552 @@ window._drawJGNPC = function _drawJGNPC(npc, sx, sy, ctx) {
 // End § JUNGLE ZONE — Visual Polish
 
 // ─────────────────────────────────────────────────────────────────────────────
+// § JUNGLE ZONE — Slice 18: The Verdant Court
+//
+//   THE BOUNDARY, written down before any of it was built.
+//
+//   What Slice 17 leaves behind, and what this slice is allowed to assume:
+//     - Hollowed allied        gameState._hollowedQuestStage === 4,
+//                              getHollowedState() === 'allied'   (Slice 16)
+//     - Kit's closing line in Slice 16 is the hand-off: "Now we have to find
+//       the Verdant Court. Malu has a way. I'll ask her."
+//     - Deep jungle reachable  DESCEND at (39–41, JG_H-2), enterDeepJungle()
+//     - Ancient Court chamber  built by _buildAncientCourtZone(), x:2–16
+//                              y:42–54, doorway east at (16,47)/(16,48)
+//     - Ruins salvage loop     altaverdeSalvage from JG_RUINS_NODES (Slice 15)
+//     - _tryCourtEmissaryEncounter() — a Slice 17 STUB this slice replaces.
+//
+//   What STARTS it:   talking to Malu once the Hollowed are allied. She hands
+//                     over a witness token — the thing that stops the Court
+//                     reading you as Altaverde. Stage 0 → 1.
+//   What the player must DO: carry the token into the chamber (stage 1 → 2,
+//                     the Court states its terms), then bring SIX Altaverde
+//                     Equipment out of the ruins and into the chamber. The
+//                     Court does not accept a promise to dismantle; it accepts
+//                     the dismantling, already begun, carried in by hand.
+//   What COMPLETES it: the hand-over. Stage 2 → 3, _courtAllied = true, the
+//                     Court's Mark in the bag, and the three-way claim exists.
+//   What it UNLOCKS:  isThreeWayClaimOpen() — Hollowed allied AND Court
+//                     allied. That is Slice 19's gate, and nothing here reads
+//                     it, so 19 can be built without touching this block.
+//
+//   REACHABILITY — the two failure modes this was written against:
+//     1. The chamber is walkable from the moment Slice 17 ships; a player can
+//        stand in it at week 2 with no Hollowed alliance. So the emissary is
+//        gated on _courtStage >= 1, NOT on standing in the room. Early
+//        arrivals get the presence ambience Slice 17's stub gave them and
+//        nothing else — which is the correct story beat anyway.
+//     2. Slice 17 fired the stub behind jungleTalkSeen 'court_zone_entered',
+//        a FIRST-ENTRY-ONLY flag. A player who wandered in before the quest
+//        existed would never see the emissary again. The encounter is driven
+//        from a proximity tick now, so every visit re-checks.
+//
+//   RELOAD SAFETY — every state change that matters is committed
+//   SYNCHRONOUSLY, in one block, before any setTimeout runs. The delayed
+//   calls here carry TEXT ONLY. (Slice 16 commits the Hollowed alliance 38
+//   seconds of setTimeout after the item leaves the bag; a reload inside that
+//   window eats the document. Not repeated here.)
+//
+//   Also fixed here, because Slice 18 happens in the deep jungle and could not
+//   be called reload-safe while the zone it lives in was not: inDeepJungle and
+//   the deep-map player position were never saved. See § DEEP JUNGLE
+//   PERSISTENCE at the end of this block.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── State ─────────────────────────────────────────────────────────────────────
+// _courtStage: 0 = not started        (Malu has not been asked)
+//              1 = token carried      (emissary will appear)
+//              2 = terms stated       (six salvage owed)
+//              3 = allied             (terminal)
+if (typeof gameState._courtStage  === 'undefined') gameState._courtStage  = 0;
+if (typeof gameState._courtAllied === 'undefined') gameState._courtAllied = false;
+
+const COURT_SALVAGE_REQ = 6;
+
+// Emissary stands inside the chamber, west of the doorway, on the y:48 line the
+// entrance path runs along. Verified ANCIENT_FLOOR and not a pillar: the
+// interior pillar test at this tile is ((4*1301 + 6*1103) & 0xFFFF) / 65535 =
+// 0.18, and pillars need < 0.06.
+const COURT_EMIS_TX = 6, COURT_EMIS_TY = 48;
+
+// ── Items ─────────────────────────────────────────────────────────────────────
+if (!ITEMS.courtToken) ITEMS.courtToken = {
+  name: 'Witness Token', icon: '🜂', type: 'key', weight: .1, stack: 1,
+  desc: 'Malu\'s. Carved, worn smooth, older than the settlement. It says you '
+      + 'are not the company. Carry it where the Court can see it.',
+};
+if (!ITEMS.courtMark) ITEMS.courtMark = {
+  name: 'The Court\'s Mark', icon: '🜎', type: 'key', weight: .1, stack: 1,
+  desc: 'Given, not taken. The deep jungle reads it. Proof the three-way claim '
+      + 'has a third party.',
+};
+
+// ── Public: the Slice 19 gate ─────────────────────────────────────────────────
+// Deliberately the only thing later slices need to read.
+function isThreeWayClaimOpen() {
+  return getHollowedState() === 'allied' && gameState._courtAllied === true;
+}
+window.isThreeWayClaimOpen = isThreeWayClaimOpen;
+
+// ── Step A: Malu hands over the token ────────────────────────────────────────
+// Prerequisite is the Hollowed alliance — an earlier save cannot reach this
+// node, because _hollowedQuestStage only reaches 4 through Hessa's delivery.
+function _maluCanOfferCourt() {
+  if (getHollowedState() !== 'allied') return false;
+  if (gameState._courtStage === 0) return true;
+  // Re-issue: the token is a key item, but a player can still lose one by
+  // wrecking the save or by a future slice consuming it. Without this the
+  // quest soft-locks at stage 1 with no way to be seen by the Court.
+  if (gameState._courtStage === 1 && countItem('courtToken') === 0) return true;
+  return false;
+}
+
+function _maluGrantCourtToken() {
+  if (!_maluCanOfferCourt()) { closeJGTalk(); return; }
+  const reissue = gameState._courtStage === 1;
+
+  // Bag check BEFORE any state moves. addItem returns what it actually took.
+  if (addItem('courtToken', 1) < 1) {
+    closeJGTalk();
+    showMsg('🌿 Malu waits, token in hand. Your bag has no room for it.');
+    return;
+  }
+
+  gameState._courtStage = 1;
+  jungleTalkSeen.add('court_token_given');
+  closeJGTalk();
+  if (reissue) {
+    showMsg('🌿 Malu: "Again, then. Don\'t lose this one."');
+  } else {
+    showMsg('🜂 Witness Token. Carry it into the deep jungle — the ancient stonework, west of the formation.');
+    setTimeout(() => showMsg('🌿 Malu: "They will come to you. Don\'t go to them."'), 3200);
+  }
+}
+window._maluGrantCourtToken = _maluGrantCourtToken;
+
+(function _patchMaluForCourt() {
+  const _orig = window.openJGTalk || openJGTalk;
+  window.openJGTalk = function(npcId) {
+    if (npcId !== 'jg_malu' || !_maluCanOfferCourt()) { _orig(npcId); return; }
+
+    const ov = document.getElementById('hcTalkOverlay');
+    if (!ov) { _orig(npcId); return; }
+    jgTalkOpen   = true;
+    jgActiveTalk = npcId;
+
+    const reissue = gameState._courtStage === 1;
+    const text = reissue
+      ? `She looks at your hands. Then at your face.\n"You don't have it."\nShe doesn't ask what happened. She reaches into the fold of her wrap and takes out another one — which means there was always another one.\n"They're patient. They're not indulgent."`
+      : `She's already looking at you when you come up the path. Like she knew the day this would be the conversation.\n"Kit told me. About Hessa, and the paper."\nA long pause. She's deciding something.\n"Then it's three, or it's nothing. Two groups is a dispute. Three is a claim."\nShe reaches into the fold of her wrap.\n"The Court doesn't speak the way you're hoping. Don't prepare anything. Don't explain yourself — you'll be explaining to something that watched the trees come up."\nShe holds out a carved token, worn nearly featureless.\n"Take this where they can see it. It says you're not the company. That's all it says. Everything after that is on you."`;
+
+    ov.innerHTML = `
+      <div style="font-size:var(--ui-font-sm);color:#70c878;margin-bottom:8px;letter-spacing:.06em">🌿 Malu · Elder</div>
+      <div style="font-size:var(--ui-font-xs);color:#a0c8a0;line-height:1.75;margin-bottom:12px;white-space:pre-wrap;border-left:2px solid rgba(80,180,80,.28);padding-left:9px;">${text}</div>
+      <button onclick="_maluGrantCourtToken()" style="display:block;width:100%;text-align:left;padding:6px 10px;margin-bottom:4px;font-size:var(--ui-font-xs);font-family:'Special Elite',serif;cursor:pointer;background:rgba(255,255,255,.02);border:1px solid rgba(80,180,80,.28);border-radius:0;color:#78c888;">"Where do I find them?"</button>
+      <button onclick="closeJGTalk()" style="margin-top:8px;width:100%;font-size:var(--ui-font-xs);padding:5px;font-family:'Special Elite',serif;cursor:pointer;background:rgba(10,20,10,.5);border:1px solid rgba(60,120,60,.3);color:#507050;border-radius:0;">LEAVE [E]</button>`;
+    ov.style.display = 'block';
+    ov.scrollTop = 0;
+  };
+})();
+
+// ── Step B: the emissary ─────────────────────────────────────────────────────
+function _courtEmissaryPresent() {
+  // Stage 1+ only. Before that the chamber is empty and the player gets the
+  // presence ambience — see REACHABILITY note 1 above.
+  return gameState.inDeepJungle && gameState._courtStage >= 1;
+}
+
+function _courtPlayerDistTiles() {
+  const ptx = player.x / DJ_T, pty = player.y / DJ_T;
+  const dx = ptx - (COURT_EMIS_TX + 0.5), dy = pty - (COURT_EMIS_TY + 0.5);
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function _courtPlayerNear(r) { return _courtPlayerDistTiles() <= r; }
+
+// Throttle so proximity hints do not fire once per frame.
+let _courtHintAt = 0;
+function _courtHint(msg) {
+  const now = Date.now();
+  if (now - _courtHintAt < 9000) return;
+  _courtHintAt = now;
+  showMsg(msg);
+}
+
+// Terms. Committed synchronously; the later beats are text only.
+function _courtStateTerms() {
+  if (gameState._courtStage !== 1) return;
+  gameState._courtStage = 2;
+  jungleTalkSeen.add('court_terms_given');
+
+  const beats = [
+    [0,     '🏛 It does not approach. The distance between you simply becomes smaller.'],
+    [3200,  '🏛 The token is warm in your hand. You did not warm it.'],
+    [6600,  '🏛 "Not-the-company." Not a voice. The words arrive already understood.'],
+    [10000, '🏛 "The structure at the forest edge is still standing."'],
+    [13400, '🏛 "It was built on a floor that was already a floor."'],
+    [16800, '🏛 "We are told it will be dismantled. We have been told for eleven years."'],
+    [20200, '🏛 A pause that has nothing nervous in it.'],
+    [23600, `🏛 "Bring us ${COURT_SALVAGE_REQ} pieces of it. Out of the ground, in your hands, here."`],
+    [27000, '🏛 "Not a promise. A weight."'],
+  ];
+  beats.forEach(([d, m]) => setTimeout(() => showMsg(m, 4200), d));
+  setTimeout(() => {
+    if (gameState._courtStage === 2)
+      showMsg(`🏛 The Court waits. Salvage the Altaverde ruins and carry ${COURT_SALVAGE_REQ}× Altaverde Equipment into the chamber.`, 5000);
+  }, 30500);
+}
+
+// Replaces the Slice 17 stub outright. Still called from Slice 17's
+// first-entry hook, and now also from the proximity tick below.
+window._tryCourtEmissaryEncounter = function() {
+  if (!gameState.inDeepJungle) return;
+
+  if (gameState._courtStage === 0) {
+    // Pre-quest ambience — the Slice 17 stub's beat, kept.
+    if (jungleTalkSeen.has('court_presence_seen')) return;
+    jungleTalkSeen.add('court_presence_seen');
+    setTimeout(() => showMsg('🏛 At the far end of the chamber, something watches. It doesn\'t move. It doesn\'t threaten. It waits.'), 1500);
+    setTimeout(() => showMsg('🏛 The Court has been here longer than anyone. They already know what you\'ve done. Whatever this is, you have nothing to say to it yet.'), 6000);
+    return;
+  }
+
+  if (gameState._courtStage === 1) {
+    if (countItem('courtToken') < 1) {
+      _courtHint('🏛 Something at the far end of the chamber declines to resolve. You are carrying nothing it recognises. Malu had a token.');
+      return;
+    }
+    _courtStateTerms();
+    return;
+  }
+};
+
+// Proximity tick — hooked into deep-jungle movement so every visit re-checks.
+function _courtProximityTick() {
+  if (!gameState.inDeepJungle) return;
+  if (!_courtPlayerNear(5)) return;
+
+  if (gameState._courtStage <= 1) { _tryCourtEmissaryEncounter(); return; }
+
+  if (gameState._courtStage === 2 && _courtPlayerNear(3)) {
+    const have = countItem('altaverdeSalvage');
+    _courtHint(have >= COURT_SALVAGE_REQ
+      ? `🏛 [E] — hand over ${COURT_SALVAGE_REQ}× Altaverde Equipment.`
+      : `🏛 It waits. ${have}/${COURT_SALVAGE_REQ} Altaverde Equipment.`);
+  }
+}
+
+(function _patchDeepMovementForCourt() {
+  const _orig = window.updateDeepJungleMovement || updateDeepJungleMovement;
+  window.updateDeepJungleMovement = function(dx, dy, dt, spd) {
+    _orig(dx, dy, dt, spd);
+    _courtProximityTick();
+  };
+})();
+
+// ── Step C: the hand-over ────────────────────────────────────────────────────
+// The whole of the state change is in one synchronous block. Nothing below the
+// commit can fail in a way that leaves the salvage gone and the stage behind.
+function _courtDeliverSalvage() {
+  if (gameState._courtStage !== 2) return false;
+  const have = countItem('altaverdeSalvage');
+  if (have < COURT_SALVAGE_REQ) {
+    showMsg(`🏛 ${have}/${COURT_SALVAGE_REQ}. It does not count for you. It simply knows.`);
+    return true; // interaction consumed — the player did talk to it
+  }
+
+  // ── COMMIT ──────────────────────────────────────────────────────────────
+  removeItem('altaverdeSalvage', COURT_SALVAGE_REQ);
+  removeItem('courtToken', 1);          // the token's work is done
+  gameState._courtStage  = 3;
+  gameState._courtAllied = true;
+  jungleTalkSeen.add('court_allied');
+  jungleTalkSeen.add('court_allied_notify_kit');
+  jungleTalkSeen.add('court_allied_notify_tobias');
+  gainRep('jungle', 25);
+  if (typeof gameState._complianceLevel === 'number') {
+    gameState._complianceLevel = Math.max(0, gameState._complianceLevel - 1);
+    if (typeof updateComplianceHUD === 'function') updateComplianceHUD();
+  }
+  // The Court's Mark. If the bag is somehow full the alliance still stands —
+  // the mark is an artefact of it, not the thing itself.
+  addItem('courtMark', 1);
+  // The way through the deep jungle opens: the chamber, the approach and the
+  // formation stop being fog.
+  _revealDeepArea(COURT_EMIS_TX, COURT_EMIS_TY, 16);
+  _revealDeepArea(40, 48, 14);
+  // ── /COMMIT ─────────────────────────────────────────────────────────────
+
+  const beats = [
+    [0,     '🏛 You set it down. Six pieces of a processing floor, carried out by hand.'],
+    [3400,  '🏛 It looks at the pile for a long time. Longer than looking needs.'],
+    [7000,  '🏛 "This was ours before it was theirs. It is not ours again."'],
+    [10600, '🏛 "But it is out of the ground."'],
+    [14200, '🏛 Something changes in the chamber. Not the light. The attention.'],
+    [17800, '🏛 "Three, then. The settlement, the hollowed, and what was here."'],
+    [21400, '🏛 "We will be named on the paper. We have never been named on paper."'],
+    [25000, '🏛 "Finish taking it apart."'],
+    [28600, '✓ The Verdant Court stand with the claim. Three parties. It is contestable now.'],
+  ];
+  beats.forEach(([d, m]) => setTimeout(() => showMsg(m, 4400), d));
+  return true;
+}
+
+function _openCourtDialogue() {
+  if (gameState._courtStage === 2) { _courtDeliverSalvage(); return; }
+
+  // Stage 3 — terminal. Re-talking gives a line and nothing else. No rewards
+  // live on this path, so it is safe to press [E] here for the rest of time.
+  const ov = document.getElementById('hcTalkOverlay');
+  const text = `It is still there. It will be still there.\n"The paper moves slowly."\nA pause with no impatience in it at all.\n"So do we."`;
+  if (!ov) { showMsg('🏛 "The paper moves slowly." A pause. "So do we."'); return; }
+  jgTalkOpen   = true;
+  jgActiveTalk = 'jg_court';
+  ov.innerHTML = `
+    <div style="font-size:var(--ui-font-sm);color:#9ad0a8;margin-bottom:8px;letter-spacing:.06em">🏛 The Verdant Court</div>
+    <div style="font-size:var(--ui-font-xs);color:#a8c8b8;line-height:1.75;margin-bottom:12px;white-space:pre-wrap;border-left:2px solid rgba(120,200,160,.28);padding-left:9px;">${text}</div>
+    <button onclick="closeJGTalk()" style="margin-top:8px;width:100%;font-size:var(--ui-font-xs);padding:5px;font-family:'Special Elite',serif;cursor:pointer;background:rgba(10,20,10,.5);border:1px solid rgba(60,120,60,.3);color:#507050;border-radius:0;">LEAVE [E]</button>`;
+  ov.style.display = 'block';
+  ov.scrollTop = 0;
+}
+window._openCourtDialogue = _openCourtDialogue;
+
+// ── Interaction ──────────────────────────────────────────────────────────────
+(function _patchJGInteractForCourt() {
+  const _orig = window._handleJGInteraction || _handleJGInteraction;
+  window._handleJGInteraction = function() {
+    if (!gameState.inDeepJungle) return _orig();
+
+    if (jgTalkOpen) { closeJGTalk(); return true; }
+    if (_courtEmissaryPresent() && gameState._courtStage >= 2 && _courtPlayerNear(2.5)) {
+      _openCourtDialogue();
+      return true;
+    }
+
+    // Slice 17's handler takes ASCEND here and returns false for anything else.
+    const handled = _orig();
+    if (handled) return true;
+    // Consume it regardless. The dispatcher's next guard is
+    // `if (gameState.inJungle) return;` — which is FALSE in the deep jungle,
+    // so an unhandled [E] down here fell through to the overworld tool
+    // handlers and acted on overworld tiles under the deep-map coordinates.
+    return true;
+  };
+})();
+
+// ── Rendering ────────────────────────────────────────────────────────────────
+// Drawn after the zone renderer so the depth overlay does not mute it — which
+// is right for something self-lit. Tall, narrow, vertical: read as a standing
+// thing without reading as a person.
+(function _patchRenderForCourt() {
+  const _orig = window.renderDeepJungleZone || renderDeepJungleZone;
+  window.renderDeepJungleZone = function() {
+    _orig();
+    if (!_courtEmissaryPresent()) return;
+    const canvas = document.getElementById('gameCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width / ZOOM, H = canvas.height / ZOOM;
+    const cx = player.x - W / 2, cy = player.y - H / 2;
+    const sx = (COURT_EMIS_TX + 0.5) * DJ_T - cx;
+    const sy = (COURT_EMIS_TY + 1)   * DJ_T - cy;
+    if (sx < -80 || sx > W + 80 || sy < -140 || sy > H + 80) return;
+
+    const now = Date.now();
+    const breathe = Math.sin(now * 0.0006);
+    const h = 58 + breathe * 3;
+
+    ctx.save();
+    ctx.scale(ZOOM, ZOOM);
+
+    // Ground glow
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(sx, sy - 6, 0, sx, sy - 6, 54);
+    g.addColorStop(0, `rgba(150, 220, 170, ${0.16 + breathe * 0.04})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(sx - 54, sy - 60, 108, 108);
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Body — a narrow vertical column, wider at the base
+    const grad = ctx.createLinearGradient(0, sy - h, 0, sy);
+    grad.addColorStop(0,   'rgba(190, 235, 200, 0.80)');
+    grad.addColorStop(0.5, 'rgba(90, 160, 120, 0.55)');
+    grad.addColorStop(1,   'rgba(30, 70, 55, 0.30)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(sx,      sy - h);
+    ctx.lineTo(sx + 7,  sy - h * 0.55);
+    ctx.lineTo(sx + 11, sy);
+    ctx.lineTo(sx - 11, sy);
+    ctx.lineTo(sx - 7,  sy - h * 0.55);
+    ctx.closePath();
+    ctx.fill();
+
+    // Interior striations — the wrong number of them, deliberately
+    ctx.strokeStyle = `rgba(210, 245, 215, ${0.22 + breathe * 0.06})`;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+      const t = 0.15 + i * 0.16;
+      ctx.beginPath();
+      ctx.moveTo(sx - 6 * t, sy - h * (1 - t));
+      ctx.lineTo(sx + 6 * t, sy - h * (1 - t) + 2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  };
+})();
+
+// Minimap marker for the chamber, once the Court is worth walking back to.
+(function _patchDeepMinimapForCourt() {
+  const _orig = window._renderDeepMinimap || _renderDeepMinimap;
+  window._renderDeepMinimap = function() {
+    _orig();
+    if (gameState._courtStage < 1) return;
+    const mm = document.getElementById('minimapCanvas');
+    if (!mm) return;
+    const c = mm.getContext('2d');
+    const mx = Math.round((COURT_EMIS_TX + 0.5) * DJ_T * (mm.width  / (DJ_W * DJ_T)));
+    const my = Math.round((COURT_EMIS_TY + 0.5) * DJ_T * (mm.height / (DJ_H * DJ_T)));
+    c.fillStyle = gameState._courtAllied ? '#a8e8b8' : '#e0d080';
+    c.beginPath(); c.arc(mx, my, 2.5, 0, Math.PI * 2); c.fill();
+  };
+})();
+
+// ── Acknowledgement from the people who asked for this ───────────────────────
+(function _patchTalkForCourtAftermath() {
+  const _orig = window.openJGTalk || openJGTalk;
+  window.openJGTalk = function(npcId) {
+    if (npcId === 'jg_kit' && jungleTalkSeen.has('court_allied_notify_kit')
+        && !jungleTalkSeen.has('kit_heard_about_court')) {
+      const ov = document.getElementById('hcTalkOverlay');
+      if (!ov) { _orig(npcId); return; }
+      jungleTalkSeen.add('kit_heard_about_court');
+      jgTalkOpen   = true;
+      jgActiveTalk = npcId;
+      ov.innerHTML = `
+        <div style="font-size:var(--ui-font-sm);color:#70c878;margin-bottom:6px;">🌿 Kit</div>
+        <div style="font-size:var(--ui-font-xs);color:#90b870;white-space:pre-line;line-height:1.6;margin-bottom:10px;">"Malu told me before you got back." She says it flatly, which is how you know it landed.
+"I've been on this ground for six years. I've been trying to get the Court named on a document for four of them. Malu always said the same thing — they don't sign, they witness, and you can't ask them to witness nothing."
+
+She looks at the cleared zone, and past it, at the ruins.
+
+"You didn't ask them to witness nothing. You carried six pieces of Altaverde's processing floor into a room."
+
+A short laugh, genuinely surprised.
+
+"Three parties. Settlement, Hollowed, Court. Altaverde's bond was written on the assumption that there'd never be more than one of us at a time."
+
+She's already thinking about the next thing. You can watch it happen.
+
+"Now it's a filing problem. Tobias knows people who do filing problems."</div>
+        <button onclick="closeJGTalk()" style="display:block;width:100%;text-align:left;padding:6px 10px;font-size:var(--ui-font-xs);font-family:'Special Elite',serif;cursor:pointer;background:rgba(255,255,255,.02);border:1px solid rgba(80,180,80,.28);border-radius:0;color:#78c888;">"Then let's file it."</button>`;
+      ov.style.display = 'block';
+      ov.scrollTop = 0;
+      return;
+    }
+
+    if (npcId === 'jg_tobias' && jungleTalkSeen.has('court_allied_notify_tobias')
+        && !jungleTalkSeen.has('tobias_heard_about_court')) {
+      jungleTalkSeen.add('tobias_heard_about_court');
+      showMsg('⚓ Tobias: "Kit sent word. Three claimants." He whistles, low.');
+      setTimeout(() => showMsg('⚓ "I\'ve seen a company beat two. I have never once seen one beat three with a dated promise sitting in the file."'), 3600);
+      setTimeout(() => showMsg('⚓ "Keep tearing that facility down. Every load I move is a load that\'s evidence."'), 7400);
+    }
+
+    _orig(npcId);
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// § DEEP JUNGLE PERSISTENCE — a Slice 17 gap, fixed here
+//
+// Slice 17 saved exploredDeep, deepMapBuilt, formationDiscovered and
+// courtZoneEntered, but not gameState.inDeepJungle and not the player's
+// position on the deep map. Two consequences, both reproducible before this
+// block existed:
+//
+//   Save in the deep jungle, reload → inJungle is false (Slice 17 clears it on
+//   descent) and inDeepJungle is not restored, so you come back standing on the
+//   overworld at deep-map coordinates.
+//
+//   Load ANY save while standing in the deep jungle → core loadGame() clears
+//   inMine / inBadlands / inHoboCamp / inOcean but has never heard of
+//   inDeepJungle, so the flag survives the load and the deep renderer keeps
+//   running over the loaded save's overworld position.
+//
+// Both directions are handled: the flag is always written from the save, never
+// merely when it is true.
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchSaveForCourt() {
+  const _orig = window.getSaveData || getSaveData;
+  window.getSaveData = function() {
+    const d = _orig();
+    d.courtStage   = gameState._courtStage;
+    d.courtAllied  = gameState._courtAllied;
+    d.inDeepJungle = gameState.inDeepJungle || false;
+    if (gameState.inDeepJungle) {
+      // Snapped to tile centre, for the same reason the core save snaps:
+      // reloading into a corner between two solids blocks both axes.
+      d.deepPX = Math.floor(player.x / DJ_T) * DJ_T + DJ_T / 2;
+      d.deepPY = Math.floor(player.y / DJ_T) * DJ_T + DJ_T / 2;
+    }
+    return d;
+  };
+})();
+
+setTimeout(function _patchLoadForCourt() {
+  const _orig = window.loadGame;
+  if (typeof _orig !== 'function') return;
+  window.loadGame = function(slot) {
+    _orig.call(this, slot);
+    try {
+      const s = slot || window._activeSaveSlot || 1;
+      const raw = localStorage.getItem('dustAndHarvest_save_' + s);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+
+      gameState._courtStage  = d.courtStage  || 0;
+      gameState._courtAllied = d.courtAllied || false;
+
+      // Unconditional — see the note above on the load-out-of-deep case.
+      const wasDeep = !!gameState.inDeepJungle;
+      gameState.inDeepJungle = !!d.inDeepJungle;
+
+      if (gameState.inDeepJungle) {
+        if (!_deepMapBuilt) buildDeepJungleMap();
+        gameState.inJungle     = false;   // zone flags are exclusive
+        gameState.inBadlands   = false;
+        gameState.inHoboCamp   = false;
+        gameState.inOcean      = false;
+        player.x = (d.deepPX != null) ? d.deepPX : 40.5 * DJ_T;
+        player.y = (d.deepPY != null) ? d.deepPY : 2 * DJ_T;
+        _revealDeepArea(Math.floor(player.x / DJ_T), Math.floor(player.y / DJ_T), 5);
+      }
+      if (wasDeep || gameState.inDeepJungle) {
+        // Deep-jungle enemies never belong to the loaded state either way.
+        for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i]._inDeep) enemies.splice(i, 1);
+      }
+      _courtHintAt = 0;
+    } catch(e) {}
+  };
+}, 0);
+
+(function _patchStartNewGameForCourt() {
+  const _orig = window.startNewGame || startNewGame;
+  window.startNewGame = function() {
+    _orig();
+    gameState._courtStage  = 0;
+    gameState._courtAllied = false;
+    _courtHintAt = 0;
+  };
+})();
+
+// End § JUNGLE ZONE — Slice 18
+
+
+// ─────────────────────────────────────────────────────────────────────────────
 // § SAVE BACKUP — auto-backup slot, saveKey/backupKey
 
 

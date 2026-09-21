@@ -12,6 +12,7 @@ rejected and why.
 ./tools/test_render.py <dir|file>   # or another build, or the standalone
 ./tools/test_play.py                # does it still play? (non-zero on failure)
 ./tools/test_play.py dist/dust-and-harvest.html    # ...and does the SHIPPED file?
+./tools/test_slice18.py             # does the Verdant Court quest still work?
 ./tools/audit_seams.py              # does a zone show its own tile grid?
 ./tools/tile_sheet.py               # every tile type of every zone, side by side
 ```
@@ -19,6 +20,21 @@ Non-zero exit on failure. It draws every overworld tile, enters all eight
 zones, and separately checks the cold-start cache ordering. It was written
 against a real black-screen bug and has been seen to fail on the commit before
 that fix.
+
+`test_slice18.py` is the first test of a QUEST rather than of the engine. It
+drives Verdant Debt Slice 18 through the real Malu dialogue button, the real
+deep-jungle proximity tick and the real [E] dispatcher, and saves and reloads
+at four checkpoints: before the slice starts, mid-objective, after the
+hand-over, and after the reward. It also presses [E] at a finished quest and
+calls the hand-over directly, because those are two different guards and only
+one of them is on the path a player takes.
+
+The reload checkpoints are the point of it. Slice 17 shipped a deep jungle
+whose zone flag was never saved, and every state in it looked correct right up
+until the reload; Slice 18 fixes that and this is what holds it fixed. Verified
+in both directions: with `d.inDeepJungle` forced false it fails the
+mid-objective checkpoint, and with the hand-over's stage guard loosened it
+fails on a second Court's Mark.
 
 `test_play.py` boots a new game, walks about with the real frame loop running,
 opens every modal panel, visits every zone, and fails on any uncaught error. It
