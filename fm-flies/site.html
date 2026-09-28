@@ -1,0 +1,494 @@
+<title>F&amp;M Flies</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rye&family=Bitter:ital,wght@0,400;0,600;0,800;1,400&family=Caveat+Brush&family=Courier+Prime:wght@400;700&display=swap">
+<style>
+:root{
+  --paper:#EADFC6; --paper-2:#DDCCA8; --card:#F3EBD8;
+  --ink:#2A2118; --ink-soft:#5C4B37; --line:#B9A37C;
+  --pine:#2F4A2B; --moss:#687A2F; --rust:#B4501C; --ember:#DE8526; --bark:#6B4226;
+  --deep:#2F4A2B; --deep-2:#243A21; --on-deep:#F3E8CF; --on-deep-soft:#C9C09F;
+  --sky-1:#F2B45A; --sky-2:#E07A2E; --hill-1:#7C8B3C; --hill-2:#4E6A32; --hill-3:#2F4A2B; --water:#5E7F74;
+  --display:"Rye", "Georgia", serif;
+  --body:"Bitter", "Georgia", serif;
+  --hand:"Caveat Brush", "Comic Sans MS", cursive;
+  --mono:"Courier Prime", "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --paper:#191D15; --paper-2:#222819; --card:#262D1E;
+    --ink:#EFE4C9; --ink-soft:#BDAF91; --line:#4A4A34;
+    --pine:#A9C27F; --moss:#B3C465; --rust:#EA8150; --ember:#F2A74C; --bark:#CFA474;
+    --deep:#26351F; --deep-2:#1E2A19; --on-deep:#F3E8CF; --on-deep-soft:#B9B394;
+    --sky-1:#C9743A; --sky-2:#6E3A2A; --hill-1:#46552A; --hill-2:#2F4226; --hill-3:#1C2A18; --water:#3B5550;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --paper:#191D15; --paper-2:#222819; --card:#262D1E;
+  --ink:#EFE4C9; --ink-soft:#BDAF91; --line:#4A4A34;
+  --pine:#A9C27F; --moss:#B3C465; --rust:#EA8150; --ember:#F2A74C; --bark:#CFA474;
+  --deep:#26351F; --deep-2:#1E2A19; --on-deep:#F3E8CF; --on-deep-soft:#B9B394;
+  --sky-1:#C9743A; --sky-2:#6E3A2A; --hill-1:#46552A; --hill-2:#2F4226; --hill-3:#1C2A18; --water:#3B5550;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.6}
+.wrap{max-width:1160px;margin-inline:auto;padding-inline:20px}
+h1,h2,h3{text-wrap:balance;line-height:1.1;margin:0}
+h2{font-family:var(--display);font-weight:400;font-size:clamp(1.9rem,4.2vw,2.8rem);color:var(--pine)}
+p{margin:0}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--ember);outline-offset:3px;border-radius:4px}
+.hand{font-family:var(--hand);color:var(--rust);font-size:1.5rem;line-height:1.1}
+.eyebrow{font-family:var(--mono);font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--moss)}
+section{padding-block:clamp(56px,8vw,96px)}
+
+/* ── Nav ── */
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--deep);color:var(--on-deep);border-bottom:4px solid var(--ember)}
+.nav .wrap{display:flex;align-items:center;gap:20px;min-height:64px;flex-wrap:wrap;padding-block:8px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;margin-right:auto}
+.logo-mark{width:40px;height:40px;flex:none}
+.logo-word{font-family:var(--display);font-size:1.45rem;letter-spacing:.02em;white-space:nowrap}
+.logo-word span{color:var(--ember)}
+.nav-links{display:flex;gap:18px;flex-wrap:wrap}
+.nav-links a{text-decoration:none;font-weight:600;font-size:.95rem;color:var(--on-deep-soft)}
+.nav-links a:hover{color:var(--on-deep)}
+.creel{display:inline-flex;align-items:center;gap:8px;background:var(--ember);color:#2A1A0C;border:0;border-radius:999px;padding:8px 16px;font:700 .9rem var(--body);cursor:pointer}
+.creel b{background:#2A1A0C;color:var(--ember);border-radius:999px;min-width:24px;height:24px;display:inline-grid;place-items:center;font-size:.8rem;font-variant-numeric:tabular-nums}
+.creel.bump{animation:bump .35s ease}
+@keyframes bump{50%{transform:scale(1.12)}}
+
+/* ── Hero ── */
+.hero{position:relative;padding:0;background:var(--sky-1);overflow:hidden;color:var(--on-deep);isolation:isolate}
+.hero svg.scene{position:absolute;inset:0;width:100%;height:100%;z-index:-1;display:block}
+.hero-copy .wrap{padding-top:clamp(40px,6vw,76px);padding-bottom:clamp(230px,26vw,330px)}
+.hero h1{font-family:var(--display);font-weight:400;font-size:clamp(2.3rem,6vw,4.6rem);color:#2A1A0C;max-width:15ch;text-shadow:0 2px 0 rgba(255,230,180,.35)}
+.hero .hand{color:#3B1E0B;font-size:clamp(1.4rem,3vw,2rem);margin-bottom:10px;display:block}
+.hero-sub{max-width:44ch;margin-top:16px;font-size:1.08rem;color:#2A1A0C;font-weight:600}
+.hero-cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:6px;font:700 1rem var(--body);text-decoration:none;cursor:pointer;border:2px solid transparent;transition:transform .15s}
+.btn:hover{transform:translateY(-2px)}
+.btn-dark{background:#2A1A0C;color:#F6E3BE}
+.btn-ghost{border-color:#2A1A0C;color:#2A1A0C;background:rgba(255,240,210,.25)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .hero h1,:root:not([data-theme="light"]) .hero-sub{color:#F7E6C4;text-shadow:0 2px 8px rgba(0,0,0,.35)}:root:not([data-theme="light"]) .hero .hand{color:#F2A74C}:root:not([data-theme="light"]) .btn-ghost{border-color:#F7E6C4;color:#F7E6C4;background:transparent}}
+:root[data-theme="dark"] .hero h1,:root[data-theme="dark"] .hero-sub{color:#F7E6C4;text-shadow:0 2px 8px rgba(0,0,0,.35)}
+:root[data-theme="dark"] .hero .hand{color:#F2A74C}
+:root[data-theme="dark"] .btn-ghost{border-color:#F7E6C4;color:#F7E6C4;background:transparent}
+.sun{transform-origin:center;animation:rise 2.4s ease-out both}
+@keyframes rise{from{transform:translateY(40px)}to{transform:none}}
+.flyline{stroke-dasharray:1400;stroke-dashoffset:0;animation:cast 2.2s .4s ease-out both}
+@keyframes cast{from{stroke-dashoffset:1400}to{stroke-dashoffset:0}}
+
+/* ── Welcome band ── */
+.welcome{background:var(--deep);color:var(--on-deep);padding-block:28px}
+.welcome .wrap{display:flex;flex-wrap:wrap;gap:12px 40px;align-items:center;justify-content:space-between}
+.welcome p{font-family:var(--hand);font-size:clamp(1.4rem,3vw,1.9rem);color:var(--ember)}
+.welcome ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.welcome li{border:1.5px solid var(--on-deep-soft);border-radius:999px;padding:4px 14px;font-size:.9rem;color:var(--on-deep-soft)}
+
+/* ── Shop ── */
+.shop-head{display:flex;flex-wrap:wrap;gap:16px 40px;align-items:end;justify-content:space-between;margin-bottom:28px}
+.shop-head p{max-width:48ch;color:var(--ink-soft);margin-top:10px}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:28px}
+.tab{font:600 .92rem var(--body);background:transparent;color:var(--ink);border:1.5px solid var(--line);border-radius:999px;padding:7px 16px;cursor:pointer}
+.tab[aria-pressed="true"]{background:var(--bark);border-color:var(--bark);color:var(--paper)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+@media (min-width:700px){.grid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:22px}}
+.card .row{flex-wrap:wrap;gap:8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:4px;display:flex;flex-direction:column;overflow:hidden}
+.card .art{aspect-ratio:4/3;max-width:100%;display:grid;place-items:center;background:var(--paper-2);position:relative}
+.card .art svg{width:62%;height:auto;color:var(--tint,var(--rust))}
+.card .tag{position:absolute;top:10px;left:10px;font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;background:var(--deep);color:var(--on-deep);padding:3px 8px;border-radius:2px}
+.card .body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:6px;flex:1}
+.card h3{font-family:var(--body);font-weight:800;font-size:1.05rem}
+.card .meta{font-family:var(--mono);font-size:.8rem;color:var(--ink-soft)}
+.card .row{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:10px}
+.price{font-family:var(--mono);font-weight:700;font-size:1.1rem;font-variant-numeric:tabular-nums}
+.add{font:700 .85rem var(--body);background:var(--pine);color:var(--paper);border:0;border-radius:4px;padding:8px 12px;cursor:pointer}
+.add.done{background:var(--ember);color:#2A1A0C}
+
+/* ── Roots ── */
+.roots{background:var(--paper-2);position:relative}
+.roots .wrap{display:grid;grid-template-columns:1.1fr 1fr;gap:clamp(28px,5vw,64px);align-items:center}
+.roots-art{background:var(--card);border:1px solid var(--line);padding:18px;transform:rotate(-1.5deg);box-shadow:6px 8px 0 var(--bark)}
+.roots-art svg{width:100%;height:auto;display:block}
+.roots-art figcaption{font-family:var(--hand);font-size:1.3rem;color:var(--ink-soft);text-align:center;margin-top:8px}
+.roots-copy{display:flex;flex-direction:column;gap:16px}
+.roots-copy p{max-width:58ch;color:var(--ink-soft)}
+.roots-copy p.lead{color:var(--ink);font-size:1.15rem}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px}
+.facts div{border-top:3px solid var(--rust);padding-top:8px}
+.facts b{display:block;font-family:var(--display);font-weight:400;font-size:1.6rem;color:var(--rust)}
+.facts span{font-size:.85rem;color:var(--ink-soft)}
+@media (max-width:820px){.roots .wrap{grid-template-columns:1fr}}
+
+/* ── Water notes ── */
+.notes-head{display:flex;flex-wrap:wrap;gap:12px 40px;align-items:end;justify-content:space-between;margin-bottom:24px}
+.notes-head p{max-width:46ch;color:var(--ink-soft)}
+.table-scroll{overflow-x:auto;border:1px solid var(--line);background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:720px;font-size:.95rem}
+th{font-family:var(--mono);font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;text-align:left;color:var(--ink-soft);padding:12px 16px;border-bottom:2px solid var(--line);background:var(--paper-2)}
+td{padding:14px 16px;border-bottom:1px dashed var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.water-name{font-weight:800}
+td.water-name small{display:block;font-weight:400;color:var(--ink-soft);font-size:.82rem}
+td .fly{font-family:var(--mono);font-size:.88rem}
+.pill{display:inline-block;font-family:var(--mono);font-size:.75rem;padding:2px 10px;border-radius:999px;white-space:nowrap}
+.pill.on{background:var(--moss);color:var(--paper)}
+.pill.soon{background:var(--ember);color:#2A1A0C}
+.pill.off{border:1px solid var(--line);color:var(--ink-soft)}
+.fineprint{font-size:.82rem;color:var(--ink-soft);margin-top:10px}
+
+/* ── Everyone ── */
+.everyone{background:var(--deep);color:var(--on-deep)}
+.everyone h2{color:var(--ember)}
+.everyone .intro{max-width:56ch;color:var(--on-deep-soft);margin-top:12px}
+.folks{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:28px;margin-top:40px}
+.folk{display:flex;flex-direction:column;gap:8px}
+.folk svg{width:48px;height:48px;color:var(--ember)}
+.folk h3{font-family:var(--body);font-weight:800;font-size:1.1rem}
+.folk p{color:var(--on-deep-soft);font-size:.95rem}
+
+/* ── Visit ── */
+.visit .wrap{display:grid;grid-template-columns:1fr 1fr;gap:clamp(28px,5vw,64px)}
+@media (max-width:820px){.visit .wrap{grid-template-columns:1fr}}
+.hours{margin-top:18px;display:grid;grid-template-columns:auto 1fr;gap:6px 24px;font-family:var(--mono);font-size:.95rem;font-variant-numeric:tabular-nums}
+.hours dt{color:var(--ink-soft)}
+.hours dd{margin:0}
+.signup{background:var(--card);border:2px solid var(--bark);padding:clamp(20px,4vw,32px);display:flex;flex-direction:column;gap:14px;align-self:start}
+.signup h3{font-family:var(--display);font-weight:400;font-size:1.7rem;color:var(--bark)}
+.signup p{color:var(--ink-soft)}
+.signup label{font-weight:600;font-size:.9rem}
+.signup input,.signup select{width:100%;font:1rem var(--body);padding:10px 12px;border:1.5px solid var(--line);border-radius:4px;background:var(--paper);color:var(--ink);margin-top:4px}
+.signup .btn{background:var(--rust);color:#FFF4E2;justify-content:center}
+.signup .ok{font-family:var(--hand);font-size:1.4rem;color:var(--moss)}
+
+footer{background:var(--deep-2);color:var(--on-deep-soft);padding-block:36px;font-size:.9rem}
+footer .wrap{display:flex;flex-wrap:wrap;gap:16px 40px;justify-content:space-between;align-items:center}
+footer .logo-word{color:var(--on-deep)}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<!-- Reusable product art -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-fly" viewBox="0 0 120 90">
+      <path d="M22 44 C8 34 4 52 2 46 C10 58 14 50 24 50" fill="currentColor" opacity=".55"/>
+      <ellipse cx="54" cy="47" rx="30" ry="11" fill="currentColor"/>
+      <g stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity=".85">
+        <path d="M34 36 l-4 -10 M42 35 l-2 -11 M50 35 l0 -12 M58 35 l2 -11 M66 36 l4 -10 M74 38 l6 -9"/>
+        <path d="M34 58 l-4 10 M42 59 l-2 11 M50 59 l0 12 M58 59 l2 11 M66 58 l4 10 M74 56 l6 9"/>
+      </g>
+      <circle cx="86" cy="47" r="6" fill="var(--ink)"/>
+      <path d="M90 47 H104 C114 47 114 66 102 66 C94 66 92 60 94 56" fill="none" stroke="var(--ink-soft)" stroke-width="2.5" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-box" viewBox="0 0 120 90">
+      <rect x="10" y="14" width="100" height="62" rx="4" fill="currentColor"/>
+      <g fill="none" stroke="var(--ink)" stroke-opacity=".28" stroke-width="1.6">
+        <path d="M14 26 C40 20 60 32 106 24"/><path d="M14 40 C44 34 70 46 106 38"/><path d="M14 54 C36 50 64 60 106 52"/><path d="M14 67 C50 62 72 72 106 66"/>
+        <ellipse cx="72" cy="45" rx="7" ry="4"/>
+      </g>
+      <rect x="10" y="14" width="100" height="62" rx="4" fill="none" stroke="var(--ink)" stroke-opacity=".5" stroke-width="2"/>
+      <rect x="54" y="70" width="12" height="9" rx="1.5" fill="#C9A548"/>
+      <rect x="4" y="30" width="7" height="12" rx="1.5" fill="#C9A548"/><rect x="4" y="50" width="7" height="12" rx="1.5" fill="#C9A548"/>
+    </symbol>
+    <symbol id="i-bait" viewBox="0 0 120 90">
+      <path d="M10 60 C24 30 42 70 58 44 C72 22 88 56 104 34" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round"/>
+      <g stroke="var(--ink)" stroke-opacity=".25" stroke-width="1.5">
+        <path d="M84 40 l6 8 M90 36 l6 8 M96 33 l5 8"/>
+      </g>
+      <circle cx="104" cy="34" r="2" fill="var(--ink)"/>
+    </symbol>
+    <symbol id="i-hat" viewBox="0 0 120 90">
+      <path d="M22 62 C22 28 48 16 64 16 C86 16 100 34 100 62 Z" fill="currentColor"/>
+      <path d="M58 16 C72 16 82 36 82 62 H100 C100 34 86 16 64 16 Z" fill="var(--paper)" opacity=".8"/>
+      <path d="M22 62 H100 C110 62 116 68 112 72 H20 C14 70 16 62 22 62 Z" fill="var(--ink)" opacity=".75"/>
+      <circle cx="61" cy="17" r="3.5" fill="var(--ink)"/>
+      <rect x="32" y="36" width="26" height="16" rx="3" fill="var(--paper)" stroke="var(--ink)" stroke-opacity=".4"/>
+      <path d="M36 46 l6 -6 l5 5 l4 -3 l4 4" fill="none" stroke="currentColor" stroke-width="2"/>
+    </symbol>
+    <symbol id="i-shirt" viewBox="0 0 120 90">
+      <path d="M40 8 L18 18 L6 38 L22 46 L28 36 V84 H92 V36 L98 46 L114 38 L102 18 L80 8 C76 18 44 18 40 8 Z" fill="currentColor"/>
+      <path d="M40 8 C44 18 76 18 80 8" fill="none" stroke="var(--ink)" stroke-opacity=".4" stroke-width="2"/>
+      <circle cx="60" cy="52" r="13" fill="none" stroke="var(--paper)" stroke-width="3"/>
+      <path d="M52 56 C56 48 64 48 68 56" fill="none" stroke="var(--paper)" stroke-width="3"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="logo" href="#top" aria-label="F&amp;M Flies home">
+      <svg class="logo-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <circle cx="20" cy="20" r="19" fill="var(--ember)"/>
+        <path d="M7 27 C13 21 18 25 22 21 C26 17 30 20 34 16 V30 H7 Z" fill="var(--deep)"/>
+        <path d="M9 14 C16 6 26 30 33 10" fill="none" stroke="var(--deep)" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="33" cy="10" r="2.4" fill="var(--rust)"/>
+      </svg>
+      <span class="logo-word">F<span>&amp;</span>M Flies</span>
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="#shop">Shop</a><a href="#roots">Our Roots</a><a href="#water">Water Notes</a><a href="#visit">Visit</a>
+    </nav>
+    <button class="creel" id="creel" type="button" aria-live="polite">Creel <b id="creel-count">0</b></button>
+  </div>
+</header>
+
+<main id="top">
+<section class="hero" aria-label="Welcome">
+  <svg class="scene" viewBox="0 0 1440 640" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="var(--sky-1)"/><stop offset="1" stop-color="var(--sky-2)"/>
+      </linearGradient>
+    </defs>
+    <rect width="1440" height="640" fill="url(#sky)"/>
+    <g class="sun"><circle cx="1070" cy="330" r="120" fill="#F7D27A" opacity=".85"/><circle cx="1070" cy="330" r="170" fill="#F7D27A" opacity=".18"/></g>
+    <path d="M0 390 C160 330 300 360 440 340 C600 316 720 380 880 350 C1040 320 1200 360 1440 330 V640 H0 Z" fill="var(--hill-1)"/>
+    <path d="M0 450 C180 400 330 440 520 410 C700 382 860 440 1040 420 C1220 400 1320 430 1440 410 V640 H0 Z" fill="var(--hill-2)"/>
+    <!-- cedar line -->
+    <g fill="var(--hill-3)">
+      <path d="M140 450 l14 -52 l14 52z M180 446 l11 -40 l11 40z M1180 424 l14 -56 l14 56z M1222 428 l10 -38 l10 38z M1262 426 l13 -50 l13 50z M760 430 l9 -34 l9 34z"/>
+    </g>
+    <path d="M0 520 C200 480 360 520 560 500 C820 474 1000 530 1440 490 V640 H0 Z" fill="var(--hill-3)"/>
+    <!-- river -->
+    <path d="M520 640 C600 590 760 580 840 548 C900 524 980 520 1060 510 L1110 512 C1030 530 960 540 920 566 C860 604 760 616 720 640 Z" fill="var(--water)"/>
+    <path d="M760 606 h60 M860 566 h40 M960 536 h34" stroke="#F7D27A" stroke-opacity=".6" stroke-width="3" stroke-linecap="round"/>
+    <!-- fly line loop -->
+    <path class="flyline" d="M40 600 C260 520 420 200 700 180 C900 168 1000 260 900 290 C820 312 760 250 860 220 C980 186 1160 250 1290 300" fill="none" stroke="#FFF1CF" stroke-width="3" stroke-linecap="round" opacity=".9"/>
+    <circle cx="1290" cy="300" r="6" fill="var(--rust)"/>
+  </svg>
+  <div class="hero-copy">
+    <div class="wrap">
+      <span class="hand">Peace, love &amp; tight lines</span>
+      <h1>Hand-tied flies from red dirt country</h1>
+      <p class="hero-sub">Flies, cedar fly boxes, soft plastics and shop threads, made in Oklahoma for anybody who'd rather be outside.</p>
+      <div class="hero-cta">
+        <a class="btn btn-dark" href="#shop">Shop the bench</a>
+        <a class="btn btn-ghost" href="#water">What's biting</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="welcome">
+  <div class="wrap">
+    <p>Y'all come on in. Everybody's welcome at the water.</p>
+    <ul aria-label="Who we tie for">
+      <li>Fly anglers</li><li>Bass fishers</li><li>Birders</li><li>Hunters</li><li>Campers</li><li>First-timers</li>
+    </ul>
+  </div>
+</div>
+
+<section id="shop">
+  <div class="wrap">
+    <div class="shop-head">
+      <div>
+        <span class="eyebrow">The shop</span>
+        <h2>Off the tying bench</h2>
+        <p>Every fly is tied by hand at our bench. Every box is cut, sanded and oiled here too. If it's on this page, we'd fish it ourselves.</p>
+      </div>
+      <span class="hand">Free shipping over $50</span>
+    </div>
+    <div class="tabs" role="group" aria-label="Filter products">
+      <button class="tab" type="button" data-f="all" aria-pressed="true">Everything</button>
+      <button class="tab" type="button" data-f="fly" aria-pressed="false">Flies</button>
+      <button class="tab" type="button" data-f="box" aria-pressed="false">Wooden Fly Boxes</button>
+      <button class="tab" type="button" data-f="bait" aria-pressed="false">Soft Plastics</button>
+      <button class="tab" type="button" data-f="hat" aria-pressed="false">Hats</button>
+      <button class="tab" type="button" data-f="shirt" aria-pressed="false">Shirts</button>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+</section>
+
+<section class="roots" id="roots">
+  <div class="wrap">
+    <figure class="roots-art" style="margin:0">
+      <svg viewBox="0 0 400 280" aria-label="Sketch of the tying bench under a porch light">
+        <rect width="400" height="280" fill="var(--paper-2)"/>
+        <path d="M0 200 C80 180 160 196 240 186 C300 178 360 190 400 184 V280 H0 Z" fill="var(--hill-2)"/>
+        <rect x="40" y="150" width="320" height="16" fill="var(--bark)"/>
+        <rect x="56" y="166" width="12" height="90" fill="var(--bark)"/><rect x="332" y="166" width="12" height="90" fill="var(--bark)"/>
+        <!-- vise -->
+        <path d="M140 150 V100 L176 78" fill="none" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+        <ellipse cx="184" cy="76" rx="14" ry="6" fill="var(--rust)"/>
+        <!-- spools -->
+        <g><rect x="230" y="126" width="16" height="24" fill="var(--ember)"/><rect x="252" y="126" width="16" height="24" fill="var(--moss)"/><rect x="274" y="126" width="16" height="24" fill="var(--rust)"/><rect x="296" y="126" width="16" height="24" fill="var(--pine)"/></g>
+        <!-- lamp -->
+        <path d="M80 150 V60 L120 40" fill="none" stroke="var(--ink-soft)" stroke-width="4"/>
+        <path d="M108 34 L140 40 L128 58 Z" fill="var(--ink-soft)"/>
+        <path d="M128 58 L100 150 H200 L140 40 Z" fill="#F7D27A" opacity=".35"/>
+        <!-- cedar -->
+        <path d="M350 186 l14 -60 l14 60z" fill="var(--hill-3)"/>
+      </svg>
+      <figcaption>The bench, back when it was a kitchen table</figcaption>
+    </figure>
+    <div class="roots-copy">
+      <span class="eyebrow">Our roots</span>
+      <h2>Blackwood born, Oklahoma raised</h2>
+      <p class="lead">F&amp;M started the way most good things around here do: a kitchen table, a borrowed vise and a creek that needed fishing.</p>
+      <p>Our roots run back to Blackwood, to folks who hunted what they ate, fished before church and figured the woods belonged to whoever showed up. We still tie that way. Nothing fancy, just patterns that catch Oklahoma fish in Oklahoma water.</p>
+      <p>Our fly boxes are cut from Eastern red cedar cleared off local pasture, so a tree that was choking out the prairie ends up riding in your vest pocket.</p>
+      <div class="facts">
+        <div><b>100%</b><span>hand-tied flies</span></div>
+        <div><b>77</b><span>counties we've fished (working on it)</span></div>
+        <div><b>1</b><span>shop dog, name of Biscuit</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="water">
+  <div class="wrap">
+    <div class="notes-head">
+      <div>
+        <span class="eyebrow">Water notes · updated at the counter</span>
+        <h2>What's biting in Oklahoma</h2>
+      </div>
+      <p>Where we'd go this week and what we'd tie on. Stop in and we'll draw you a map on a napkin.</p>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Water</th><th>Fish</th><th>Season</th><th>Status</th><th>Tie on</th></tr></thead>
+        <tbody>
+          <tr><td class="water-name">Lower Mountain Fork<small>Below Broken Bow Dam</small></td><td>Rainbow &amp; brown trout</td><td>Year-round</td><td><span class="pill on">Fishing well</span></td><td><span class="fly">Zebra Midge #18, Parachute Adams #16</span></td></tr>
+          <tr><td class="water-name">Lower Illinois River<small>Below Tenkiller Dam</small></td><td>Rainbow &amp; brown trout</td><td>Year-round</td><td><span class="pill on">Fishing well</span></td><td><span class="fly">Crackleback #12, Woolly Bugger #8</span></td></tr>
+          <tr><td class="water-name">Blue River<small>Near Tishomingo</small></td><td>Stocked rainbow trout</td><td>Nov 1 – Mar 31</td><td><span class="pill soon">Opens in November</span></td><td><span class="fly">Woolly Bugger #10, egg patterns</span></td></tr>
+          <tr><td class="water-name">Lake Texoma<small>Red River border</small></td><td>Striped &amp; white bass</td><td>Best spring &amp; fall</td><td><span class="pill on">Fall schooling</span></td><td><span class="fly">Clouser Minnow #2, Red Shad stick bait</span></td></tr>
+          <tr><td class="water-name">Farm ponds<small>Anywhere with a gate and a handshake</small></td><td>Bluegill &amp; largemouth</td><td>Apr – Oct</td><td><span class="pill off">Slowing down</span></td><td><span class="fly">Bluegill Buster popper #8, Okie Mud craw</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="fineprint">Sample notes for this mock-up. Check ODWC regulations and grab your license before you go.</p>
+  </div>
+</section>
+
+<section class="everyone" id="everyone">
+  <div class="wrap">
+    <span class="eyebrow" style="color:var(--on-deep-soft)">Not just for fly folks</span>
+    <h2>For whoever loves it out here</h2>
+    <p class="intro">You don't need a fly rod to belong at F&amp;M. If you'd rather spend Saturday in a deer stand, on a birding trail or at a campsite by the lake, pull up a stool.</p>
+    <div class="folks">
+      <div class="folk">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M6 30 C14 18 26 18 30 24 C34 30 40 28 44 22 C42 34 30 40 20 38 C14 37 9 34 6 30 Z" fill="currentColor"/><circle cx="34" cy="24" r="1.8" fill="var(--deep)"/></svg>
+        <h3>Anglers of every kind</h3>
+        <p>Fly, spin or cane pole. Our soft plastics are poured for bass fishers and our flies work on bluegill as well as trout.</p>
+      </div>
+      <div class="folk">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 26 C12 20 18 22 24 26 C30 18 38 14 44 16 C38 20 34 26 34 30 C28 32 20 32 14 30 Z" fill="currentColor"/><circle cx="38" cy="18" r="1.6" fill="var(--deep)"/></svg>
+        <h3>Birders &amp; wildlife watchers</h3>
+        <p>Bald eagles winter along our lakes and rivers. Ask us where to look and bring binoculars.</p>
+      </div>
+      <div class="folk">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4 L30 18 H18 Z M24 14 L32 30 H16 Z M24 26 L34 42 H14 Z" fill="currentColor"/><rect x="22" y="40" width="4" height="6" fill="currentColor"/></svg>
+        <h3>Hunters &amp; campers</h3>
+        <p>Hats and shirts built to take briars, campfire smoke and a long drive home on a dirt road.</p>
+      </div>
+      <div class="folk">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="18" fill="none" stroke="currentColor" stroke-width="4"/><path d="M24 6 V42 M24 24 L11 37 M24 24 L37 37" stroke="currentColor" stroke-width="4"/></svg>
+        <h3>First-timers</h3>
+        <p>Free Saturday casting lessons in the lot out back. Bring the kids. We'll bring the loaner rods.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="visit" id="visit">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow">Come see us</span>
+      <h2>Swing by the shop</h2>
+      <p style="margin-top:14px;color:var(--ink-soft);max-width:46ch">Coffee's on, the vise is usually spinning and somebody's always telling a fish story. Placeholder address and hours for the mock-up.</p>
+      <dl class="hours">
+        <dt>Address</dt><dd>123 Red Dirt Rd, Oklahoma</dd>
+        <dt>Phone</dt><dd>(555) 010-4477</dd>
+        <dt>Mon – Fri</dt><dd>7:00 am – 6:00 pm</dd>
+        <dt>Saturday</dt><dd>6:00 am – 4:00 pm</dd>
+        <dt>Sunday</dt><dd>Gone fishin'</dd>
+      </dl>
+    </div>
+    <form class="signup" id="signup" novalidate>
+      <h3>The Riffle Report</h3>
+      <p>One email a month: new patterns, water notes and when the Blue River gets its first stocking.</p>
+      <div><label for="su-name">Name</label><input id="su-name" name="name" autocomplete="name" placeholder="Your name"></div>
+      <div><label for="su-email">Email</label><input id="su-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required></div>
+      <div><label for="su-into">What gets you outside?</label>
+        <select id="su-into" name="into"><option>Fly fishing</option><option>Bass fishing</option><option>Hunting</option><option>Birding &amp; wildlife</option><option>Camping &amp; hiking</option><option>A little of everything</option></select>
+      </div>
+      <button class="btn" type="submit">Sign me up</button>
+      <p class="ok" id="su-msg" hidden></p>
+    </form>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="logo-word">F<span style="color:var(--ember)">&amp;</span>M Flies</span>
+    <span>Hand-tied in Oklahoma · Blackwood roots · Everybody welcome</span>
+    <span>© 2026 F&amp;M Flies</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var P = [
+    {c:'fly',t:'Red Dirt Woolly Bugger',m:'Size #8 · rust & olive',p:2.75,tint:'var(--rust)'},
+    {c:'fly',t:'Blue River Zebra Midge',m:'Size #18 · black & silver',p:2.25,tint:'var(--ink)'},
+    {c:'fly',t:'Tenkiller Crackleback',m:'Size #12 · peacock & grizzly',p:2.50,tint:'var(--moss)'},
+    {c:'fly',t:'Bluegill Buster Popper',m:'Size #8 · chartreuse',p:3.50,tint:'var(--ember)'},
+    {c:'box',t:'Red Cedar Pocket Box',m:'Eastern red cedar · foam lined',p:42,tint:'#A4532E'},
+    {c:'box',t:'Walnut Slip-Lid Box',m:'Black walnut · magnetic lid',p:64,tint:'#5E3B24'},
+    {c:'box',t:'Post Oak Six-Slot',m:'Oak & brass · 6 compartments',p:78,tint:'#B88A4E'},
+    {c:'bait',t:'Red Shad Stick Bait',m:'5 in. · 10 pack · hand-poured',p:6.99,tint:'#9B2F24'},
+    {c:'bait',t:'Green Pumpkin Ned',m:'2.75 in. · 12 pack',p:5.49,tint:'#5B6B2A'},
+    {c:'bait',t:'Okie Mud Craw',m:'3.5 in. · 8 pack',p:6.49,tint:'#7A5230'},
+    {c:'hat',t:'Tight Lines Trucker',m:'Leather patch · snapback',p:28,tint:'var(--pine)'},
+    {c:'hat',t:'Sunset Corduroy Rope Hat',m:'Burnt orange · one size',p:32,tint:'var(--ember)'},
+    {c:'shirt',t:"Y'all Means All Tee",m:'Heavy cotton · moss green',p:26,tint:'var(--moss)'},
+    {c:'shirt',t:'Peace, Love & Tight Lines',m:'Hand-dyed tee · sunset',p:30,tint:'var(--rust)'},
+    {c:'shirt',t:'Riverbank Vented Button-Up',m:'UPF 40 · khaki',p:54,tint:'var(--bark)'}
+  ];
+  var label = {fly:'Fly',box:'Fly Box',bait:'Soft Plastic',hat:'Hat',shirt:'Shirt'};
+  var grid = document.getElementById('grid');
+  grid.innerHTML = P.map(function(x,i){
+    return '<article class="card" data-c="'+x.c+'">'+
+      '<div class="art" style="--tint:'+x.tint+'"><span class="tag">'+label[x.c]+'</span>'+
+      '<svg viewBox="0 0 120 90" aria-hidden="true"><use href="#i-'+x.c+'"/></svg></div>'+
+      '<div class="body"><h3>'+x.t.replace(/&/g,'&amp;')+'</h3><span class="meta">'+x.m.replace(/&/g,'&amp;')+'</span>'+
+      '<div class="row"><span class="price">$'+x.p.toFixed(2)+'</span>'+
+      '<button class="add" type="button" data-i="'+i+'">Add to creel</button></div></div></article>';
+  }).join('');
+
+  document.querySelectorAll('.tab').forEach(function(b){
+    b.addEventListener('click',function(){
+      var f=b.dataset.f;
+      document.querySelectorAll('.tab').forEach(function(o){o.setAttribute('aria-pressed',o===b?'true':'false')});
+      grid.querySelectorAll('.card').forEach(function(c){c.hidden = f!=='all' && c.dataset.c!==f});
+    });
+  });
+
+  var count=0, creel=document.getElementById('creel'), cc=document.getElementById('creel-count');
+  grid.addEventListener('click',function(e){
+    var b=e.target.closest('.add'); if(!b) return;
+    count++; cc.textContent=count;
+    creel.classList.remove('bump'); void creel.offsetWidth; creel.classList.add('bump');
+    b.textContent='In the creel ✓'; b.classList.add('done');
+    setTimeout(function(){b.textContent='Add to creel'; b.classList.remove('done')},1600);
+  });
+
+  document.getElementById('signup').addEventListener('submit',function(e){
+    e.preventDefault();
+    var em=document.getElementById('su-email'), msg=document.getElementById('su-msg');
+    msg.hidden=false;
+    if(!/^\S+@\S+\.\S+$/.test(em.value)){msg.style.color='var(--rust)';msg.textContent='Add an email address so we know where to send it.';em.focus();return;}
+    msg.style.color='';
+    var n=document.getElementById('su-name').value.trim();
+    msg.textContent='Thanks'+(n?', '+n:'')+'! See you on the water. (Mock-up: nothing was sent.)';
+  });
+})();
+</script>
