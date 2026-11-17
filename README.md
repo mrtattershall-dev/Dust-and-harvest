@@ -1,6 +1,6 @@
 # SkyAI Teammate
 
-An AI teammate that plays classic Skyblock with you in Minecraft Bedrock Edition. You play on your iPhone; the AI has its own player in the world, takes instructions in chat, acts, and reports what it verifiably did.
+An AI that plays classic Skyblock by itself in Minecraft Bedrock Edition, on your own server. It has its own player in the world, works through a list of Skyblock goals using what it knows about Minecraft, and writes down what it learns from its mistakes. You join from your iPhone whenever you like to watch, help, or ask for something.
 
 - **How it works and why it is built this way:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **What has been tested and what has not:** [Testing status](#testing-status)
@@ -13,27 +13,27 @@ An AI teammate that plays classic Skyblock with you in Minecraft Bedrock Edition
  └──────────────────┘           │    actions, safety checks                 │
  ┌──────────────────┐           │        ▲ HTTP on this machine only        │
  │ Safari: web page │──────────▶│ SkyAI backend: AI keys, model calls,      │──▶ Claude API,
- │ (log, approvals) │           │    tasks, memory, spending limits         │    or a local model
+ │ (progress, log)  │           │    goals, lessons, spending limits        │    or a local model
  └──────────────────┘           └──────────────────────────────────────────┘
 ```
 
-## What you need
+Nothing is installed on the phone. The download is for the Ubuntu computer that hosts the server.
 
-- An Ubuntu computer on the same network as the iPhone, with [Node.js](https://nodejs.org) 20 or newer, `git` and `unzip`.
-- Minecraft Bedrock on the iPhone, signed in to your Microsoft account.
-- One of: a Claude API key, another provider's key, or a local model in Ollama.
+## Install on the Ubuntu host
 
-## Set up the Ubuntu host
+You need [Node.js](https://nodejs.org) 20 or newer and `unzip` (`sudo apt install -y unzip`).
+
+**From the downloadable file** (`skyai-teammate.zip`):
 
 ```bash
-sudo apt install -y unzip git
-git clone <this repository> skyai && cd skyai
-npm install
-npm run setup -- --accept-eula     # downloads Mojang's server, creates the world, installs the add-on
-npm start                          # runs the backend and the Minecraft server together
+unzip skyai-teammate.zip && cd skyai-teammate
+./install.sh        # asks you to accept the Minecraft EULA, then downloads Mojang's server and builds the world
+npm start           # runs the backend and the Minecraft server together
 ```
 
-`--accept-eula` means you accept the [Minecraft EULA](https://minecraft.net/eula). Setup puts the server in `bds/` and all settings and credentials in `data/` (both git-ignored).
+**Or from the repository:** clone it, then run the same two commands.
+
+The Minecraft server goes in `bds/`; settings and credentials go in `data/`. `npm start` prints the web page address, for example `http://192.168.1.20:8765`. Lines typed in that terminal go to the Minecraft console (`stop` shuts down cleanly). To keep it running after you close the terminal: `tmux new -d -s skyai 'npm start'`.
 
 If the host has a firewall, open the game port and the web page port to your home network:
 
@@ -42,13 +42,11 @@ sudo ufw allow 19132          # Minecraft (TCP and UDP)
 sudo ufw allow 8765/tcp       # SkyAI web page
 ```
 
-Do not forward these ports to the internet: the setup turns the server's allow-list off for convenience, and the web page has no password unless you set `SKYAI_UI_PASSWORD`.
-
-`npm start` prints the web page address, for example `http://192.168.1.20:8765`. Lines you type in that terminal go to the Minecraft console (`stop` shuts it down cleanly).
+Do not forward these ports to the internet: setup turns the server's allow-list off for convenience, and the web page has no password unless you set `SKYAI_UI_PASSWORD`.
 
 ## Connect an AI model
 
-Open the web page (on the phone or the host), open **Settings**, choose a provider, and save.
+Open the web page, open **Settings**, choose a provider, and save. The AI starts playing as soon as it has a working model.
 
 | Provider | What to enter | Cost |
 |---|---|---|
@@ -56,85 +54,97 @@ Open the web page (on the phone or the host), open **Settings**, choose a provid
 | **Local model (Ollama)** | The model name you pulled; it must support tool calling | Free |
 | OpenAI, Gemini, OpenRouter, other | That provider's key and model name | Per that provider |
 
-**About signing in with your Claude account:** Anthropic does not let third-party programs use a claude.ai login or a Pro/Max subscription's usage; its documentation says to use API key authentication instead ([source](https://code.claude.com/docs/en/agent-sdk/overview)). A subscription does not include API access. The supported options are an API key, or Anthropic's own command-line login to your **Console** (API) account: run `ant auth login` on the host as the same user and leave the key field blank. Both bill the API account. The command-line login path is implemented but not tested here.
+**About signing in with your Claude account:** Anthropic does not let third-party programs use a claude.ai login or a Pro/Max subscription's usage; its documentation says to use API key authentication instead ([source](https://code.claude.com/docs/en/agent-sdk/overview)). The supported options are an API key, or Anthropic's command-line login to your Console (API) account: run `ant auth login` on the host as the same user and leave the key field blank. Both bill the API account.
 
-Keys are stored only in `data/config.json` on the host (readable only by you). They are never written to the world, the add-on, or the web page.
+Keys are stored only in `data/config.json` on the host. They are never written to the world, the add-on, or the web page.
 
-**Cost control.** The AI is called only while it works on a task, never while idle. Defaults: at most 30 model steps per task and $2.00 per day (change both in Settings). The default Claude model is `claude-opus-5-5`; type `claude-haiku-5-5` or `claude-sonnet-5-5` in the Model field for cheaper play. For models without a known price the daily token limit applies instead.
+## How it plays by itself
+
+- **Goals.** It works down a list of 14 Skyblock goals (own a pickaxe, store 64 cobblestone, secure saplings, stone tools, expand the island, furnace, torches, storage, a shelter, bridge to the sand island, tree farm, crop farm, food). It decides the steps. A goal is ticked off only when it cites proof from the world, such as a chest count. Goals it cannot do yet are skipped with a reason and can be reopened.
+- **Knowledge.** Its instructions cover how Skyblock works: the recipes, why lava and dirt are irreplaceable, how saplings work, how a generator is built, bridging, farming.
+- **Trial and error.** Every death is written down automatically with what it was doing. When an action fails twice in a row it is told to stop repeating it, look again, and try something else. It records lessons in its own words ("standing above an edge block loses the drop; stand beside it"). All lessons are shown to it at the start of every task, and you can read them on the web page.
+- **Memory.** Each task starts fresh with: lessons, goal list, its notes, known places, and the last few task summaries.
+- **Quiet.** It does not narrate in chat. It speaks when a goal is completed, when it dies, when it needs permission, and when you talk to it.
+
+### Spending while it plays alone
+
+Playing by itself means calling the AI model continuously. Two limits bound that: 30 model steps per task, and **$2.00 per day by default** (Settings). When the daily limit is reached it stops until the next day and says so. With a local Ollama model there is no cost. By default it also plays while you are not in the game; untick that in Settings if you only want it to play when you are there. The default Claude model is `claude-opus-5-5`; type `claude-haiku-5-5` or `claude-sonnet-5-5` in the Model field for cheaper play.
+
+### Risky actions
+
+Some actions cannot be undone: mining a block that touches water or lava, cutting a log when there is no sapling, pouring or scooping lava. These are caught by plain code in the add-on.
+
+- **If you are in the game** (or gave the instruction), it asks you and waits a minute. No answer counts as no.
+- **If nobody is there**, it is told the action is risky and must look again; it may then go ahead only by explicitly confirming. Untick "may go ahead with a risky action" in Settings to make it never do these without you.
 
 ## Play from the iPhone
 
 1. In Minecraft: **Play → Servers → Add Server**. Address: the Ubuntu host's IP. Port: `19132`. Join. (The server may also appear by itself under LAN games.)
 2. You spawn on the island next to the AI's player (named `Claude` unless you rename it).
-3. Talk in the game chat:
-   - `collect 16 cobblestone and put it in the chest`
-   - `what do we have in the chest?`
-   - `build a 3x3 cobblestone platform off the east side`
-4. Keep the web page open in Safari if you like: live log, a box to send instructions, and Yes/No buttons when it asks permission.
+3. Just watch, or say something in chat: `what are you working on?`, `come here`, `put all the cobblestone in the chest`. An instruction from you takes priority over what it was doing.
+4. The web page in Safari shows goal progress, what it has learned, a live log, and Yes/No buttons when it asks permission.
 
 Commands that work without the AI model:
 
 | Chat | What it does |
 |---|---|
-| `!status` | What it is doing, its position, health, hunger, inventory, today's AI usage |
+| `!status` | What it is doing, goal progress, position, health, hunger, inventory, today's AI usage |
 | `!stop` | Stop the current action and task |
 | `!come` | Walk to you |
-| `!auto on` / `!auto off` | Keep playing by itself when idle (experimental) |
+| `!auto off` / `!auto on` | Stop or resume playing by itself |
 | `yes` / `no` | Answer a permission request |
 | `!help` | List these |
 
-**Permission requests.** Some actions are held until you answer: mining a block that touches water or lava, cutting a log when there is no sapling to replant, pouring lava. This check is plain code in the add-on, so the AI cannot skip it. No answer within two minutes counts as no.
-
 ## Two starting kits
 
-- **Milestone (default):** the island already has a working cobblestone generator and the chest holds a stone pickaxe. This is for the first prototype: it tests observing and acting before any risky building.
-- **Classic:** the original start (chest with a lava bucket and two ice, nothing built). Use `npm run setup -- --accept-eula --classic` on a new world. The AI cannot use buckets yet, so you would build the generator yourself.
+- **Milestone (default):** the island already has a working cobblestone generator and the chest holds a stone pickaxe. The AI starts from a safe position.
+- **Classic:** the original start (chest with a lava bucket and two ice, nothing built): `./install.sh --classic` on a new world. The AI then has to build the generator itself, and pouring lava is the one step that can ruin a Skyblock world for good. This path has not been played through by a real model yet.
 
-To start over, stop the server and delete `bds/worlds/skyblock`, then run setup again.
+To start over, stop the server, delete `bds/worlds/skyblock`, run `./install.sh` again, and press "Clear the AI's notes, lessons and goal progress" in Settings.
 
 ## After a Minecraft update
 
 The iPhone updates Minecraft by itself, and the server must match its version. When you can no longer join:
 
 ```bash
-npm run setup -- --accept-eula --update    # new server version, same world, add-on re-installed
+./install.sh --update    # new server version, same world, add-on re-installed
 npm start
 ```
 
 ## Testing status
 
-**Tested here against the real Bedrock Dedicated Server 1.26.65** with `npm run verify`. Of 12 full runs (the last from a clean clone following this README), 11 passed every check; one run failed a single check once and it did not recur (see "Known limits" in the architecture document). What the test covers:
+**Tested here against the real Bedrock Dedicated Server 1.26.65** with `npm run verify` (23 checks; the last two full runs passed all 23):
 
-- Setup: server download, void world creation, add-on install.
-- The AI joins as a player with health, hunger and inventory.
-- It observes the real world, including a generator running on real water and lava physics.
-- Instruction to verified result: it takes the pickaxe from the chest, mines real cobblestone, picks it up, stores it in the chest, and reports the true counts.
-- Walking, cutting logs, crafting, placing blocks, dying and respawning.
-- Permission requests, `!status`, the web page, spending limits being recorded.
-- The model link for OpenAI-compatible servers, using a stand-in server that speaks that format.
+- Setup: server download, void world, add-on install, from a clean copy.
+- The AI joins as a player with health, hunger and inventory, and observes the real world, including a generator running on real water and lava.
+- Instruction to verified result: takes the pickaxe, mines real cobblestone, stores it, reports the true counts.
+- Each ability done by its player in the real game: walking, mining, picking up drops, placing, chests, crafting, tilling, planting, bone meal, pouring and scooping a bucket, smelting in a furnace, eating, attacking a mob, dying and respawning.
+- Permission requests, and "no" being respected.
+- The self-play machinery: starting work with no instruction, recording a lesson, being told to change approach after repeated failure, holding a risky action when nobody is online, ticking off a goal with evidence.
 
-**Not tested here. Please verify these yourself:**
+In those tests the *decisions* came from a fixed script, not an AI model. An earlier version of the test had one unexplained failure in 12 runs (see the architecture document).
+
+**Not tested here. Please check these yourself:**
 
 | What | How to check |
 |---|---|
+| **How well a real AI model plays by itself** | This is the big one. Run `npm run verify -- --live` after saving your model on the web page: it runs the checks through your model and then lets it play alone for two minutes and prints what it did. Then watch the first hour of real play on the web page. |
 | Joining from the iPhone | Follow "Play from the iPhone". If the server cannot be reached, check the firewall; if it still fails, set `transport=raknet` in `bds/server.properties` and restart. |
-| Chat from a real player reaching the AI | Say `!status` in game chat. The AI's player should answer in chat within a couple of seconds. |
-| A real AI model (Claude or Ollama) | Save your key or model on the web page, stop `npm start`, then run `npm run verify -- --live`. It sends the same instruction through your model and checks the chest. This costs a few cents on Claude. |
-| `ant auth login` credentials | Run `ant auth login`, leave the key blank, then `npm run verify -- --live`. |
-| How the AI's player looks on your screen | It should appear as a normal player with the default skin. |
-| Playing by itself (`!auto on`) | Experimental. Watch the first few tasks and the usage line. |
+| Chat from a real player reaching the AI | Say `!status` in game chat. Its player should answer within a couple of seconds. |
+| Local models | Small models may plan poorly or fail to call tools correctly. Try the largest tool-capable model your machine runs well. |
+| `ant auth login` credentials | Log in on the host, leave the key blank, run the live test. |
 
 ## Run the test yourself
 
 ```bash
-npm run verify             # real server, real actions, scripted decisions, no AI cost (about 1 minute)
-npm run verify -- --live   # same, but your configured AI model makes the decisions
+npm run verify             # real server, real actions, scripted decisions, no AI cost (about 2 minutes)
+npm run verify -- --live   # your configured AI model makes the decisions
 ```
 
 It uses a throwaway world and leaves yours alone. Stop `npm start` first.
 
-## What the AI can and cannot do today
+## What its player can do
 
-Can: look around, walk, mine with the right tool, pick up drops, place blocks, plant saplings, use chests, craft, run the cobblestone harvesting routine, chat, remember places and notes.
+Look around, walk, mine with the right tool, pick up drops, place blocks, plant saplings and seeds, till with a hoe, use bone meal, pour and scoop buckets, use chests, craft (about 150 recipes), smelt in a furnace, eat, attack mobs, run the cobblestone harvesting routine, chat, remember places, notes and lessons.
 
-Cannot yet: buckets, farming, smelting, fighting, eating. It will say so if asked. See the roadmap in the architecture document.
+Not yet: trading, enchanting, redstone, the Nether, boats, fishing, sleeping in a bed.

@@ -741,7 +741,16 @@ async function attack(bot, args) {
   for (let i = 0; i < hits && target.isValid; i++) {
     const t = target.location;
     const cell = { x: Math.floor(t.x), y: Math.floor(t.y), z: Math.floor(t.z) };
-    if (dist(eyePos(botCell(bot)), t) > 3) await walkTo(bot, (c) => dist(eyePos(c), t) <= 2.8, cell, `Cannot get close enough to the ${name}.`);
+    if (dist(eyePos(botCell(bot)), t) > 3) {
+      try {
+        await walkTo(bot, (c) => dist(eyePos(c), t) <= 2.8, cell, "unreachable");
+      } catch (e) {
+        if (!(e instanceof ActionError) || !bot.isValid) throw e;
+        if (done === 0) fail(`Cannot get close enough to the ${name}.`);
+        await sleep(20); // it may have been knocked off the edge; see whether it survives
+        return target.isValid ? `Hit the ${name} ${done} times; it then moved where you cannot walk.` : `Hit the ${name} ${done} times; it was knocked off the island and died in the void, so its drops are lost. Fight mobs away from the edge.`;
+      }
+    }
     if (!target.isValid) break;
     bot.lookAtEntity(target);
     await sleep(2);

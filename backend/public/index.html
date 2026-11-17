@@ -81,6 +81,15 @@
   </section>
 
   <section>
+    <h2>Progress</h2>
+    <div id="goals"></div>
+    <details style="margin-top:12px">
+      <summary>What it has learned (<span id="lessonCount">0</span>)</summary>
+      <ul id="lessons" class="hint"></ul>
+    </details>
+  </section>
+
+  <section>
     <details id="settings">
       <summary>Settings</summary>
       <label for="provider">AI provider</label>
@@ -135,13 +144,15 @@
           <input id="approvalTimeoutSec" type="number" min="10" max="900">
         </div>
       </div>
-      <label><input type="checkbox" id="autonomous"> Let the AI keep playing on its own when idle (experimental, uses more tokens)</label>
+      <label><input type="checkbox" id="autonomous"> Play by itself when it has no instruction</label>
+      <label><input type="checkbox" id="playWhenAlone"> …also while I am not in the game (uses AI budget while I'm away)</label>
+      <label><input type="checkbox" id="selfApprove"> When I'm not there to ask, it may go ahead with a risky action after double-checking</label>
       <div class="row">
         <button class="primary" id="save">Save</button>
         <span class="hint" id="saved"></span>
       </div>
       <div class="row">
-        <button id="clearMemory">Clear the AI's notes and task history</button>
+        <button id="clearMemory">Clear the AI's notes, lessons and goal progress</button>
       </div>
     </details>
   </section>
@@ -183,6 +194,22 @@ function render() {
   $("aiDot").classList.toggle("idle", !state.agent.working);
   $("aiText").textContent = state.agent.working ? `AI: working on "${state.agent.task.slice(0, 60)}"` : "AI: idle";
   $("usage").textContent = state.usageText;
+  const goals = $("goals");
+  goals.textContent = "";
+  for (const g of state.agent.goals) {
+    const row = document.createElement("div");
+    row.textContent = `${g.state === "done" ? "✓" : g.state === "skipped" ? "–" : "○"} ${g.title}${g.state === "skipped" ? ` (skipped: ${g.note})` : ""}`;
+    if (g.state !== "open") row.className = "hint";
+    goals.append(row);
+  }
+  $("lessonCount").textContent = state.agent.lessons.length;
+  const lessons = $("lessons");
+  lessons.textContent = "";
+  for (const l of state.agent.lessons) {
+    const li = document.createElement("li");
+    li.textContent = l;
+    lessons.append(li);
+  }
   $("approval").hidden = !state.agent.approval;
   $("approvalText").textContent = state.agent.approval;
 
@@ -198,7 +225,7 @@ function render() {
     $("effort").value = state.config.effort;
     $("botName").value = state.config.botName;
     $("listen").value = state.config.listen;
-    $("autonomous").checked = state.config.autonomous;
+    for (const key of ["autonomous", "playWhenAlone", "selfApprove"]) $(key).checked = state.config[key];
     for (const key of NUMBERS) $(key).value = state.config[key];
     showAccount();
     const account = state.config.accounts[state.config.provider];
@@ -214,7 +241,7 @@ $("provider").onchange = showAccount;
 $("save").onclick = async () => {
   const body = {
     provider: $("provider").value, effort: $("effort").value, botName: $("botName").value.trim() || "Claude",
-    listen: $("listen").value, autonomous: $("autonomous").checked,
+    listen: $("listen").value, autonomous: $("autonomous").checked, playWhenAlone: $("playWhenAlone").checked, selfApprove: $("selfApprove").checked,
     account: { apiKey: $("apiKey").value, model: $("model").value, baseUrl: $("baseUrl").value },
   };
   for (const key of NUMBERS) body[key] = Number($(key).value) || 0;

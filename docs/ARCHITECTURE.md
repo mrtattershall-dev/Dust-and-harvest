@@ -40,6 +40,8 @@ It is the same kind of entity as your own player: it is in the player list, has 
 | Health, hunger, death | Normal player systems | Yes |
 | Chests | Walks up and opens the chest; the script then moves the items | **Assisted**: a simulated player has no inventory screen |
 | Crafting | The script removes ingredients and adds the result from its own recipe table (about 150 recipes), enforcing the crafting-table rule | **Assisted**: no crafting screen exists for it |
+| Smelting | Walks to the furnace; the script puts input and fuel in, the furnace burns in real time, the script takes the output | **Assisted** loading and unloading; the smelting itself is real |
+| Hoe, bone meal, buckets, seeds, eating, attacking | Uses the held item or weapon | Yes |
 | Being saved | Its inventory and position are stored in world data and restored when the server restarts | **Assisted**: the game does not save simulated players |
 
 Other differences from a human player: it uses the default skin, has no Microsoft account, and exists only while the server runs the add-on.
@@ -69,7 +71,15 @@ Other differences from a human player: it uses the default skin, has no Microsof
 1. You say something in chat. The add-on forwards it to the backend.
 2. The backend starts a task with a fresh model conversation containing the AI's notes, the last few task outcomes, and a current observation: position, health, hunger, inventory, known places, every nearby block with coordinates, entities.
 3. The model picks an action. The add-on carries it out with the player and returns what actually happened.
-4. Repeat until the model answers in words, which is posted to chat. Limits: steps per task, spending per day.
+4. Repeat until the model answers in words. Limits: steps per task, spending per day.
+5. With no instruction waiting, the backend starts the next self-directed task by itself: "keep playing; work on the goal marked NEXT".
+
+### Playing by itself: knowledge plus trial and error
+
+- **Knowledge** is the system prompt (how Skyblock works, what must be protected) and a list of 14 goals with hints. A goal is marked done only when the model cites evidence from a tool result.
+- **Trial and error** is written memory. Deaths are recorded automatically with the action that was running. Two failures of the same action in a row add an instruction to stop, look again and change approach. The model records lessons in its own words; the newest 40 are shown at the start of every task.
+- **Risky actions with nobody online** are refused once with the reason; the model may repeat the call with an explicit confirmation after looking again. This can be switched off so that such actions always wait for the human.
+- **Budget** is the brake: self-play stops when the daily limit is reached.
 
 Division of labour: **code** does movement, timing, collecting, verification, safety checks and whole routines such as harvesting the generator (one model call, many actions). The **model** decides what to do and words the report.
 
@@ -96,16 +106,18 @@ Every item below was a real failure seen on the real server and then fixed:
 
 - **Version coupling.** Simulated players and script HTTP are "Beta APIs". The server must match the phone's Minecraft version, and the add-on must name that version's API. `npm run setup -- --accept-eula --update` handles both, but Mojang can change beta APIs in any release, which may require code changes here.
 - **Not a network client.** See the table above. If Mojang removed simulated players, the fallback would be the protocol-client approach.
-- **Actions not built yet:** buckets, farming, smelting, fighting, eating. The model is told this and says so when asked.
+- **Self-play quality is unproven.** The machinery (goals, lessons, risk handling) is tested with scripted decisions. How well a real model actually progresses, and how much it costs per goal, has not been measured.
+- **Trial and error is memory, not training.** The model itself does not change. It improves by reading its own written lessons and notes at the start of each task. A weak model may write poor lessons or ignore good ones.
+- **Not built:** trading, enchanting, redstone, the Nether, boats, fishing, beds.
 - **One AI player, one island, the overworld only.**
 - **Local models** must support tool calling, and small ones may plan poorly. Not tested here.
 - **One unexplained test failure.** Across 12 full runs of the milestone test on the real server, 11 passed every check. In one run the check "after the human said no, the block was left alone" failed and could not be reproduced; the test now prints what the AI saw when that check fails, so a repeat can be diagnosed.
 
-## Roadmap toward autonomous progression
+## Roadmap
 
-1. **Verify on your setup:** join from the iPhone, chat round trip, `npm run verify -- --live` with Claude and with a local model.
-2. **Finish the player's abilities,** each with a check in `verify`: buckets and ice (to build a generator from the classic kit), hoe, seeds and bone meal, furnace use, eating, fighting.
-3. **Routines in code,** like the generator harvest: tree cycle (cut, collect saplings, replant), platform and bridge building, crop harvest and replant.
-4. **Progression planner:** the classic challenge list as explicit goals with completion checks read from the world, so "play by yourself" has verifiable milestones instead of free-form play.
-5. **Better teamwork:** follow the player, hand over items, a shared task list on the web page, a spoken summary when you join.
-6. **Hardening:** automatic server updates, backups of the world before risky approved actions, a second island or the Nether.
+1. **Measure real self-play.** Run a real model for a few hours on a fresh world; record goals reached, deaths, cost per goal, and which lessons it wrote. Tune the prompt and goal hints from that.
+2. **Check goals from the world, not from the model's word.** For example, count the chest's cobblestone in code before accepting "cobble64".
+3. **More routines in code** like the generator harvest: tree cycle (leaves, saplings, replant, cut), platform and bridge building, crop harvest and replant. Each one saves many model calls.
+4. **Classic start.** Have a real model build the generator from the lava bucket and ice on a throwaway world until it is reliable, before trusting it with a real one.
+5. **Teamwork:** follow the player, hand over items, a shared task list on the web page.
+6. **Hardening:** automatic server updates, world backups before self-approved risky actions, mob defence at night.

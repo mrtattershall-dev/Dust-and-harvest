@@ -18,14 +18,16 @@ const DEFAULTS = {
   botName: "Claude",
   effort: "low",
   listen: "all", // "all": every chat line is for the AI; "mention": only lines containing its name
-  autonomous: false,
+  autonomous: true, // keep playing by itself when it has no instruction
+  playWhenAlone: true, // ...even while no human is online
+  selfApprove: true, // when nobody is online to ask, the AI may confirm a risky action itself after a second look
   maxStepsPerTask: 30,
   dailyUsdLimit: 2,
   dailyTokenLimit: 3000000,
-  approvalTimeoutSec: 120,
+  approvalTimeoutSec: 60,
   accounts: {}, // per provider: { apiKey, model, baseUrl }
 };
-const PLAIN_KEYS = ["provider", "botName", "effort", "listen", "autonomous", "maxStepsPerTask", "dailyUsdLimit", "dailyTokenLimit", "approvalTimeoutSec"];
+const PLAIN_KEYS = ["provider", "botName", "effort", "listen", "autonomous", "playWhenAlone", "selfApprove", "maxStepsPerTask", "dailyUsdLimit", "dailyTokenLimit", "approvalTimeoutSec"];
 
 export class Config {
   constructor(dataDir) {

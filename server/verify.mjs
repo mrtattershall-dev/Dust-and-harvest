@@ -56,6 +56,18 @@ for (const f of ["game-token.txt", ...(live ? ["config.json"] : [])]) {
   if (fs.existsSync(path.join(DATA_DIR, f))) fs.copyFileSync(path.join(DATA_DIR, f), path.join(dataDir, f));
 }
 
+// Self-play stays off until the test reaches that part.
+{
+  const file = path.join(dataDir, "config.json");
+  let saved = {};
+  try {
+    saved = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    // no settings yet
+  }
+  fs.writeFileSync(file, JSON.stringify({ ...saved, autonomous: false }));
+}
+
 /** Stands in for the AI model: fixed tool calls per instruction, final answer copied from the last real result. */
 class ScriptedProvider {
   constructor() {
@@ -68,15 +80,30 @@ class ScriptedProvider {
       const task = input.text.split("\n").pop();
       if (/collect/i.test(task)) this.plan = [["take_from_chest", { x: 5, y: 65, z: 1, item: "stone_pickaxe" }], ["harvest_generator", { count: 6 }]];
       else if (/grass/i.test(task)) this.plan = [["mine_block", { x: 4, y: 64, z: 0 }]];
+      else if (/keep playing by yourself/i.test(task)) {
+        // A self-directed task: some real work, two failures in a row, a lesson, a risky action with nobody to ask, a goal.
+        this.plan = [
+          ["harvest_generator", { count: 2 }],
+          ["move_to", { x: 40, y: 65, z: 40 }],
+          ["move_to", { x: 40, y: 65, z: 40 }],
+          ["record_lesson", { lesson: "There is no path to (40,65,40); bridges must be built block by block first." }],
+          ["mine_block", { x: 4, y: 64, z: 0 }],
+          ["complete_goal", { id: "pickaxe", evidence: "inventory shows stone_pickaxe x1" }],
+        ];
+      }
       else this.plan = [];
     }
-    if (input.toolResults) this.lastResult = input.toolResults.map((r) => r.content).join("\n");
+    if (input.toolResults) {
+      this.lastResult = input.toolResults.map((r) => r.content).join("\n");
+      seenResults.push(this.lastResult);
+    }
     const next = this.plan.shift();
     if (!next) return { text: this.lastResult.split("\n").slice(0, 2).join(" ") || "Nothing to do.", toolCalls: [], model: "scripted", usage };
     return { text: "", toolCalls: [{ id: `call_${Date.now()}`, name: next[0], input: next[1] }], model: "scripted", usage };
   }
 }
 
+const seenResults = [];
 let backend;
 let bds;
 let failed = false;
@@ -155,6 +182,57 @@ try {
   // 6. The pickaxe it took is still in its inventory.
   const inventoryLine = (await link.rpc("observe", { radius: 2 }, 20000)).text.split("\n")[0];
   check("The AI player still holds its pickaxe", /stone_pickaxe x1/.test(inventoryLine), inventoryLine);
+
+  // 7. Abilities needed to play alone, each done by the AI's player in the real world.
+  const consoleCmd = async (line) => {
+    bds.stdin.write(line + "\n");
+    await sleep(1200);
+  };
+  const act = async (method, args) => (await link.rpc(method, args, 120000)).text.split("\n")[0];
+  for (const give of ["wooden_hoe 1", "bone_meal 4", "wheat_seeds 2", "water_bucket 1", "bread 1", "furnace 1", "oak_planks 4", "cobblestone 2", "wooden_sword 1"]) await consoleCmd(`give ${spawned} ${give}`);
+  let line = await act("use_item_on", { item: "wooden_hoe", x: 0, y: 64, z: 3 });
+  check("Hoe: tilled grass into farmland", /grass_block to farmland/.test(line), line);
+  line = await act("place_block", { item: "wheat_seeds", x: 0, y: 65, z: 3 });
+  check("Planted seeds on the farmland", /wheat\(growth/.test(line), line);
+  line = await act("use_item_on", { item: "bone_meal", x: 0, y: 65, z: 3 });
+  check("Bone meal made the crop grow", /wheat\(growth 0\/7\) to wheat\(growth [1-7]/.test(line), line);
+  line = await act("place_block", { item: "water_bucket", x: 0, y: 65, z: 0 });
+  check("Poured a water bucket", /water\(source\)/.test(line), line);
+  line = await act("fill_bucket", { x: 0, y: 65, z: 0 });
+  check("Scooped the water back up", /got water_bucket x1/.test(line), line);
+  await act("place_block", { item: "furnace", x: 2, y: 65, z: 0 });
+  line = await act("smelt", { item: "cobblestone", count: 1 });
+  check("Smelted cobblestone into stone in a real furnace", /got stone x1/.test(line), line);
+  await consoleCmd(`effect ${spawned} hunger 12 255`);
+  await sleep(11000);
+  line = await act("eat", { item: "bread" });
+  check("Ate bread and hunger went up", /Ate bread: hunger went from \d+ to \d+/.test(line), line);
+  await consoleCmd("summon pig 1 65 2");
+  const pig = /pig id=(-?\d+)/.exec((await link.rpc("observe", { radius: 4 }, 20000)).text)?.[1];
+  line = pig ? await act("attack", { id: pig, hits: 12 }) : "no pig seen";
+  check("Attacked a mob and the hits landed", /Killed the pig|Hit the pig \d+ times/.test(line), line);
+
+  // 8. Playing by itself: no instruction given.
+  const tasksBefore = backend.history.filter((e) => e.kind === "task").length;
+  backend.config.save({ autonomous: true, playWhenAlone: true, selfApprove: true });
+  await until("a self-started task", () => backend.history.filter((e) => e.kind === "task").length > tasksBefore, 60000);
+  check("With no instruction, it started working by itself", backend.history.some((e) => e.kind === "task" && /on my own/.test(e.text)));
+  if (!live) {
+    await until("the self-directed task to reach its goal step", () => agent.view().goals.find((g) => g.id === "pickaxe")?.state === "done", 180000);
+    backend.config.save({ autonomous: false });
+    await until("the task to finish", idle, 60000);
+    const view = agent.view();
+    check("It recorded a lesson from a failure", view.lessons.some((l) => /no path/.test(l)), view.lessons.join(" | "));
+    check("Repeated failure triggered a prompt to change approach", seenResults.some((r) => /failed 2 times in a row/.test(r)));
+    check("Risky action with nobody online was held for a second look, not done", seenResults.some((r) => /Nobody is online to ask/.test(r)) && /y=64: z=0 x=0\.\.5/.test((await link.rpc("observe", { radius: 6 }, 20000)).text));
+    check("It marked a goal done with evidence", view.goals.find((g) => g.id === "pickaxe")?.note.includes("stone_pickaxe"));
+  } else {
+    await sleep(120000);
+    backend.config.save({ autonomous: false });
+    agent.stop();
+    await until("the task to finish", idle, 120000);
+    console.log("      What the live model did by itself in two minutes:\n" + backend.history.filter((e) => ["action", "ai", "fail"].includes(e.kind)).slice(-12).map((e) => `        [${e.kind}] ${e.text.slice(0, 140)}`).join("\n"));
+  }
 } catch (error) {
   failed = true;
   console.log(`\nFAIL  ${error.message}`);

@@ -4,6 +4,7 @@
 // bounded per task and per day.
 import fs from "node:fs";
 import path from "node:path";
+import { GOALS, goalsText } from "./goals.js";
 import { AUTONOMOUS_INSTRUCTION, systemPrompt, taskMessage } from "./prompt.js";
 import { AnthropicProvider } from "./providers/anthropic.js";
 import { OpenAICompatibleProvider } from "./providers/openai.js";
@@ -18,7 +19,7 @@ const HELP = [
   "!status - what I'm doing, my inventory, today's AI usage",
   "!stop - stop what I'm doing right now",
   "!come - walk to you",
-  "!auto on / !auto off - let me keep playing on my own",
+  "!auto off / !auto on - stop or resume playing on my own",
   "!yes / !no - answer when I ask for permission",
 ];
 
@@ -39,7 +40,7 @@ export class Agent {
     this.log = log;
     this.makeProvider = makeProvider ?? defaultProvider;
     this.memoryFile = path.join(dataDir, "memory.json");
-    this.memory = { notes: "", recent: [] };
+    this.memory = { notes: "", recent: [], lessons: [], goals: {} };
     try {
       this.memory = { ...this.memory, ...JSON.parse(fs.readFileSync(this.memoryFile, "utf8")) };
     } catch {
@@ -101,7 +102,10 @@ export class Agent {
       if (command === "help") {
         for (const line of HELP) await this.say(line);
       } else if (command === "status") {
-        const doing = this.current ? `Working on: "${this.current.instruction}"` : this.config.get("autonomous") ? "Idle (playing on my own is ON)." : "Idle, waiting for instructions.";
+        const doing = this.current ? (this.current.sender ? `Working on: "${this.current.instruction}"` : "Playing on my own.") : this.config.get("autonomous") ? "Between tasks (playing on my own is ON)." : "Idle, waiting for instructions.";
+        const done = GOALS.filter((g) => this.memory.goals[g.id]?.state === "done").length;
+        const next = GOALS.find((g) => !this.memory.goals[g.id]);
+        await this.say(`Goals: ${done} of ${GOALS.length} done.${next ? ` Next: ${next.title}.` : ""}`);
         await this.say(doing);
         const reply = await this.link.rpc("observe", { radius: 2 }, 15000);
         await this.say(String(reply.text).split("\n")[0]);
@@ -114,7 +118,8 @@ export class Agent {
         if (!reply.ok) await this.say(String(reply.text).split("\n")[0]);
       } else if (command === "auto on" || command === "auto off") {
         this.config.save({ autonomous: command === "auto on" });
-        await this.say(command === "auto on" ? "OK, I'll keep playing on my own when idle. !auto off to stop." : "OK, I'll wait for instructions.");
+        if (command === "auto off" && this.current && !this.current.sender) this.stop("Self-play switched off.");
+        await this.say(command === "auto on" ? "OK, I'll keep playing on my own. !auto off to stop." : "OK, I'll wait for instructions.");
       } else if (command === "yes" || command === "no") {
         await this.say("I'm not waiting for an answer right now.");
       } else {
@@ -131,7 +136,7 @@ export class Agent {
       this.onChat(event.sender, event.message);
     } else if (event.type === "join") {
       this.log("info", `${event.player} joined.`);
-      this.say(`Hi ${event.player}! I'm ready. Tell me what to do, or type !help.`).catch(() => {});
+      this.say(`Hi ${event.player}! ${this.config.get("autonomous") ? "I'm playing on my own; tell me if you want something specific." : "Tell me what to do."} Type !help for commands.`).catch(() => {});
     } else if (event.type === "leave") {
       this.log("info", `${event.player} left.`);
     } else if (event.type === "ready") {
@@ -161,13 +166,14 @@ export class Agent {
 
   #idleTick() {
     if (this.working || this.tasks.length > 0 || !this.config.get("autonomous")) return;
-    if (!this.link.connected || Date.now() - this.lastAuto < 20000 || this.budget.blocked()) return;
+    if (!this.link.connected || Date.now() - this.lastAuto < 8000 || this.budget.blocked()) return;
     this.lastAuto = Date.now();
-    // Never spend while nobody is playing.
     this.link
       .rpc("ping", {}, 5000)
       .then((reply) => {
-        if (!reply.players?.length || this.working || this.tasks.length > 0) return;
+        // Unless allowed to play alone, do not spend while nobody is playing.
+        if (!this.config.get("playWhenAlone") && !reply.players?.length) return;
+        if (this.working || this.tasks.length > 0) return;
         this.tasks.push({ instruction: AUTONOMOUS_INSTRUCTION, sender: "" });
         this.#pump();
       })
@@ -221,7 +227,14 @@ export class Agent {
 
     const system = systemPrompt({ botName: this.config.get("botName") });
     const observation = (await this.link.rpc("observe", {}, 20000)).text;
-    let input = { text: taskMessage({ instruction: task.instruction, sender: task.sender, notes: this.memory.notes, recent: this.memory.recent, observation }) };
+    let input = {
+      text: taskMessage({
+        instruction: task.instruction, sender: task.sender, notes: this.memory.notes, recent: this.memory.recent,
+        lessons: this.memory.lessons, goals: goalsText(this.memory.goals), observation,
+      }),
+    };
+    task.failName = "";
+    task.failCount = 0;
     const maxSteps = Math.max(3, this.config.get("maxStepsPerTask"));
 
     for (let step = 1; step <= maxSteps; step++) {
@@ -236,13 +249,15 @@ export class Agent {
       if (task.stop) return "Stopped by the player.";
       if (result.toolCalls.length === 0 || step === maxSteps) {
         const answer = result.text || "Done.";
-        await this.say(answer);
+        // When playing by itself it does not narrate every step in chat; the log has it.
+        if (task.sender) await this.say(answer);
+        else this.log("ai", answer);
         return answer;
       }
       if (result.text) this.log("ai", result.text);
       const toolResults = [];
       for (const call of result.toolCalls) {
-        toolResults.push(task.stop ? { id: call.id, content: "Not done: the player said stop.", isError: true } : await this.#runTool(call));
+        toolResults.push(task.stop ? { id: call.id, content: "Not done: the player said stop.", isError: true } : await this.#runTool(call, task));
       }
       input = { toolResults };
     }
@@ -269,18 +284,43 @@ export class Agent {
     });
   }
 
-  async #runTool(call) {
+  async #runTool(call, task) {
     const args = call.input && typeof call.input === "object" ? { ...call.input } : {};
     const shown = JSON.stringify(args);
     this.log("action", `${call.name} ${shown.length > 160 ? shown.slice(0, 160) + "…" : shown}`);
     if (args.__invalid) return { id: call.id, content: "The tool arguments were not valid JSON. Try again.", isError: true };
     if (!TOOLS.some((t) => t.name === call.name)) return { id: call.id, content: `There is no tool named "${call.name}".`, isError: true };
-    delete args.approved; // only the human can approve risky actions
+    delete args.approved; // only the approval flow below may set this
+    const confirmRisk = args.confirm_risk === true;
+    delete args.confirm_risk;
 
+    // Things the backend remembers itself.
     if (call.name === "set_notes") {
       this.memory.notes = String(args.notes ?? "").slice(0, 6000);
       this.#saveMemory();
       return { id: call.id, content: "Notes saved." };
+    }
+    if (call.name === "record_lesson") {
+      const lesson = String(args.lesson ?? "").trim().slice(0, 300);
+      if (!lesson) return { id: call.id, content: "The lesson was empty.", isError: true };
+      this.#addLesson(lesson);
+      return { id: call.id, content: "Lesson recorded. It will be shown to you at the start of every task." };
+    }
+    if (call.name === "complete_goal" || call.name === "skip_goal") {
+      const goal = GOALS.find((g) => g.id === String(args.id));
+      if (!goal) return { id: call.id, content: `No goal with id "${args.id}". Ids: ${GOALS.map((g) => g.id).join(", ")}.`, isError: true };
+      if (call.name === "skip_goal" && args.reopen === true) {
+        delete this.memory.goals[goal.id];
+      } else if (call.name === "skip_goal") {
+        this.memory.goals[goal.id] = { state: "skipped", note: String(args.reason ?? "no reason given").slice(0, 150) };
+      } else {
+        const evidence = String(args.evidence ?? "").trim().slice(0, 200);
+        if (!evidence) return { id: call.id, content: "Give the evidence from a tool result.", isError: true };
+        this.memory.goals[goal.id] = { state: "done", note: evidence };
+        await this.say(`Milestone done: ${goal.title}. (${evidence})`);
+      }
+      this.#saveMemory();
+      return { id: call.id, content: `Goal list updated:\n${goalsText(this.memory.goals)}` };
     }
     if (call.name === "say") {
       await this.say(String(args.message ?? ""));
@@ -290,18 +330,53 @@ export class Agent {
     try {
       let reply = await this.link.rpc(call.name, args);
       if (reply.needsApproval) {
-        const approved = await this.#askPermission(reply.needsApproval);
-        if (approved === null) return { id: call.id, content: `Not done: this needs the human's permission (${reply.needsApproval}) and nobody answered. Do something else, or ask them again later.`, isError: true };
-        if (!approved) return { id: call.id, content: `Not done: the human said NO to this (${reply.needsApproval}). Do not try it again unless they ask.`, isError: true };
+        const what = reply.needsApproval;
+        const humans = (await this.link.rpc("ping", {}, 5000).catch(() => ({ players: [] }))).players?.length ?? 0;
+        // A task the human asked for counts as the human being present (they may be on the web page).
+        if (humans === 0 && !task?.sender) {
+          // Nobody to ask. Either refuse, or let the AI go ahead after a deliberate second look.
+          if (!this.config.get("selfApprove")) return { id: call.id, content: `Not done: this is risky (${what}) and needs the human's permission, but nobody is online. Do something else.`, isError: true };
+          if (!confirmRisk) {
+            return { id: call.id, content: `Not done yet: this is risky. You would ${what}. Nobody is online to ask. Check the exact blocks with observe. If you are sure it is safe and necessary, call it again with confirm_risk: true; otherwise choose another way.`, isError: true };
+          }
+          this.log("ask", `Decided by itself (nobody online): ${what}`);
+        } else {
+          const approved = await this.#askPermission(what);
+          if (approved === null) return { id: call.id, content: `Not done: this needs the human's permission (${what}) and they did not answer. Do something else for now.`, isError: true };
+          if (!approved) return { id: call.id, content: `Not done: the human said NO to this (${what}). Do not try it again unless they ask.`, isError: true };
+        }
         reply = await this.link.rpc(call.name, { ...args, approved: true });
       }
-      const text = String(reply.text ?? "");
+      let text = String(reply.text ?? "") || (reply.ok ? "Done." : "Failed.");
       this.log(reply.ok ? "result" : "fail", text.length > 500 ? text.slice(0, 500) + "…" : text);
-      return { id: call.id, content: text || (reply.ok ? "Done." : "Failed."), isError: !reply.ok };
+
+      // Learning from mistakes: deaths are always written down; repeated failures prompt a rethink.
+      const death = /YOU DIED \(cause: ([^)]+)\)/.exec(text);
+      if (death) {
+        this.#addLesson(`Died from ${death[1]} around the action ${call.name} ${shown.slice(0, 100)}. Avoid repeating that.`);
+        await this.say(`I died (${death[1]}). I've noted what went wrong.`);
+        text += "\nA lesson about this death was recorded automatically. Add a more precise one with record_lesson if you understand what caused it.";
+      }
+      if (!reply.ok && task) {
+        task.failCount = task.failName === call.name ? task.failCount + 1 : 1;
+        task.failName = call.name;
+        if (task.failCount >= 2) text += `\n${call.name} has now failed ${task.failCount} times in a row. Do not repeat it the same way: observe, think about why, try a different approach, and record_lesson once you know what works.`;
+      } else if (task) {
+        task.failCount = 0;
+      }
+      return { id: call.id, content: text, isError: !reply.ok };
     } catch (error) {
       this.log("fail", error.message);
       return { id: call.id, content: `The game did not respond: ${error.message}`, isError: true };
     }
+  }
+
+  #addLesson(lesson) {
+    if (this.memory.lessons.includes(lesson)) return;
+    this.memory.lessons.push(lesson);
+    this.memory.lessons = this.memory.lessons.slice(-40);
+    this.log("info", `Lesson learned: ${lesson}`);
+    this.#saveMemory();
   }
 
   /** Ask the human to allow a risky action. Resolves true, false, or null (no answer). */
@@ -331,11 +406,13 @@ export class Agent {
       approval: this.approval?.question ?? "",
       notes: this.memory.notes,
       recent: this.memory.recent,
+      lessons: this.memory.lessons,
+      goals: GOALS.map((g) => ({ id: g.id, title: g.title, state: this.memory.goals[g.id]?.state ?? "open", note: this.memory.goals[g.id]?.note ?? "" })),
     };
   }
 
   clearMemory() {
-    this.memory = { notes: "", recent: [] };
+    this.memory = { notes: "", recent: [], lessons: [], goals: {} };
     this.#saveMemory();
   }
 }

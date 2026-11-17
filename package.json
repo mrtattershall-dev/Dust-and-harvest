@@ -8,6 +8,7 @@
     "setup": "node server/setup.mjs",
     "start": "node server/run.mjs",
     "verify": "node server/verify.mjs",
+    "package": "mkdir -p dist && git archive --format=zip --prefix=skyai-teammate/ -o dist/skyai-teammate.zip HEAD",
     "typecheck": "tsc -p addon/tsconfig.json"
   },
   "engines": { "node": ">=20" },
