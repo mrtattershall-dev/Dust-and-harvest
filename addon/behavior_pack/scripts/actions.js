@@ -10,7 +10,7 @@ import {
   approach, botCell, container, countItem, countWhere, diffText, eyePos, getBot, getBotName, getIsland, giveItem, holdItem,
   holdSlot, inventoryText, inventoryTotals, isBot, listInventory, REACH, removeWhere, saveInventory, setBotName, takeNews, walkTo,
 } from "./bot.js";
-import { describeIngredients, getRecipe, matchesIngredient, recipeNames } from "./recipes.js";
+import { describeIngredients, fuelValue, getRecipe, matchesIngredient, recipeNames, smeltResult } from "./recipes.js";
 import { add, center, dist, fail, posStr, setProp, short, sleep, toPos, ActionError } from "./util.js";
 
 /** Thrown when an action is risky enough that the human must approve it first. */
@@ -598,10 +598,168 @@ function rememberPlace(bot, args) {
   return `Known places updated. ${landmarksText()}`;
 }
 
+// ---------- using items ----------
+
+/** Use a held item on a block: hoe on dirt, bone meal on plants, and so on. */
+async function useItemOn(bot, args) {
+  if (typeof args.item !== "string") fail("use_item_on needs an item name.");
+  const item = short(args.item);
+  const pos = toPos(args);
+  if (countItem(bot, item) < 1) fail(`You have no ${item}.`);
+  if (item === "lava_bucket" && args.approved !== true) throw new ApprovalNeeded(`pour our lava near ${posStr(pos)}. If it touches water the wrong way it turns to obsidian and is lost`);
+  const block = blockAt(bot, pos);
+  if (block.isAir) fail(`${posStr(pos)} is empty; choose the block to use the item on.`);
+  await approach(bot, pos);
+  const slot = holdItem(bot, item);
+  const above = add(pos, 0, 1, 0);
+  const before = { here: describeBlock(blockAt(bot, pos)), above: describeBlock(blockAt(bot, above)), inv: inventoryTotals(bot) };
+  bot.lookAtBlock(pos);
+  await sleep(2);
+  bot.useItemInSlotOnBlock(slot, pos, Direction.Up, { x: 0.5, y: 1, z: 0.5 });
+  await sleep(8);
+  const after = { here: describeBlock(blockAt(bot, pos)), above: describeBlock(blockAt(bot, above)), inv: inventoryTotals(bot) };
+  const { gained, lost } = diffText(before.inv, after.inv);
+  const changes = [];
+  if (after.here !== before.here) changes.push(`the block changed from ${before.here} to ${after.here}`);
+  if (after.above !== before.above) changes.push(`the space above changed from ${before.above} to ${after.above}`);
+  if (lost.length) changes.push(`used up ${lost.join(", ")}`);
+  if (gained.length) changes.push(`got ${gained.join(", ")}`);
+  if (changes.length === 0) fail(`Using ${item} on the ${before.here} at ${posStr(pos)} did nothing.`);
+  return `Used ${item} on ${posStr(pos)}: ${changes.join("; ")}.`;
+}
+
+/** Scoop a water or lava source into an empty bucket. */
+async function fillBucket(bot, args) {
+  const pos = toPos(args);
+  if (countItem(bot, "bucket") < 1) fail("You have no empty bucket.");
+  const block = blockAt(bot, pos);
+  if (!isLiquidId(block.typeId)) fail(`${posStr(pos)} is ${short(block.typeId)}, not a liquid.`);
+  if (!isSource(block)) fail(`${posStr(pos)} is flowing liquid. Only source blocks can be picked up.`);
+  const lava = isLavaId(block.typeId);
+  if (lava && args.approved !== true) throw new ApprovalNeeded(`pick up the lava source at ${posStr(pos)}. That stops the cobblestone generator until it is poured again`);
+  await approach(bot, pos);
+  const slot = holdItem(bot, "bucket");
+  const before = inventoryTotals(bot);
+  bot.lookAtBlock(pos);
+  await sleep(3);
+  bot.useItemInSlotOnBlock(slot, pos, Direction.Up, { x: 0.5, y: 0.5, z: 0.5 });
+  await sleep(6);
+  let { gained } = diffText(before, inventoryTotals(bot));
+  if (gained.length === 0) {
+    bot.useItemInSlot(holdItem(bot, "bucket"));
+    await sleep(6);
+    bot.stopUsingItem();
+    ({ gained } = diffText(before, inventoryTotals(bot)));
+  }
+  if (gained.length === 0) fail(`Could not scoop the ${lava ? "lava" : "water"} at ${posStr(pos)}.`);
+  return `Scooped it up: got ${gained.join(", ")}. ${posStr(pos)} is now ${describeBlock(blockAt(bot, pos))}.`;
+}
+
+async function eat(bot, args) {
+  if (typeof args.item !== "string") fail("eat needs an item name.");
+  const item = short(args.item);
+  const have = countItem(bot, item);
+  if (have < 1) fail(`You have no ${item}.`);
+  const hungerBefore = attribute(bot, "minecraft:player.hunger");
+  const slot = holdItem(bot, item);
+  bot.useItemInSlot(slot);
+  await sleep(40);
+  bot.stopUsingItem();
+  await sleep(4);
+  const hungerAfter = attribute(bot, "minecraft:player.hunger");
+  if (countItem(bot, item) >= have) fail(`Could not eat ${item} (hunger is ${hungerAfter}/20; food can only be eaten when hunger is below 20, and only food items work).`);
+  return `Ate ${item}: hunger went from ${hungerBefore} to ${hungerAfter}.`;
+}
+
+// ---------- smelting in a real furnace ----------
+
+async function smelt(bot, args) {
+  if (typeof args.item !== "string") fail("smelt needs an item name.");
+  const item = short(args.item);
+  const result = smeltResult(item);
+  if (!result) fail(`${item} cannot be smelted.`);
+  const count = Math.max(1, Math.min(8, Number(args.count) || 1));
+  if (countItem(bot, item) < count) fail(`You only have ${countItem(bot, item)} ${item}.`);
+  const at = nearbyBlock(bot, "furnace") ?? nearbyBlock(bot, "lit_furnace");
+  if (!at) fail("Smelting needs a furnace within reach. Craft a furnace (8 cobblestone), place it, and stand next to it.");
+  const furnace = blockAt(bot, at).getComponent("minecraft:inventory")?.container;
+  if (!furnace) fail("That furnace cannot be used.");
+  if (furnace.getItem(0) || furnace.getItem(1) || furnace.getItem(2)) fail("The furnace already has items in it. Empty it first with take_from_chest on the furnace.");
+
+  // Choose fuel: what was asked for, otherwise the best burnable thing that is not the input.
+  const fuels = listInventory(bot)
+    .filter((e) => fuelValue(e.id) > 0 && short(e.id) !== item && short(e.id) !== "lava_bucket" && (!args.fuel || short(e.id) === short(String(args.fuel))))
+    .sort((a, b) => fuelValue(b.id) - fuelValue(a.id));
+  const fuel = fuels.find((f) => f.amount * fuelValue(f.id) >= count);
+  if (!fuel) fail(`Not enough fuel for ${count} ${item}. One kind of fuel must cover it: coal or charcoal smelts 8 each, logs or planks 1.5, sticks or saplings 0.5.`);
+  const fuelNeeded = Math.ceil(count / fuelValue(fuel.id));
+
+  bot.lookAtBlock(at);
+  try {
+    bot.interactWithBlock(at);
+  } catch {
+    // opening is only for show
+  }
+  await sleep(6);
+  const before = inventoryTotals(bot);
+  removeWhere(bot, (id) => short(id) === item, count);
+  removeWhere(bot, (id) => short(id) === short(fuel.id), fuelNeeded);
+  furnace.setItem(0, new ItemStack("minecraft:" + item, count));
+  furnace.setItem(1, new ItemStack(fuel.id, fuelNeeded));
+  closeContainer(bot);
+
+  // Each item takes 10 seconds in a real furnace.
+  let done = 0;
+  for (let t = 0; t < count * 220 + 100; t += 10) {
+    await sleep(10);
+    done = furnace.getItem(2)?.amount ?? 0;
+    if (done >= count) break;
+  }
+  // Take everything back out.
+  for (const slot of [2, 0, 1]) {
+    const stack = furnace.getItem(slot);
+    if (!stack) continue;
+    const overflow = container(bot).addItem(stack);
+    furnace.setItem(slot, overflow);
+  }
+  const { gained, lost } = diffText(before, inventoryTotals(bot));
+  if (done === 0) fail(`The furnace did not smelt anything. Inventory change: ${[...gained.map((g) => "+" + g), ...lost.map((l) => "-" + l)].join(", ") || "none"}.`);
+  return `Smelted in the furnace at ${posStr(at)}: got ${gained.join(", ") || "nothing"}; used ${lost.join(", ")}.`;
+}
+
+// ---------- fighting ----------
+
+async function attack(bot, args) {
+  const target = world.getEntity(String(args.id));
+  if (!target || !target.isValid) fail("No such entity (it may have died or moved away). Use observe to list entities.");
+  if (target.typeId === "minecraft:player" || target.typeId === "minecraft:item") fail("You cannot attack that.");
+  const swords = listInventory(bot).filter((e) => /_sword$/.test(e.id));
+  if (swords.length) holdSlot(bot, swords[0].slot);
+  const name = short(target.typeId);
+  const hits = Math.max(1, Math.min(15, Number(args.hits) || 8));
+  let done = 0;
+  for (let i = 0; i < hits && target.isValid; i++) {
+    const t = target.location;
+    const cell = { x: Math.floor(t.x), y: Math.floor(t.y), z: Math.floor(t.z) };
+    if (dist(eyePos(botCell(bot)), t) > 3) await walkTo(bot, (c) => dist(eyePos(c), t) <= 2.8, cell, `Cannot get close enough to the ${name}.`);
+    if (!target.isValid) break;
+    bot.lookAtEntity(target);
+    await sleep(2);
+    bot.attackEntity(target);
+    done++;
+    await sleep(12);
+  }
+  if (target.isValid) return `Hit the ${name} ${done} times; it is still alive.`;
+  const before = inventoryTotals(bot);
+  await sleep(20);
+  const { gained } = diffText(before, inventoryTotals(bot));
+  return `Killed the ${name} after ${done} hits.${gained.length ? " Picked up " + gained.join(", ") + "." : ""}`;
+}
+
 const ACTIONS = {
   observe, move_to: moveTo, come_to_player: comeToPlayer, mine_block: mine, place_block: place, look_in_chest: lookInChest,
   take_from_chest: takeFromChest, put_in_chest: putInChest, craft, harvest_generator: harvestGenerator, wait, say,
-  remember_place: rememberPlace,
+  remember_place: rememberPlace, use_item_on: useItemOn, fill_bucket: fillBucket, eat, smelt, attack,
 };
 
 /**
