@@ -99,7 +99,7 @@ Every item below was a real failure seen on the real server and then fixed:
 - **Actions not built yet:** buckets, farming, smelting, fighting, eating. The model is told this and says so when asked.
 - **One AI player, one island, the overworld only.**
 - **Local models** must support tool calling, and small ones may plan poorly. Not tested here.
-- **One unexplained test failure.** Across 11 full runs of the milestone test on the real server, 10 passed every check. In one run the check "after the human said no, the block was left alone" failed and could not be reproduced; the test now prints what the AI saw when that check fails, so a repeat can be diagnosed.
+- **One unexplained test failure.** Across 12 full runs of the milestone test on the real server, 11 passed every check. In one run the check "after the human said no, the block was left alone" failed and could not be reproduced; the test now prints what the AI saw when that check fails, so a repeat can be diagnosed.
 
 ## Roadmap toward autonomous progression
 

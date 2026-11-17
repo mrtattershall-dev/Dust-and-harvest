@@ -103,7 +103,7 @@ npm start
 
 ## Testing status
 
-**Tested here against the real Bedrock Dedicated Server 1.26.65** with `npm run verify`. Of 11 full runs, 10 passed every check; one run failed a single check once and it did not recur (see "Known limits" in the architecture document). What the test covers:
+**Tested here against the real Bedrock Dedicated Server 1.26.65** with `npm run verify`. Of 12 full runs (the last from a clean clone following this README), 11 passed every check; one run failed a single check once and it did not recur (see "Known limits" in the architecture document). What the test covers:
 
 - Setup: server download, void world creation, add-on install.
 - The AI joins as a player with health, hunger and inventory.
