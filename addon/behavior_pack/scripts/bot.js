@@ -1,111 +1,124 @@
-// The AI's body in the world: a "skyai:bot" entity with its own inventory.
-import { world, system, ItemStack } from "@minecraft/server";
+// The AI's body: a simulated player. It is a real Player entity created by
+// the server (health, hunger, inventory, survival rules, appears in the
+// player list) that is driven by this script instead of a network client.
+import { world, system, GameMode, ItemStack } from "@minecraft/server";
+import { spawnSimulatedPlayer } from "@minecraft/server-gametest";
 import { findPath } from "./pathfind.js";
-import { ActionError, center, dist, fail, getProp, overworld, posStr, setProp, short, sleep } from "./util.js";
+import { center, dist, fail, getProp, overworld, posStr, setProp, short, sleep } from "./util.js";
 
-export const BOT_TYPE = "skyai:bot";
-const REACH = 4.5;
+export const REACH = 4.5;
 
-/** Things that happened since the AI last heard from us (deaths, pickups). */
-const pendingNews = [];
-const pickups = new Map();
+/** @type {import("@minecraft/server-gametest").SimulatedPlayer | undefined} */
+let bot;
 let botName = "Claude";
+let respawning = false;
+const pendingNews = [];
 
 export function addNews(text) {
   pendingNews.push(text);
 }
-
 export function takeNews() {
-  const news = pendingNews.splice(0);
-  if (pickups.size > 0) {
-    news.push("Picked up: " + [...pickups].map(([id, n]) => `${short(id)} x${n}`).join(", "));
-    pickups.clear();
-  }
-  return news;
+  return pendingNews.splice(0);
 }
 
-export function getIsland() {
-  return getProp("skyai:island", undefined);
-}
+export const getIsland = () => getProp("skyai:island", undefined);
+export const getBotName = () => botName;
+export const isBot = (entity) => bot !== undefined && entity.id === bot.id;
 
 export function setBotName(name) {
-  botName = String(name).slice(0, 24) || "Claude";
+  const clean = String(name).replace(/[^A-Za-z0-9_ ]/g, "").slice(0, 16) || "Claude";
+  if (clean === botName) return;
+  botName = clean;
   setProp("skyai:botName", botName);
-  const bot = findBot();
-  if (bot) bot.nameTag = botName;
-}
-
-export function getBotName() {
-  return botName;
+  // The name is fixed when a player is created, so re-create the bot under the new name.
+  if (bot && bot.isValid) {
+    saveInventory();
+    const at = bot.location;
+    bot.disconnect();
+    bot = undefined;
+    spawnBot(at);
+  }
 }
 
 export function loadBotName() {
   botName = getProp("skyai:botName", "Claude");
 }
 
-function findBot() {
-  const id = getProp("skyai:botId", undefined);
-  if (id) {
-    const entity = world.getEntity(id);
-    if (entity && entity.isValid) return entity;
+// ---------- inventory persistence ----------
+// A simulated player is not saved with the world, so its inventory and
+// position are stored in world data and restored when it is re-created.
+
+export function saveInventory() {
+  if (!bot || !bot.isValid || respawning) return;
+  const c = container(bot);
+  const items = [];
+  for (let i = 0; i < c.size; i++) {
+    const item = c.getItem(i);
+    if (!item) continue;
+    const durability = item.getComponent("minecraft:durability");
+    items.push({ s: i, id: item.typeId, n: item.amount, d: durability ? durability.damage : 0 });
   }
-  const found = overworld().getEntities({ type: BOT_TYPE });
-  if (found.length > 0) {
-    setProp("skyai:botId", found[0].id);
-    return found[0];
-  }
-  return undefined;
+  const l = bot.location;
+  setProp("skyai:bot", { items, at: { x: l.x, y: l.y, z: l.z } });
 }
 
-/** Remove every bot entity (used when resetting). */
-export function removeBots() {
-  for (const entity of overworld().getEntities({ type: BOT_TYPE })) entity.remove();
-  setProp("skyai:botId", undefined);
+function restoreInventory(player, saved) {
+  const c = container(player);
+  for (const entry of saved.items ?? []) {
+    try {
+      const stack = new ItemStack(entry.id, entry.n);
+      const durability = stack.getComponent("minecraft:durability");
+      if (durability && entry.d) durability.damage = entry.d;
+      c.setItem(entry.s, stack);
+    } catch {
+      // item no longer exists in this game version
+    }
+  }
 }
 
-/** Get the bot, spawning it at the island spawn point if it does not exist. */
-export function getBot() {
-  const existing = findBot();
-  if (existing) return existing;
+function spawnBot(at) {
   const island = getIsland();
-  if (!island) fail("There is no Skyblock island yet. Ask the player to create one from the SkyAI menu (use the compass).");
-  const spawn = island.spawn;
-  let bot;
+  if (!island) fail("There is no island yet.");
+  const saved = getProp("skyai:bot", undefined);
+  const where = at ?? saved?.at ?? { x: island.spawn.x + 0.5, y: island.spawn.y, z: island.spawn.z + 0.5 };
   try {
-    bot = overworld().spawnEntity(BOT_TYPE, { x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 });
-  } catch {
-    fail("The island is not loaded right now. The player needs to be near the island.");
+    bot = spawnSimulatedPlayer({ dimension: overworld(), x: where.x, y: where.y, z: where.z }, botName, GameMode.Survival);
+  } catch (e) {
+    fail(`Could not create the AI player: ${e}`);
   }
-  bot.nameTag = botName;
-  setProp("skyai:botId", bot.id);
+  bot.setSpawnPoint({ dimension: overworld(), x: island.spawn.x, y: island.spawn.y, z: island.spawn.z });
+  if (saved) restoreInventory(bot, saved);
   return bot;
 }
 
-export function botExists() {
-  return findBot() !== undefined;
+/** The AI's player, created on first use. */
+export function getBot() {
+  if (bot && bot.isValid) return bot;
+  if (respawning) fail("You are dead and respawning. Try again in a moment.");
+  return spawnBot();
 }
+
+export const botExists = () => bot !== undefined && bot.isValid;
 
 /** The block cell the bot's feet are in. */
-export function botCell(bot) {
-  const l = bot.location;
-  return { x: Math.floor(l.x), y: Math.round(l.y), z: Math.floor(l.z) };
+export function botCell(player) {
+  const l = player.location;
+  return { x: Math.floor(l.x), y: Math.floor(l.y + 0.3), z: Math.floor(l.z) };
 }
 
-export function eyePos(cell) {
-  return { x: cell.x + 0.5, y: cell.y + 1.6, z: cell.z + 0.5 };
-}
+export const eyePos = (cell) => ({ x: cell.x + 0.5, y: cell.y + 1.6, z: cell.z + 0.5 });
 
 // ---------- inventory ----------
 
-export function container(bot) {
-  const inv = bot.getComponent("minecraft:inventory");
-  if (!inv || !inv.container) throw new Error("bot has no inventory");
+export function container(player) {
+  const inv = player.getComponent("minecraft:inventory");
+  if (!inv || !inv.container) throw new Error("player has no inventory");
   return inv.container;
 }
 
 /** List of { slot, id, amount } for every filled slot. */
-export function listInventory(bot) {
-  const c = container(bot);
+export function listInventory(player) {
+  const c = container(player);
   const out = [];
   for (let i = 0; i < c.size; i++) {
     const item = c.getItem(i);
@@ -114,16 +127,21 @@ export function listInventory(bot) {
   return out;
 }
 
-export function countWhere(bot, predicate) {
-  return listInventory(bot).reduce((n, e) => (predicate(e.id) ? n + e.amount : n), 0);
+/** Totals per item id (short names). */
+export function inventoryTotals(player) {
+  const totals = {};
+  for (const e of listInventory(player)) totals[short(e.id)] = (totals[short(e.id)] ?? 0) + e.amount;
+  return totals;
 }
 
-export const countItem = (bot, id) => countWhere(bot, (other) => short(other) === short(id));
+export function countWhere(player, predicate) {
+  return listInventory(player).reduce((n, e) => (predicate(e.id) ? n + e.amount : n), 0);
+}
+export const countItem = (player, id) => countWhere(player, (other) => short(other) === short(id));
 
-/** Remove up to `amount` items matching predicate. Returns the list of {id, amount} removed. */
-export function removeWhere(bot, predicate, amount) {
-  const c = container(bot);
-  const removed = [];
+/** Remove up to `amount` items matching predicate. */
+export function removeWhere(player, predicate, amount) {
+  const c = container(player);
   let left = amount;
   for (let i = 0; i < c.size && left > 0; i++) {
     const item = c.getItem(i);
@@ -135,159 +153,168 @@ export function removeWhere(bot, predicate, amount) {
       item.amount -= take;
       c.setItem(i, item);
     }
-    removed.push({ id: item.typeId, amount: take });
     left -= take;
   }
-  return removed;
+  return amount - left;
 }
 
-export const removeItem = (bot, id, amount) => removeWhere(bot, (other) => short(other) === short(id), amount);
-
-/** Add items; anything that does not fit is dropped at the bot's feet. Returns true if all fit. */
-export function giveItem(bot, id, amount) {
+/** Add items; anything that does not fit is dropped at the bot's feet. */
+export function giveItem(player, id, amount) {
   const typeId = id.includes(":") ? id : "minecraft:" + id;
   let left = amount;
-  let allFit = true;
   while (left > 0) {
     const stack = new ItemStack(typeId, 1);
     const n = Math.min(left, stack.maxAmount);
     stack.amount = n;
-    const overflow = container(bot).addItem(stack);
-    if (overflow) {
-      allFit = false;
-      bot.dimension.spawnItem(overflow, bot.location);
-    }
+    const overflow = container(player).addItem(stack);
+    if (overflow) player.dimension.spawnItem(overflow, player.location);
     left -= n;
   }
-  return allFit;
 }
 
-export function giveStack(bot, stack) {
-  const overflow = container(bot).addItem(stack);
-  if (overflow) bot.dimension.spawnItem(overflow, bot.location);
+export function inventoryText(player) {
+  const totals = Object.entries(inventoryTotals(player));
+  return totals.length ? totals.map(([id, n]) => `${id} x${n}`).join(", ") : "empty";
 }
 
-export function inventoryText(bot) {
-  const totals = new Map();
-  for (const e of listInventory(bot)) totals.set(e.id, (totals.get(e.id) ?? 0) + e.amount);
-  if (totals.size === 0) return "empty";
-  return [...totals].map(([id, n]) => `${short(id)} x${n}`).join(", ");
-}
-
-/** Wear down the tool in a slot by one use; it breaks when used up. */
-export function damageTool(bot, slot) {
-  const c = container(bot);
-  const item = c.getItem(slot);
-  if (!item) return;
-  const durability = item.getComponent("minecraft:durability");
-  if (!durability) return;
-  if (durability.damage + 1 >= durability.maxDurability) {
-    c.setItem(slot, undefined);
-    addNews(`Your ${short(item.typeId)} broke.`);
-  } else {
-    durability.damage += 1;
-    c.setItem(slot, item);
+/** Describe what changed between two inventoryTotals() snapshots. */
+export function diffText(before, after) {
+  const gained = [];
+  const lost = [];
+  for (const id of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    const d = (after[id] ?? 0) - (before[id] ?? 0);
+    if (d > 0) gained.push(`${id} x${d}`);
+    if (d < 0) lost.push(`${id} x${-d}`);
   }
+  return { gained, lost };
+}
+
+/** Put the item in a slot into the hand. Returns the hotbar slot used. */
+export function holdSlot(player, slot) {
+  const c = container(player);
+  let hotbar = slot;
+  if (slot > 8) {
+    hotbar = 0;
+    for (let i = 0; i < 9; i++) {
+      if (!c.getItem(i)) {
+        hotbar = i;
+        break;
+      }
+    }
+    c.swapItems(slot, hotbar, c);
+  }
+  player.selectedSlotIndex = hotbar;
+  return hotbar;
+}
+
+/** Hold the first stack of an item. Returns the hotbar slot, or undefined if the bot has none. */
+export function holdItem(player, id) {
+  const entry = listInventory(player).find((e) => short(e.id) === short(id));
+  return entry ? holdSlot(player, entry.slot) : undefined;
 }
 
 // ---------- movement ----------
 
-function face(bot, target) {
-  try {
-    bot.teleport(bot.location, { facingLocation: target });
-  } catch {
-    // facing is cosmetic
+const horizontal = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+
+/** Walk along a path of cells using the player's own legs. */
+async function walk(player, path) {
+  if (path.length === 0) return;
+  const points = path.map((c) => ({ x: c.x + 0.5, y: c.y, z: c.z + 0.5 }));
+  const goal = points[points.length - 1];
+  const arrived = () => horizontal(player.location, goal) < 0.4 && Math.abs(player.location.y - goal.y) < 1.1;
+
+  player.navigateToLocations(points, 1);
+  let last = player.location;
+  let still = 0;
+  const limit = path.length * 16 + 60;
+  for (let t = 0; t < limit; t += 2) {
+    await sleep(2);
+    if (!player.isValid) fail("You died while moving.");
+    if (arrived()) break;
+    const now = player.location;
+    still = dist(now, last) < 0.02 ? still + 2 : 0;
+    last = now;
+    if (still >= 30) break;
   }
-}
+  player.stopMoving();
+  if (arrived()) return;
 
-export function lookAtBlock(bot, pos) {
-  face(bot, center(pos));
-}
-
-/** Walk the bot along a path of cells, a few small steps per block. */
-async function walk(bot, path) {
-  for (const cell of path) {
-    if (!bot.isValid) fail("You died while moving.");
-    const from = bot.location;
-    const to = { x: cell.x + 0.5, y: cell.y, z: cell.z + 0.5 };
-    const look = { x: to.x, y: to.y + 1.6, z: to.z };
-    const steps = 3;
-    for (let i = 1; i <= steps; i++) {
-      const t = i / steps;
-      const y = to.y >= from.y ? to.y : i === steps ? to.y : from.y;
-      bot.teleport({ x: from.x + (to.x - from.x) * t, y, z: from.z + (to.z - from.z) * t }, { facingLocation: look });
-      await sleep(1);
-      if (!bot.isValid) fail("You died while moving.");
+  // Navigation gave up: finish the route one step at a time.
+  for (const point of points) {
+    if (horizontal(player.location, point) < 0.4 && Math.abs(player.location.y - point.y) < 1.1) continue;
+    if (point.y > player.location.y + 0.5) player.jump();
+    player.moveToLocation(point, { faceTarget: true });
+    for (let t = 0; t < 40; t += 2) {
+      await sleep(2);
+      if (!player.isValid) fail("You died while moving.");
+      if (horizontal(player.location, point) < 0.35 && Math.abs(player.location.y - point.y) < 1.1) break;
     }
   }
+  player.stopMoving();
+  if (!arrived()) {
+    const c = botCell(player);
+    fail(`Got stuck while walking; now at ${posStr(c)} instead of ${posStr(path[path.length - 1])}.`);
+  }
 }
 
-/** Walk to the cell that satisfies isGoal and is nearest. */
-export async function walkTo(bot, isGoal, target, failMessage) {
-  const start = botCell(bot);
-  const path = findPath(bot.dimension, start, isGoal, (p) => Math.max(0, dist(p, target) - REACH));
+/** Walk to the nearest cell that satisfies isGoal. Returns the number of blocks walked. */
+export async function walkTo(player, isGoal, target, failMessage) {
+  const start = botCell(player);
+  const path = findPath(player.dimension, start, isGoal, (p) => Math.max(0, dist(p, target) - REACH));
   if (path === undefined) fail(failMessage);
-  await walk(bot, path);
+  await walk(player, path);
   return path.length;
 }
 
 /**
- * Make sure the bot can reach a block: walk closer if needed. `avoid` lists
- * cells the bot must not stand in (e.g. where a block is about to be placed).
+ * Make sure the bot can reach a block, walking closer if needed.
+ * `avoid` lists cells the bot must not stand in; `within` is the reach to use.
  */
-export async function approach(bot, pos, avoid = []) {
+export async function approach(player, pos, avoid = [], within = REACH) {
   const target = center(pos);
   const blocked = (cell) => avoid.some((a) => a.x === cell.x && a.z === cell.z && (a.y === cell.y || a.y === cell.y + 1));
-  const ok = (cell) => dist(eyePos(cell), target) <= REACH && !blocked(cell);
-  if (ok(botCell(bot))) return 0;
-  return walkTo(bot, ok, pos, `Cannot get within reach of ${posStr(pos)}: there is no walkable path. Build a bridge or staircase toward it first.`);
+  const ok = (cell) => dist(eyePos(cell), target) <= within && !blocked(cell);
+  if (ok(botCell(player))) return 0;
+  return walkTo(player, ok, pos, `Cannot get within reach of ${posStr(pos)}: there is no walkable path. Build a bridge or staircase toward it first.`);
 }
 
-// ---------- background jobs ----------
-
-/** Pick up item drops near the bot. */
-function collectItems() {
-  const bot = findBot();
-  if (!bot) return;
-  let items;
-  try {
-    items = bot.dimension.getEntities({ type: "minecraft:item", location: bot.location, maxDistance: 2.5 });
-  } catch {
-    return;
-  }
-  for (const entity of items) {
-    const stack = entity.getComponent("minecraft:item")?.itemStack;
-    if (!stack) continue;
-    const amount = stack.amount;
-    const overflow = container(bot).addItem(stack);
-    const taken = amount - (overflow?.amount ?? 0);
-    if (taken > 0) pickups.set(stack.typeId, (pickups.get(stack.typeId) ?? 0) + taken);
-    if (!overflow) {
-      entity.remove();
-    } else if (taken > 0) {
-      const at = entity.location;
-      entity.remove();
-      bot.dimension.spawnItem(overflow, at);
-    }
-  }
-}
+// ---------- lifecycle ----------
 
 export function startBotJobs() {
   system.runInterval(() => {
     try {
-      collectItems();
+      saveInventory();
     } catch {
       // keep the interval alive
     }
-  }, 10);
+  }, 100);
 
   world.afterEvents.entityDie.subscribe((event) => {
-    if (event.deadEntity.typeId !== BOT_TYPE) return;
+    if (!bot || event.deadEntity.id !== bot.id) return;
     const cause = event.damageSource?.cause ?? "unknown";
-    setProp("skyai:botId", undefined);
-    addNews(`YOU DIED (cause: ${cause}). Everything you were carrying is gone. You respawned at the island spawn point.`);
-    world.sendMessage(`§6${botName} died (${cause}).`);
+    const dead = bot;
+    respawning = true;
+    setProp("skyai:bot", undefined);
+    addNews(`YOU DIED (cause: ${cause}). What you carried was dropped where you died (gone for good if that was the void). You respawned at the island spawn point with an empty inventory.`);
+    system.runTimeout(() => {
+      // Replace the dead player with a fresh one at the island spawn point.
+      try {
+        if (dead.isValid) dead.disconnect();
+      } catch {
+        // already gone
+      }
+      bot = undefined;
+      system.runTimeout(() => {
+        respawning = false;
+        setProp("skyai:bot", undefined);
+        try {
+          const island = getIsland();
+          spawnBot({ x: island.spawn.x + 0.5, y: island.spawn.y, z: island.spawn.z + 0.5 });
+        } catch {
+          // re-created on next use
+        }
+      }, 20);
+    }, 30);
   });
 }
-
-export { ActionError, REACH };

@@ -26,9 +26,16 @@ export function worldView(dimension) {
     const id = typeAt(x, y, z);
     return id !== undefined && isPassableId(id) && !isLavaId(id);
   };
+  const lava = (x, y, z) => {
+    const id = typeAt(x, y, z);
+    return id !== undefined && isLavaId(id);
+  };
+  // Never stand in a cell that touches lava.
+  const nearLava = (x, y, z) =>
+    lava(x, y - 1, z) || [0, 1].some((dy) => lava(x + 1, y + dy, z) || lava(x - 1, y + dy, z) || lava(x, y + dy, z + 1) || lava(x, y + dy, z - 1));
   const standable = (x, y, z) => {
     const below = typeAt(x, y - 1, z);
-    return below !== undefined && isStandableId(below) && passable(x, y, z) && passable(x, y + 1, z);
+    return below !== undefined && isStandableId(below) && passable(x, y, z) && passable(x, y + 1, z) && !nearLava(x, y, z);
   };
   return { typeAt, passable, standable };
 }

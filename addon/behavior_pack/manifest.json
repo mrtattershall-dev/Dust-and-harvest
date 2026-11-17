@@ -1,25 +1,25 @@
 {
   "format_version": 2,
   "header": {
-    "name": "SkyAI Skyblock",
-    "description": "OG Skyblock played by an AI (Claude and others). Needs the SkyAI bridge.",
+    "name": "SkyAI Teammate",
+    "description": "An AI player for Skyblock on a Bedrock Dedicated Server. Needs the SkyAI backend.",
     "uuid": "6f0b6a52-6d0e-4c0e-9a55-1d7c2f1e8a01",
-    "version": [1, 0, 0],
+    "version": [2, 0, 0],
     "min_engine_version": [1, 21, 90]
   },
   "modules": [
-    { "type": "data", "uuid": "6f0b6a52-6d0e-4c0e-9a55-1d7c2f1e8a02", "version": [1, 0, 0] },
     {
       "type": "script",
       "language": "javascript",
       "uuid": "6f0b6a52-6d0e-4c0e-9a55-1d7c2f1e8a03",
       "entry": "scripts/main.js",
-      "version": [1, 0, 0]
+      "version": [2, 0, 0]
     }
   ],
   "dependencies": [
-    { "module_name": "@minecraft/server", "version": "2.0.0" },
-    { "module_name": "@minecraft/server-ui", "version": "2.0.0" },
-    { "uuid": "6f0b6a52-6d0e-4c0e-9a55-1d7c2f1e8b01", "version": [1, 0, 0] }
+    { "module_name": "@minecraft/server", "version": "SERVER_BETA_VERSION" },
+    { "module_name": "@minecraft/server-gametest", "version": "1.0.0-beta" },
+    { "module_name": "@minecraft/server-net", "version": "1.0.0-beta" },
+    { "module_name": "@minecraft/server-admin", "version": "1.0.0-beta" }
   ]
 }

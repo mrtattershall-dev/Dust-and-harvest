@@ -1,18 +1,24 @@
 {
   "name": "skyai-skyblock",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "AI-played OG Skyblock for Minecraft Bedrock: add-on + AI bridge",
+  "description": "An AI teammate that plays Skyblock with you on a Minecraft Bedrock server",
   "scripts": {
-    "build": "node tools/build.mjs",
-    "typecheck": "tsc -p addon/tsconfig.json",
-    "test": "node test/e2e.mjs",
-    "bridge": "npm --prefix bridge start"
+    "setup": "node server/setup.mjs",
+    "start": "node server/run.mjs",
+    "verify": "node server/verify.mjs",
+    "typecheck": "tsc -p addon/tsconfig.json"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.10.0"
   },
   "devDependencies": {
-    "@minecraft/server": "2.0.0",
-    "@minecraft/server-ui": "2.0.0",
+    "@minecraft/server": "2.12.0-beta.1.26.65-stable",
+    "@minecraft/server-admin": "1.0.0-beta.1.26.65-stable",
+    "@minecraft/server-gametest": "1.0.0-beta.1.26.65-stable",
+    "@minecraft/server-net": "1.0.0-beta.1.26.65-stable",
     "typescript": "^5.6.0"
   }
 }

@@ -1,85 +1,83 @@
-// SkyAI Skyblock - entry point.
+// SkyAI teammate - server add-on entry point.
 //
-// The bridge (a small server outside the game) talks to this add-on with
-//   /scriptevent skyai:rpc {"id":1,"m":"mine_block","a":{...}}
-// and reads the reply from tags on the connected player (see outbox.js).
+// Runs on a Bedrock Dedicated Server. It creates the Skyblock island, owns
+// the AI's simulated player, carries out actions requested by the backend,
+// and reports chat and results back to it.
 import { world, system } from "@minecraft/server";
+import { variables } from "@minecraft/server-admin";
 import { runAction } from "./actions.js";
-import { loadBotName, startBotJobs } from "./bot.js";
-import { createIsland, startVoidJob } from "./island.js";
-import { giveMenuItem, openMenu, startMenu } from "./menu.js";
-import { clearOutbox, sendReply } from "./outbox.js";
+import { botExists, getBot, getIsland, isBot, loadBotName, startBotJobs } from "./bot.js";
+import { createIsland } from "./island.js";
+import { sendEvent, sendResult, startNet } from "./net.js";
+import { clearStop, requestStop } from "./util.js";
 
 let queue = Promise.resolve();
-let lastId;
-let lastReply;
+const seen = new Set();
 
-/** Where replies are written: the player who ran the command (the one connected to the bridge). */
-function replyTarget(event) {
-  const source = event.sourceEntity;
-  if (source && source.isValid) return source;
-  return world.getAllPlayers()[0];
-}
-
-function handleRpc(event) {
-  let request;
-  try {
-    request = JSON.parse(event.message);
-  } catch {
+function onCommand(command) {
+  const { id, m: method, a: args } = command;
+  if (seen.has(id)) return;
+  seen.add(id);
+  if (method === "stop") {
+    // Handled at once: interrupts the action that is running.
+    requestStop();
+    try {
+      if (botExists()) getBot().stopMoving();
+    } catch {
+      // ignore
+    }
+    sendResult(id, { ok: true, text: "Stopping." });
     return;
   }
-  const { id, m: method, a: args } = request;
-  const target = replyTarget(event);
-  if (!target || typeof id !== "number") return;
-  // The bridge may re-send a request it thinks was lost; answer it once.
-  if (id === lastId) {
-    if (lastReply) sendReply(target, id, lastReply);
-    return;
-  }
-  lastId = id;
-  lastReply = undefined;
   queue = queue.then(async () => {
-    const reply = await runAction(String(method), args ?? {});
-    lastReply = reply;
-    if (target.isValid) sendReply(target, id, reply);
+    clearStop();
+    let reply;
+    try {
+      reply = await runAction(String(method), args ?? {});
+    } catch (e) {
+      reply = { ok: false, text: `Add-on error: ${e}` };
+    }
+    sendResult(id, reply);
   });
 }
 
-system.afterEvents.scriptEventReceive.subscribe((event) => {
-  try {
-    switch (event.id) {
-      case "skyai:rpc":
-        handleRpc(event);
-        break;
-      case "skyai:ack": {
-        const target = replyTarget(event);
-        if (target) clearOutbox(target, Number(event.message));
-        break;
-      }
-      case "skyai:setup": {
-        const player = event.sourceEntity ?? world.getAllPlayers()[0];
-        if (player && player.typeId === "minecraft:player") createIsland(/** @type {any} */ (player)).catch((e) => world.sendMessage(`§cSkyAI: ${e}`));
-        break;
-      }
-      case "skyai:menu": {
-        const player = event.sourceEntity ?? world.getAllPlayers()[0];
-        if (player && player.typeId === "minecraft:player") {
-          giveMenuItem(/** @type {any} */ (player));
-          openMenu(/** @type {any} */ (player)).catch(() => {});
-        }
-        break;
-      }
-    }
-  } catch (e) {
-    world.sendMessage(`§cSkyAI error: ${e}`);
-  }
+world.afterEvents.chatSend.subscribe((event) => {
+  if (isBot(event.sender)) return;
+  sendEvent({ type: "chat", sender: event.sender.name, message: event.message });
 });
 
-// Event subscriptions and timers are registered right away; anything that
-// reads world data waits for the world to finish loading.
+world.afterEvents.playerSpawn.subscribe((event) => {
+  if (!event.initialSpawn || isBot(event.player)) return;
+  sendEvent({ type: "join", player: event.player.name });
+});
+
+world.afterEvents.playerLeave.subscribe((event) => {
+  sendEvent({ type: "leave", player: event.playerName });
+});
+
 startBotJobs();
-startVoidJob();
-startMenu();
+
 world.afterEvents.worldLoad.subscribe(() => {
   loadBotName();
+  system.run(async () => {
+    try {
+      if (!getIsland()) {
+        let kit = "milestone";
+        try {
+          const configured = variables.get("skyai_kit");
+          if (configured === "classic") kit = "classic";
+        } catch {
+          // default
+        }
+        await createIsland(kit);
+        console.warn(`[SkyAI] island created (${kit} kit)`);
+      }
+      getBot();
+      console.warn("[SkyAI] AI player is in the world");
+      sendEvent({ type: "ready" });
+    } catch (e) {
+      console.warn(`[SkyAI] startup problem: ${e}`);
+    }
+    startNet(onCommand);
+  });
 });

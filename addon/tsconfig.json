@@ -4,5 +4,5 @@
     "allowJs": true, "checkJs": true, "noEmit": true, "strict": false, "skipLibCheck": true,
     "lib": ["ES2022"], "types": []
   },
-  "include": ["behavior_pack/scripts/**/*.js"]
+  "include": ["behavior_pack/scripts/**/*.js", "globals.d.ts"]
 }

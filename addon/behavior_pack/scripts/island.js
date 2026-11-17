@@ -1,18 +1,22 @@
 // Builds the classic Skyblock start: an L-shaped dirt island with one tree
-// and a chest, plus a small sand island further away. Also turns a Flat
-// world into a void by removing the ground around players.
-import { world, system, BlockPermutation } from "@minecraft/server";
+// and a chest, plus a small sand island further away.
+//
+// Two starter kits:
+//   "milestone" - a working cobblestone generator is already built and the
+//                 chest holds a stone pickaxe (for the first prototype test).
+//   "classic"   - the original start: the chest holds a lava bucket and ice.
+import { BlockPermutation } from "@minecraft/server";
 import { makeStack } from "./blocks.js";
-import { getProp, overworld, setProp, short, sleep } from "./util.js";
+import { overworld, setProp, sleep } from "./util.js";
 
 function set(dim, x, y, z, type) {
   dim.setBlockType({ x, y, z }, "minecraft:" + type);
 }
 
-/** A simple oak-style tree. `base` is the position of the lowest log. */
-export function buildTree(dim, base, wood = "oak", onlyIfAir = false) {
-  const height = wood === "birch" ? 6 : 5;
-  const leaves = [];
+/** A simple oak tree. `base` is the position of the lowest log. */
+export function buildTree(dim, base, wood = "oak") {
+  const height = 5;
+  const leaves = BlockPermutation.resolve(`minecraft:${wood}_leaves`);
   for (let dy = height - 3; dy <= height; dy++) {
     const radius = dy >= height - 1 ? 1 : 2;
     for (let dx = -radius; dx <= radius; dx++) {
@@ -20,28 +24,12 @@ export function buildTree(dim, base, wood = "oak", onlyIfAir = false) {
         const corner = Math.abs(dx) === radius && Math.abs(dz) === radius;
         if (corner && (dy === height || radius === 2)) continue;
         if (dx === 0 && dz === 0 && dy < height) continue;
-        leaves.push({ x: base.x + dx, y: base.y + dy, z: base.z + dz });
+        const b = dim.getBlock({ x: base.x + dx, y: base.y + dy, z: base.z + dz });
+        if (b && b.isAir) b.setPermutation(leaves);
       }
     }
   }
-  if (onlyIfAir) {
-    for (let dy = 1; dy < height; dy++) {
-      const b = dim.getBlock({ x: base.x, y: base.y + dy, z: base.z });
-      if (!b || !b.isAir) return false;
-    }
-  }
-  let leafPerm;
-  try {
-    leafPerm = BlockPermutation.resolve(`minecraft:${wood}_leaves`);
-  } catch {
-    leafPerm = BlockPermutation.resolve("minecraft:oak_leaves");
-  }
-  for (const p of leaves) {
-    const b = dim.getBlock(p);
-    if (b && b.isAir) b.setPermutation(leafPerm);
-  }
   for (let dy = 0; dy < height; dy++) set(dim, base.x, base.y + dy, base.z, `${wood}_log`);
-  return true;
 }
 
 function fillChest(dim, pos, items) {
@@ -51,29 +39,29 @@ function fillChest(dim, pos, items) {
   for (const [id, amount] of items) chest.addItem(makeStack(id, amount));
 }
 
-/** True if this looks like a default Flat world at the given column. */
-export function looksFlat(dim, x, z) {
-  try {
-    const grass = dim.getBlock({ x, y: -61, z });
-    const bedrock = dim.getBlock({ x, y: -64, z });
-    const above = dim.getBlock({ x, y: -60, z });
-    return !!grass && !!bedrock && !!above && short(grass.typeId) === "grass_block" && short(bedrock.typeId) === "bedrock" && above.isAir;
-  } catch {
-    return false;
+async function waitForChunk(dim, pos) {
+  for (let i = 0; i < 200; i++) {
+    try {
+      if (dim.getBlock(pos)) return true;
+    } catch {
+      // not loaded yet
+    }
+    await sleep(5);
   }
+  return false;
 }
 
-/**
- * Create the islands near a player. The origin is the north-west top corner
- * of the main island; the top (grass) layer is at origin.y.
- */
-export async function createIsland(player) {
+/** Create the islands. The top (grass) layer of the main island is at y=64. */
+export async function createIsland(kit) {
   const dim = overworld();
-  const px = Math.floor(player.location.x);
-  const pz = Math.floor(player.location.z);
-  const flat = looksFlat(dim, px, pz);
-  const origin = { x: px - 2, y: flat ? 64 : 200, z: pz - 2 };
+  const origin = { x: 0, y: 64, z: 0 };
   const { x: ox, y: oy, z: oz } = origin;
+  try {
+    dim.runCommand(`tickingarea add circle ${ox + 2} ${oy} ${oz + 2} 3 skyai_home`);
+  } catch {
+    // already exists
+  }
+  if (!(await waitForChunk(dim, origin))) throw new Error("the island area did not load");
 
   // Main island: an L made of three 3x3 squares, 3 blocks thick.
   for (let dx = 0; dx < 6; dx++) {
@@ -85,37 +73,43 @@ export async function createIsland(player) {
     }
   }
   set(dim, ox + 1, oy - 2, oz + 1, "bedrock");
-  buildTree(dim, { x: ox + 1, y: oy + 1, z: oz + 4 });
+  const tree = { x: ox + 1, y: oy + 1, z: oz + 4 };
+  buildTree(dim, tree);
   const chest = { x: ox + 5, y: oy + 1, z: oz + 1 };
-  fillChest(dim, chest, [["lava_bucket", 1], ["ice", 2]]);
+  const spawn = { x: ox + 2, y: oy + 1, z: oz + 2 };
+  const island = { origin, spawn, chest, tree, sand: { x: ox - 64, y: oy, z: oz }, kit };
 
-  const spawn = { x: ox + 2, y: oy + 1, z: oz + 1 };
-  const island = { origin, spawn, chest, tree: { x: ox + 1, y: oy + 1, z: oz + 4 }, sand: { x: ox - 64, y: oy, z: oz }, flat };
+  if (kit === "classic") {
+    fillChest(dim, chest, [["lava_bucket", 1], ["ice", 2]]);
+  } else {
+    // A trench of four cells in a row: water, a deeper hole the water falls
+    // into, the cell where cobblestone forms, and lava.
+    const z = oz + 1;
+    const water = { x: ox + 1, y: oy, z };
+    const hole = { x: ox + 2, y: oy, z };
+    const cobble = { x: ox + 3, y: oy, z };
+    const lava = { x: ox + 4, y: oy, z };
+    for (const p of [water, hole, cobble, lava]) set(dim, p.x, p.y, p.z, "air");
+    set(dim, hole.x, hole.y - 1, hole.z, "air");
+    // Placed with commands so the liquids start flowing (a scripted block change alone leaves them frozen).
+    dim.runCommand(`setblock ${water.x} ${water.y} ${water.z} flowing_water`);
+    await sleep(40); // let the water settle into the hole before adding lava
+    dim.runCommand(`setblock ${lava.x} ${lava.y} ${lava.z} flowing_lava`);
+    // A notch beside the cobblestone cell, at the same level, to stand in while
+    // mining: from there the drops are within pick-up range.
+    const stand = { x: cobble.x, y: oy, z: z + 1 };
+    set(dim, stand.x, stand.y, stand.z, "air");
+    island.generator = { water, hole, cobble, lava, stand };
+    fillChest(dim, chest, [["stone_pickaxe", 1], ["ice", 1]]);
+  }
+
   setProp("skyai:island", island);
-  setProp("skyai:void", flat);
-
-  try {
-    dim.runCommand(`tickingarea remove skyai_home`);
-  } catch {
-    // none yet
-  }
-  try {
-    dim.runCommand(`tickingarea add circle ${ox + 2} ${oy} ${oz + 2} 2 skyai_home`);
-  } catch {
-    // the island still works while the player is nearby
-  }
   try {
     dim.runCommand(`setworldspawn ${spawn.x} ${spawn.y} ${spawn.z}`);
+    dim.runCommand(`gamerule spawnradius 0`);
   } catch {
     // not critical
   }
-  player.teleport({ x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 });
-  try {
-    player.setSpawnPoint({ dimension: dim, x: spawn.x, y: spawn.y, z: spawn.z });
-  } catch {
-    // not critical
-  }
-
   buildSandIsland(island.sand).catch(() => {});
   return island;
 }
@@ -128,18 +122,7 @@ async function buildSandIsland(at) {
   } catch {
     // may already exist
   }
-  // Wait for the area to load.
-  for (let i = 0; i < 60; i++) {
-    let loaded = false;
-    try {
-      loaded = dim.getBlock({ x: at.x, y: at.y, z: at.z }) !== undefined;
-    } catch {
-      loaded = false;
-    }
-    if (loaded) break;
-    await sleep(10);
-  }
-  try {
+  if (await waitForChunk(dim, at)) {
     for (let dx = 0; dx < 3; dx++) {
       for (let dz = 0; dz < 3; dz++) {
         // Sandstone underneath so the sand does not fall into the void.
@@ -152,46 +135,10 @@ async function buildSandIsland(at) {
     fillChest(dim, { x: at.x + 2, y: at.y + 1, z: at.z + 2 }, [
       ["obsidian", 10], ["melon_slice", 1], ["pumpkin_seeds", 1], ["sugar_cane", 1], ["red_mushroom", 1], ["brown_mushroom", 1],
     ]);
-  } catch {
-    world.sendMessage("§eSkyAI: could not build the sand island (area not loaded).");
   }
   try {
     dim.runCommand(`tickingarea remove skyai_sand`);
   } catch {
     // fine
   }
-}
-
-/**
- * In a Flat world, remove the 4 ground layers in chunks near players so that
- * falling off the island really means falling into the void.
- */
-export function startVoidJob() {
-  system.runInterval(() => {
-    if (!getProp("skyai:void", false)) return;
-    const dim = overworld();
-    let budget = 6;
-    for (const player of world.getAllPlayers()) {
-      if (player.dimension.id !== "minecraft:overworld") continue;
-      const cx = Math.floor(player.location.x / 16);
-      const cz = Math.floor(player.location.z / 16);
-      for (let r = 0; r <= 5 && budget > 0; r++) {
-        for (let dx = -r; dx <= r && budget > 0; dx++) {
-          for (let dz = -r; dz <= r && budget > 0; dz++) {
-            if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
-            const x0 = (cx + dx) * 16;
-            const z0 = (cz + dz) * 16;
-            try {
-              const probe = dim.getBlock({ x: x0, y: -64, z: z0 });
-              if (!probe || probe.isAir) continue;
-              dim.runCommand(`fill ${x0} -64 ${z0} ${x0 + 15} -61 ${z0 + 15} air`);
-              budget--;
-            } catch {
-              // chunk not loaded yet; try again later
-            }
-          }
-        }
-      }
-    }
-  }, 20);
 }

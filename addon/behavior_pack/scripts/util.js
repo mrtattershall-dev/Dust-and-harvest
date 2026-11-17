@@ -9,13 +9,24 @@ export const center = (p) => ({ x: p.x + 0.5, y: p.y + 0.5, z: p.z + 0.5 });
 export const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 export const randInt = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
 
-/** Wait a number of game ticks (20 ticks = 1 second). */
-export function sleep(ticks) {
-  return new Promise((resolve) => system.runTimeout(() => resolve(undefined), Math.max(1, Math.round(ticks))));
-}
-
 /** An error whose message is meant to be read by the AI (not a bug). */
 export class ActionError extends Error {}
+
+// A "stop" from the player interrupts whatever action is running at its next pause.
+let stopRequested = false;
+export function requestStop() {
+  stopRequested = true;
+}
+export function clearStop() {
+  stopRequested = false;
+}
+
+/** Wait a number of game ticks (20 ticks = 1 second). */
+export function sleep(ticks) {
+  return new Promise((resolve, reject) =>
+    system.runTimeout(() => (stopRequested ? reject(new ActionError("Stopped by the player.")) : resolve(undefined)), Math.max(1, Math.round(ticks)))
+  );
+}
 
 export function fail(message) {
   throw new ActionError(message);

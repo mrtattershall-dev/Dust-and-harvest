@@ -1,94 +1,140 @@
-# SkyAI Skyblock
+# SkyAI Teammate
 
-An AI (Claude, or another model) plays classic OG Skyblock inside your Minecraft Bedrock world, including on iPhone. You watch, help, and talk to it in chat.
+An AI teammate that plays classic Skyblock with you in Minecraft Bedrock Edition. You play on your iPhone; the AI has its own player in the world, takes instructions in chat, acts, and reports what it verifiably did.
 
-It has two parts:
-
-| Part | What it is | Where it runs |
-|---|---|---|
-| **Add-on** (`dist/SkyAI-Skyblock.mcaddon`) | Builds the Skyblock island, adds the AI's bot character, and carries out its actions under survival rules | Inside Minecraft on your iPhone |
-| **Bridge** (`bridge/`) | Holds your AI key, talks to the AI model, and passes its decisions to the game | A computer on your Wi-Fi, or any always-on server |
-
-Minecraft on iPhone does not let add-ons use the internet, so the bridge cannot live on the phone. The game connects out to it with the built-in `/connect` command.
+- **How it works and why it is built this way:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **What has been tested and what has not:** [Testing status](#testing-status)
 
 ```
-AI model  <-->  Bridge (your computer)  <-- /connect -->  Minecraft on iPhone + add-on
+ iPhone (you play here)                Ubuntu host
+ ┌──────────────────┐   join    ┌──────────────────────────────────────────┐
+ │ Minecraft Bedrock│──────────▶│ Bedrock Dedicated Server (Mojang)         │
+ │ game chat        │           │  └ SkyAI add-on: island, AI player,       │
+ └──────────────────┘           │    actions, safety checks                 │
+ ┌──────────────────┐           │        ▲ HTTP on this machine only        │
+ │ Safari: web page │──────────▶│ SkyAI backend: AI keys, model calls,      │──▶ Claude API,
+ │ (log, approvals) │           │    tasks, memory, spending limits         │    or a local model
+ └──────────────────┘           └──────────────────────────────────────────┘
 ```
 
-## About "logging in with my Claude account"
+## What you need
 
-A claude.ai subscription login cannot be used by third-party apps. The bridge uses an **API key** instead: create one at <https://platform.claude.com/settings/keys> (billed by usage, separate from a chat subscription) and paste it into the bridge's setup page. Keys for OpenAI, Google Gemini, OpenRouter, xAI, or a local model (Ollama) work the same way. Keys stay in `bridge/config.json` on your machine.
+- An Ubuntu computer on the same network as the iPhone, with [Node.js](https://nodejs.org) 20 or newer, `git` and `unzip`.
+- Minecraft Bedrock on the iPhone, signed in to your Microsoft account.
+- One of: a Claude API key, another provider's key, or a local model in Ollama.
 
-The AI is called once per action, continuously, while it plays, so it uses tokens the whole time. The default model is `claude-opus-5-5`; you can type a cheaper one (for example `claude-haiku-5-5`) on the setup page.
+## Set up the Ubuntu host
 
-## Setup
-
-### 1. Install the add-on on the iPhone
-
-1. On the iPhone, download `dist/SkyAI-Skyblock.mcaddon` from this repository.
-2. Open it from the Files app and choose **Minecraft**. The game imports two packs.
-3. Create a new world:
-   - Game mode: **Survival**
-   - **Flat World: on** (Advanced). The add-on removes the flat ground around you so the island floats over a real void. In a normal world the island is built high in the sky instead.
-   - **Cheats: on** (needed for `/connect`)
-   - Behavior Packs: activate **SkyAI Skyblock** (the resource pack comes with it)
-4. Enter the world. You get a **SkyAI Menu** compass. Use it and choose **Create Skyblock island here**.
-
-No experimental toggles are needed.
-
-### 2. Start the bridge
-
-On a computer on the same Wi-Fi as the phone (needs [Node.js](https://nodejs.org) 20 or newer):
-
-```
-cd bridge
+```bash
+sudo apt install -y unzip git
+git clone <this repository> skyai && cd skyai
 npm install
+npm run setup -- --accept-eula     # downloads Mojang's server, creates the world, installs the add-on
+npm start                          # runs the backend and the Minecraft server together
+```
+
+`--accept-eula` means you accept the [Minecraft EULA](https://minecraft.net/eula). Setup puts the server in `bds/` and all settings and credentials in `data/` (both git-ignored).
+
+If the host has a firewall, open the game port and the web page port to your home network:
+
+```bash
+sudo ufw allow 19132          # Minecraft (TCP and UDP)
+sudo ufw allow 8765/tcp       # SkyAI web page
+```
+
+Do not forward these ports to the internet: the setup turns the server's allow-list off for convenience, and the web page has no password unless you set `SKYAI_UI_PASSWORD`.
+
+`npm start` prints the web page address, for example `http://192.168.1.20:8765`. Lines you type in that terminal go to the Minecraft console (`stop` shuts it down cleanly).
+
+## Connect an AI model
+
+Open the web page (on the phone or the host), open **Settings**, choose a provider, and save.
+
+| Provider | What to enter | Cost |
+|---|---|---|
+| **Claude** | An API key from the [Claude Console](https://platform.claude.com/settings/keys) | Billed per use, separately from any claude.ai subscription |
+| **Local model (Ollama)** | The model name you pulled; it must support tool calling | Free |
+| OpenAI, Gemini, OpenRouter, other | That provider's key and model name | Per that provider |
+
+**About signing in with your Claude account:** Anthropic does not let third-party programs use a claude.ai login or a Pro/Max subscription's usage; its documentation says to use API key authentication instead ([source](https://code.claude.com/docs/en/agent-sdk/overview)). A subscription does not include API access. The supported options are an API key, or Anthropic's own command-line login to your **Console** (API) account: run `ant auth login` on the host as the same user and leave the key field blank. Both bill the API account. The command-line login path is implemented but not tested here.
+
+Keys are stored only in `data/config.json` on the host (readable only by you). They are never written to the world, the add-on, or the web page.
+
+**Cost control.** The AI is called only while it works on a task, never while idle. Defaults: at most 30 model steps per task and $2.00 per day (change both in Settings). The default Claude model is `claude-opus-5-5`; type `claude-haiku-5-5` or `claude-sonnet-5-5` in the Model field for cheaper play. For models without a known price the daily token limit applies instead.
+
+## Play from the iPhone
+
+1. In Minecraft: **Play → Servers → Add Server**. Address: the Ubuntu host's IP. Port: `19132`. Join. (The server may also appear by itself under LAN games.)
+2. You spawn on the island next to the AI's player (named `Claude` unless you rename it).
+3. Talk in the game chat:
+   - `collect 16 cobblestone and put it in the chest`
+   - `what do we have in the chest?`
+   - `build a 3x3 cobblestone platform off the east side`
+4. Keep the web page open in Safari if you like: live log, a box to send instructions, and Yes/No buttons when it asks permission.
+
+Commands that work without the AI model:
+
+| Chat | What it does |
+|---|---|
+| `!status` | What it is doing, its position, health, hunger, inventory, today's AI usage |
+| `!stop` | Stop the current action and task |
+| `!come` | Walk to you |
+| `!auto on` / `!auto off` | Keep playing by itself when idle (experimental) |
+| `yes` / `no` | Answer a permission request |
+| `!help` | List these |
+
+**Permission requests.** Some actions are held until you answer: mining a block that touches water or lava, cutting a log when there is no sapling to replant, pouring lava. This check is plain code in the add-on, so the AI cannot skip it. No answer within two minutes counts as no.
+
+## Two starting kits
+
+- **Milestone (default):** the island already has a working cobblestone generator and the chest holds a stone pickaxe. This is for the first prototype: it tests observing and acting before any risky building.
+- **Classic:** the original start (chest with a lava bucket and two ice, nothing built). Use `npm run setup -- --accept-eula --classic` on a new world. The AI cannot use buckets yet, so you would build the generator yourself.
+
+To start over, stop the server and delete `bds/worlds/skyblock`, then run setup again.
+
+## After a Minecraft update
+
+The iPhone updates Minecraft by itself, and the server must match its version. When you can no longer join:
+
+```bash
+npm run setup -- --accept-eula --update    # new server version, same world, add-on re-installed
 npm start
 ```
 
-It prints a setup page address and a `/connect` command. Open the setup page, pick the AI provider, paste the API key, and press **Save**.
-
-### 3. Connect and play
-
-1. In Minecraft settings, turn **off** "Require Encrypted Websockets" (under General or Creator, depending on version).
-2. In the game chat type the command the bridge showed, for example `/connect 192.168.1.20:8765`.
-3. On the setup page press **Start AI**.
-
-The bot walks, mines, crafts and builds by itself. Type in the game chat to talk to it. The setup page shows a live log of what it is thinking and doing.
-
-## What the AI can do
-
-It plays through high-level actions, each enforced by the add-on: look around, walk (pathfinding, no flying), mine (real mining times, correct tool needed for drops, tools wear out), place blocks (must touch an existing block), pour and scoop buckets, till and plant, bone meal, use chests, craft (about 150 real recipes, crafting table required for the big ones), smelt (needs a furnace and fuel), attack mobs, wait, and chat. Its instructions include how Skyblock works: saving saplings, building a cobblestone generator without ruining the lava, bridging, farming, and the classic challenge list. If it falls into the void it loses its inventory and respawns.
-
-The island is the classic start: an L-shaped dirt island with one tree and a chest (lava bucket, 2 ice), plus a sand island about 64 blocks west with a cactus and a chest.
-
-## Limits
-
-- The bot is a custom character, not a real player account: it has no hunger, mobs ignore it, and it shows no item in its hand.
-- Crafting, smelting and bone-meal tree growth are carried out by the add-on's own rules rather than the game's screens. Smelting is faster than in the real game.
-- The phone must stay in the world with Minecraft open; when the game closes, reconnect with `/connect`.
-- To run the bridge on a server instead of a home computer, set `PORT`, set `BRIDGE_PASSWORD` to protect the setup page, and set `PUBLIC_HOST` to the address players should type after `/connect`.
-
 ## Testing status
 
-- `npm test` runs the real add-on scripts and the real bridge against a simulated Minecraft world and a scripted stand-in for the AI: 31 steps of the Skyblock opening (loot chest, cut tree, craft tools, build the generator, mine cobblestone, bridge out, refusals, death and respawn).
-- `npm run typecheck` checks the add-on against Mojang's official scripting API definitions (stable API 2.0.0, Minecraft 1.21.90 and newer).
-- **Not yet run inside a real Minecraft client or against a live AI model.** The first real run may need small fixes, most likely in how the bridge reads replies from the game (`bridge/src/minecraft.js`) or in the bot's appearance (`addon/resource_pack/`).
+**Tested here against the real Bedrock Dedicated Server 1.26.65** with `npm run verify`. Of 11 full runs, 10 passed every check; one run failed a single check once and it did not recur (see "Known limits" in the architecture document). What the test covers:
 
-## Troubleshooting
+- Setup: server download, void world creation, add-on install.
+- The AI joins as a player with health, hunger and inventory.
+- It observes the real world, including a generator running on real water and lava physics.
+- Instruction to verified result: it takes the pickaxe from the chest, mines real cobblestone, picks it up, stores it in the chest, and reports the true counts.
+- Walking, cutting logs, crafting, placing blocks, dying and respawning.
+- Permission requests, `!status`, the web page, spending limits being recorded.
+- The model link for OpenAI-compatible servers, using a stand-in server that speaks that format.
 
-| Problem | Fix |
+**Not tested here. Please verify these yourself:**
+
+| What | How to check |
 |---|---|
-| `/connect` fails | Phone and computer on the same Wi-Fi; "Require Encrypted Websockets" off; cheats on; allow Minecraft "Local Network" access in iPhone Settings; computer firewall allows the port. |
-| "The add-on did not answer" in the log | The behavior pack is not active in this world, or you are not an operator. |
-| The bot is invisible | The resource pack is not active. Activate it in the world settings. |
-| "No island yet" | Use the SkyAI Menu compass, or type `/scriptevent skyai:setup`. Lost the compass? `/scriptevent skyai:menu`. |
+| Joining from the iPhone | Follow "Play from the iPhone". If the server cannot be reached, check the firewall; if it still fails, set `transport=raknet` in `bds/server.properties` and restart. |
+| Chat from a real player reaching the AI | Say `!status` in game chat. The AI's player should answer in chat within a couple of seconds. |
+| A real AI model (Claude or Ollama) | Save your key or model on the web page, stop `npm start`, then run `npm run verify -- --live`. It sends the same instruction through your model and checks the chest. This costs a few cents on Claude. |
+| `ant auth login` credentials | Run `ant auth login`, leave the key blank, then `npm run verify -- --live`. |
+| How the AI's player looks on your screen | It should appear as a normal player with the default skin. |
+| Playing by itself (`!auto on`) | Experimental. Watch the first few tasks and the usage line. |
 
-## Development
+## Run the test yourself
 
+```bash
+npm run verify             # real server, real actions, scripted decisions, no AI cost (about 1 minute)
+npm run verify -- --live   # same, but your configured AI model makes the decisions
 ```
-npm install          # tools for building and checking the add-on
-npm run build        # writes dist/SkyAI-Skyblock.mcaddon
-npm run typecheck
-npm test             # needs: npm --prefix bridge install
-```
+
+It uses a throwaway world and leaves yours alone. Stop `npm start` first.
+
+## What the AI can and cannot do today
+
+Can: look around, walk, mine with the right tool, pick up drops, place blocks, plant saplings, use chests, craft, run the cobblestone harvesting routine, chat, remember places and notes.
+
+Cannot yet: buckets, farming, smelting, fighting, eating. It will say so if asked. See the roadmap in the architecture document.

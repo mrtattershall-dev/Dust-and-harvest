@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SkyAI Teammate</title>
+<style>
+  :root {
+    --bg: #f6f3ee; --panel: #ffffff; --ink: #24211d; --muted: #6f6a62; --line: #e2dcd2;
+    --accent: #c4623f; --accent-ink: #ffffff; --ok: #2f7d4f; --bad: #b3372f; --code: #f0ebe3; --warn-bg: #fff3d6; --warn-line: #e5c56a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1b1a18; --panel: #262422; --ink: #ece7df; --muted: #a39d93; --line: #3a3733; --accent: #d97757; --accent-ink: #1b1a18; --ok: #6cc08b; --bad: #ef8a80; --code: #32302d; --warn-bg: #3b3220; --warn-line: #8a7433; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.05rem; margin: 0 0 12px; }
+  p { margin: 0 0 10px; }
+  .sub { color: var(--muted); margin-bottom: 18px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  label { display: block; font-size: 0.85rem; color: var(--muted); margin: 10px 0 4px; }
+  input, select, textarea { width: 100%; padding: 10px; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+  input[type=checkbox] { width: auto; }
+  button { font: inherit; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
+  .status { display: flex; gap: 6px 16px; flex-wrap: wrap; font-size: 0.95rem; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--bad); margin-right: 6px; }
+  .dot.on { background: var(--ok); }
+  .dot.idle { background: var(--muted); }
+  .hint { font-size: 0.85rem; color: var(--muted); }
+  #approval { background: var(--warn-bg); border-color: var(--warn-line); }
+  #log { height: 320px; overflow-y: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.82rem; }
+  #log div { white-space: pre-wrap; overflow-wrap: anywhere; padding: 2px 0; }
+  .k-say, .k-ai { font-weight: 600; }
+  .k-action, .k-task { color: var(--accent); }
+  .k-result, .k-info { color: var(--muted); }
+  .k-fail, .k-error { color: var(--bad); }
+  .k-chat { color: var(--ok); }
+  .k-ask { color: var(--bad); font-weight: 600; }
+  a { color: var(--accent); }
+  details summary { cursor: pointer; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>SkyAI Teammate</h1>
+  <p class="sub">Your AI Skyblock partner. Talk to it here or in the game chat.</p>
+
+  <section>
+    <div class="status">
+      <span><span class="dot" id="mcDot"></span><span id="mcText">Minecraft server: not connected</span></span>
+      <span><span class="dot" id="aiDot"></span><span id="aiText">AI: idle</span></span>
+    </div>
+    <p class="hint" id="usage" style="margin-top:8px"></p>
+    <div class="row">
+      <button id="stop">Stop what it's doing</button>
+    </div>
+  </section>
+
+  <section id="approval" hidden>
+    <h2>Permission needed</h2>
+    <p id="approvalText"></p>
+    <div class="row">
+      <button class="primary" id="approveYes">Yes, do it</button>
+      <button id="approveNo">No</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Activity</h2>
+    <div id="log"></div>
+    <div class="row">
+      <input id="say" placeholder="Tell the AI something…" style="flex:1; min-width: 180px">
+      <button class="primary" id="sayBtn">Send</button>
+    </div>
+  </section>
+
+  <section>
+    <details id="settings">
+      <summary>Settings</summary>
+      <label for="provider">AI provider</label>
+      <select id="provider"></select>
+      <label for="apiKey">API key <span id="keyState"></span></label>
+      <input id="apiKey" type="password" autocomplete="off" placeholder="Paste an API key">
+      <p class="hint" id="keyHelp"></p>
+      <div class="grid">
+        <div>
+          <label for="model">Model</label>
+          <input id="model" placeholder="Model name">
+        </div>
+        <div>
+          <label for="effort">Thinking effort (Claude)</label>
+          <select id="effort">
+            <option value="low">Low (fastest, cheapest)</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+      </div>
+      <div id="baseUrlWrap">
+        <label for="baseUrl">Server address (base URL)</label>
+        <input id="baseUrl" placeholder="http://127.0.0.1:11434/v1">
+      </div>
+      <div class="grid">
+        <div>
+          <label for="botName">AI player's name</label>
+          <input id="botName" maxlength="16">
+        </div>
+        <div>
+          <label for="listen">Which chat lines are for the AI</label>
+          <select id="listen">
+            <option value="all">Everything said in chat</option>
+            <option value="mention">Only lines that include its name</option>
+          </select>
+        </div>
+        <div>
+          <label for="dailyUsdLimit">Daily spending limit (US $, 0 = none)</label>
+          <input id="dailyUsdLimit" type="number" min="0" step="0.5">
+        </div>
+        <div>
+          <label for="dailyTokenLimit">Daily token limit (0 = none)</label>
+          <input id="dailyTokenLimit" type="number" min="0" step="100000">
+        </div>
+        <div>
+          <label for="maxStepsPerTask">Most AI steps per task</label>
+          <input id="maxStepsPerTask" type="number" min="3" max="200">
+        </div>
+        <div>
+          <label for="approvalTimeoutSec">Seconds to wait for permission</label>
+          <input id="approvalTimeoutSec" type="number" min="10" max="900">
+        </div>
+      </div>
+      <label><input type="checkbox" id="autonomous"> Let the AI keep playing on its own when idle (experimental, uses more tokens)</label>
+      <div class="row">
+        <button class="primary" id="save">Save</button>
+        <span class="hint" id="saved"></span>
+      </div>
+      <div class="row">
+        <button id="clearMemory">Clear the AI's notes and task history</button>
+      </div>
+    </details>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let state = null;
+let formLoaded = false;
+const NUMBERS = ["dailyUsdLimit", "dailyTokenLimit", "maxStepsPerTask", "approvalTimeoutSec"];
+
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  return res.json();
+}
+
+function showAccount() {
+  const name = $("provider").value;
+  const account = state.config.accounts[name];
+  $("model").value = account.model;
+  $("baseUrl").value = account.baseUrl;
+  $("baseUrlWrap").hidden = !account.editableUrl;
+  $("apiKey").value = "";
+  $("keyState").textContent = account.hasKey ? `(saved, ends ${account.keyHint} - leave blank to keep)` : account.needsKey ? "(none saved)" : "(optional)";
+  const help = $("keyHelp");
+  help.textContent = "";
+  if (name === "anthropic") help.append("Needs a Claude API key (billed by usage; a claude.ai subscription does not include it). Leave blank if you ran \"ant auth login\" on the host. ");
+  if (name === "ollama") help.append("Runs on your own computer: no key, no cost. Enter the model name you pulled with Ollama; it must support tool calling. ");
+  if (account.keyUrl) {
+    const a = document.createElement("a");
+    a.href = account.keyUrl; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Get a key";
+    help.append(a);
+  }
+}
+
+function render() {
+  $("mcDot").classList.toggle("on", state.minecraft);
+  $("mcText").textContent = state.minecraft ? "Minecraft server: connected" : "Minecraft server: not connected";
+  $("aiDot").classList.toggle("on", state.agent.working);
+  $("aiDot").classList.toggle("idle", !state.agent.working);
+  $("aiText").textContent = state.agent.working ? `AI: working on "${state.agent.task.slice(0, 60)}"` : "AI: idle";
+  $("usage").textContent = state.usageText;
+  $("approval").hidden = !state.agent.approval;
+  $("approvalText").textContent = state.agent.approval;
+
+  if (!formLoaded) {
+    formLoaded = true;
+    const select = $("provider");
+    for (const [name, account] of Object.entries(state.config.accounts)) {
+      const o = document.createElement("option");
+      o.value = name; o.textContent = account.label;
+      select.append(o);
+    }
+    select.value = state.config.provider;
+    $("effort").value = state.config.effort;
+    $("botName").value = state.config.botName;
+    $("listen").value = state.config.listen;
+    $("autonomous").checked = state.config.autonomous;
+    for (const key of NUMBERS) $(key).value = state.config[key];
+    showAccount();
+    const account = state.config.accounts[state.config.provider];
+    if (account.needsKey && !account.hasKey) $("settings").open = true;
+  }
+}
+
+async function refresh() {
+  try { state = await api("/api/state"); render(); } catch {}
+}
+
+$("provider").onchange = showAccount;
+$("save").onclick = async () => {
+  const body = {
+    provider: $("provider").value, effort: $("effort").value, botName: $("botName").value.trim() || "Claude",
+    listen: $("listen").value, autonomous: $("autonomous").checked,
+    account: { apiKey: $("apiKey").value, model: $("model").value, baseUrl: $("baseUrl").value },
+  };
+  for (const key of NUMBERS) body[key] = Number($(key).value) || 0;
+  state = await api("/api/config", body);
+  showAccount();
+  render();
+  $("saved").textContent = "Saved.";
+  setTimeout(() => ($("saved").textContent = ""), 2500);
+};
+$("stop").onclick = () => api("/api/stop", {});
+$("approveYes").onclick = async () => { await api("/api/approve", { yes: true }); refresh(); };
+$("approveNo").onclick = async () => { await api("/api/approve", { yes: false }); refresh(); };
+$("clearMemory").onclick = async () => { state = await api("/api/clear-memory", {}); render(); };
+const say = async () => {
+  const text = $("say").value.trim();
+  if (!text) return;
+  $("say").value = "";
+  await api("/api/say", { message: text });
+};
+$("sayBtn").onclick = say;
+$("say").onkeydown = (e) => { if (e.key === "Enter") say(); };
+
+const logBox = $("log");
+const events = new EventSource("/api/events");
+events.onmessage = (e) => {
+  const entry = JSON.parse(e.data);
+  const atBottom = logBox.scrollTop + logBox.clientHeight >= logBox.scrollHeight - 30;
+  const line = document.createElement("div");
+  line.className = "k-" + entry.kind;
+  const time = new Date(entry.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const prefix = { say: "AI says: ", ai: "AI thinks: ", action: "→ ", result: "  ", fail: "  ✗ ", error: "Error: ", chat: "", info: "", task: "Task: ", ask: "Asks: " }[entry.kind] ?? "";
+  line.textContent = `${time}  ${prefix}${entry.text}`;
+  logBox.append(line);
+  while (logBox.childElementCount > 500) logBox.firstChild.remove();
+  if (atBottom) logBox.scrollTop = logBox.scrollHeight;
+};
+
+refresh();
+setInterval(refresh, 1500);
+</script>
+</body>
+</html>
