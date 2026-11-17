@@ -1,0 +1,12 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "SkyAI Skyblock Resources",
+    "description": "Look of the SkyAI bot.",
+    "uuid": "6f0b6a52-6d0e-4c0e-9a55-1d7c2f1e8b01",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 90]
+  },
+  "modules": [{ "type": "resources", "uuid": "6f0b6a52-6d0e-4c0e-9a55-1d7c2f1e8b02", "version": [1, 0, 0] }],
+  "dependencies": [{ "uuid": "6f0b6a52-6d0e-4c0e-9a55-1d7c2f1e8a01", "version": [1, 0, 0] }]
+}
